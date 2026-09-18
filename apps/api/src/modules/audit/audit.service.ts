@@ -18,6 +18,7 @@ export type AuditAction =
   | 'DELETE_CUSTOMER'
   | 'CREATE_PRODUCT'
   | 'UPDATE_PRODUCT'
+  | 'DELETE_PRODUCT'
   | 'CREATE_INVOICE'
   | 'AUTHORIZE_INVOICE';
 
