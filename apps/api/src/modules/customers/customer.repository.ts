@@ -40,6 +40,15 @@ export class CustomerRepository {
     });
   }
 
+  /**
+   * Same lookup but ignores `deletedAt` — an invoice references a customer
+   * for its whole life, including when authorizing one drafted before the
+   * customer was later deactivated.
+   */
+  findAny(organizationId: string, id: string): Promise<Customer | null> {
+    return this.prisma.customer.findFirst({ where: { id, organizationId } });
+  }
+
   create(
     organizationId: string,
     data: Prisma.CustomerCreateWithoutOrganizationInput,

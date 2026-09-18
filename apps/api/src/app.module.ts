@@ -8,10 +8,11 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ProductsModule } from './modules/products/products.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
- * Composition root. Feature modules (invoices, ...) are added here as each
+ * Composition root. Feature modules (payments, ...) are added here as each
  * phase lands. They must stay decoupled: cross-module use goes through an
  * injected service, never a direct repository.
  */
@@ -26,6 +27,7 @@ import { HealthModule } from './modules/health/health.module';
     OrganizationsModule,
     CustomersModule,
     ProductsModule,
+    InvoicesModule,
     HealthModule,
   ],
 })

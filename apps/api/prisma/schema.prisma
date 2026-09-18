@@ -146,12 +146,13 @@ model Organization {
   createdAt       DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
 
-  members   OrganizationMember[]
-  customers Customer[]
-  products  Product[]
-  invoices  Invoice[]
-  payments  Payment[]
-  auditLogs AuditLog[]
+  members         OrganizationMember[]
+  customers       Customer[]
+  products        Product[]
+  invoices        Invoice[]
+  payments        Payment[]
+  auditLogs       AuditLog[]
+  idempotencyKeys IdempotencyKey[]
 
   @@unique([cuit])
 }
@@ -305,4 +306,27 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@index([entity, entityId])
+}
+
+/// Records a successful mutation keyed by the client-supplied `Idempotency-Key`
+/// header (§21). A replay with the same key + same request body returns the
+/// stored response instead of re-running the handler — critical on
+/// POST /invoices and POST /invoices/:id/authorize, where a retried request
+/// (network blip, a bot resending) must never authorize/create twice. A
+/// replay with the same key but a *different* body is a client bug, not a
+/// retry, and is rejected (`IdempotencyKeyConflictError`).
+model IdempotencyKey {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  /// Controller.handler this key was used against — the same key is allowed
+  /// to be reused independently across different endpoints.
+  endpoint       String
+  key            String
+  requestHash    String
+  responseBody   Json
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, endpoint, key])
 }

@@ -15,6 +15,7 @@ export * from './auth/auth';
 export * from './organizations/organizations';
 export * from './customers/customers';
 export * from './products/products';
+export * from './invoices/invoices';
 
 export const API_VERSION = 'v1' as const;
 export const API_BASE_PATH = '/api/v1' as const;
