@@ -18,12 +18,31 @@ describe('OrgScopeGuard', () => {
       getRole: jest.fn().mockResolvedValue(null),
     } as unknown as MembershipService;
     const guard = new OrgScopeGuard(memberships);
-    const request = { user: { id: 'user-1' }, params: { id: ORG_B }, headers: {} };
+    const request = { user: { id: 'user-1' }, params: { organizationId: ORG_B }, headers: {} };
 
     await expect(guard.canActivate(contextFor(request))).rejects.toBeInstanceOf(
       UnauthorizedOrganizationAccessError,
     );
     expect(memberships.getRole).toHaveBeenCalledWith('user-1', ORG_B);
+  });
+
+  it('ignores a generic :id route param (e.g. a customer id) and falls back to the header', async () => {
+    // Regression guard: on routes like GET /customers/:id, `:id` is the
+    // customer's id, not the organization's — it must never be read as one.
+    const memberships = {
+      getRole: jest.fn().mockResolvedValue('OWNER'),
+    } as unknown as MembershipService;
+    const guard = new OrgScopeGuard(memberships);
+    const customerId = '33333333-3333-4333-8333-333333333333';
+    const request: Record<string, unknown> = {
+      user: { id: 'user-1' },
+      params: { id: customerId },
+      headers: { 'x-organization-id': ORG_A },
+    };
+
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect(memberships.getRole).toHaveBeenCalledWith('user-1', ORG_A);
+    expect(request.orgContext).toEqual({ organizationId: ORG_A, role: 'OWNER' });
   });
 
   it('attaches the org context with the resolved role when membership exists', async () => {

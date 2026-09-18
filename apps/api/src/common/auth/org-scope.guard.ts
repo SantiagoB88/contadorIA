@@ -12,9 +12,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * Resolves the target organization for a request and confirms the caller is a
- * member of it. The org id is taken from the route param (`:organizationId` or
- * `:id`) or the `x-organization-id` header — never trusted from a request body.
- * On success `req.orgContext = { organizationId, role }`.
+ * member of it. The org id is taken from the route param `:organizationId`
+ * (only meaningful on the organizations resource itself, e.g. `GET
+ * /organizations/:organizationId`) or the `x-organization-id` header — used by
+ * every other tenant-scoped resource (`/customers`, `/products`, ...) so a
+ * resource's own `:id` param is never mistaken for the organization id. Never
+ * trusted from a request body. On success `req.orgContext = { organizationId, role }`.
  */
 @Injectable()
 export class OrgScopeGuard implements CanActivate {
@@ -42,9 +45,7 @@ export class OrgScopeGuard implements CanActivate {
     const params = request.params as Record<string, string | undefined>;
     const headerValue = request.headers[ORG_HEADER];
     const candidate =
-      params['organizationId'] ??
-      params['id'] ??
-      (Array.isArray(headerValue) ? headerValue[0] : headerValue);
+      params['organizationId'] ?? (Array.isArray(headerValue) ? headerValue[0] : headerValue);
     return candidate && UUID_RE.test(candidate) ? candidate : null;
   }
 }

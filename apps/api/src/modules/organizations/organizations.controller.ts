@@ -32,10 +32,10 @@ export class OrganizationsController {
     return this.organizations.createForUser(user.id, dto);
   }
 
-  @Get(':id')
+  @Get(':organizationId')
   @UseGuards(OrgScopeGuard)
   @ApiOperation({ summary: 'Get one organization (caller must be a member).' })
-  getById(@Param('id', ParseUUIDPipe) id: string): Promise<Organization> {
-    return this.organizations.getById(id);
+  getById(@Param('organizationId', ParseUUIDPipe) organizationId: string): Promise<Organization> {
+    return this.organizations.getById(organizationId);
   }
 }
