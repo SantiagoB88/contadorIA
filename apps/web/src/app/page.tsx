@@ -21,13 +21,20 @@ export default async function LandingPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-16">
       <header className="space-y-3">
         <p className="text-sm font-medium tracking-wide text-[var(--color-accent)] uppercase">
-          Fase 0 · Fundaciones
+          Fase 2 · Auth + multi-tenancy + RBAC
         </p>
         <h1 className="text-4xl font-semibold tracking-tight">DashGoBo</h1>
         <p className="max-w-prose text-[var(--color-muted)]">
-          Plataforma de facturación para Argentina. El monorepo está en pie: API central (NestJS),
-          aplicación web (Next.js) y contratos compartidos. Las funciones de negocio se incorporan
-          por fases.
+          Plataforma de facturación para Argentina. El backend ya tiene registro, login,
+          organizaciones y permisos por rol funcionando — todavía sin interfaz propia (llega en la
+          Fase 7). Mientras tanto podés probarlo desde{' '}
+          <a
+            href="http://localhost:3001/docs"
+            className="text-[var(--color-accent)] underline underline-offset-2"
+          >
+            Swagger
+          </a>
+          .
         </p>
       </header>
 
@@ -67,7 +74,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="text-sm text-[var(--color-muted)]">
-        Próximo: Fase 1 — esquema Prisma, modelo de datos y capa base del backend.
+        Próximo: Fase 3 — CRUD de clientes.
       </footer>
     </main>
   );
