@@ -21,15 +21,19 @@ interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Force the Docker-internal base URL. Defaults to true on the server. */
   internal?: boolean;
+  /** Sets `Authorization: Bearer <token>` — the access token from `useAuth()`. */
+  accessToken?: string;
 }
 
 /**
  * Thin typed wrapper around `fetch` for talking to the DashGoBo API.
- * Fase 0: no auth wiring yet — that arrives with the auth module in Fase 2.
+ * Always sends credentials so the httpOnly refresh cookie travels with
+ * same-site requests (web and api are different origins but the same site in
+ * dev — both `localhost` — and in prod both under the same registrable domain).
  */
 export async function apiFetch<TResponse>(
   path: string,
-  { body, internal, headers, ...init }: ApiFetchOptions = {},
+  { body, internal, accessToken, headers, ...init }: ApiFetchOptions = {},
 ): Promise<TResponse> {
   const isServer = typeof window === 'undefined';
   const base = (internal ?? isServer) ? env.apiInternalUrl : env.apiPublicUrl;
@@ -37,9 +41,11 @@ export async function apiFetch<TResponse>(
 
   const response = await fetch(url, {
     ...init,
+    credentials: 'include',
     headers: {
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,

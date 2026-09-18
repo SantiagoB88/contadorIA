@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { HealthResponse } from '@dashgobo/contracts';
 import { apiFetch, ApiRequestError } from '@/lib/api';
 
@@ -26,16 +27,31 @@ export default async function LandingPage() {
         <h1 className="text-4xl font-semibold tracking-tight">DashGoBo</h1>
         <p className="max-w-prose text-[var(--color-muted)]">
           Plataforma de facturación para Argentina. El backend ya tiene registro, login,
-          organizaciones y permisos por rol funcionando — todavía sin interfaz propia (llega en la
-          Fase 7). Mientras tanto podés probarlo desde{' '}
+          organizaciones, clientes y permisos por rol funcionando. La interfaz completa (dashboard,
+          clientes, productos, facturas) llega en la Fase 7 — por ahora hay un adelanto de
+          login/registro para probar la sesión, y{' '}
           <a
             href="http://localhost:3001/docs"
             className="text-[var(--color-accent)] underline underline-offset-2"
           >
             Swagger
-          </a>
-          .
+          </a>{' '}
+          para el resto de la API.
         </p>
+        <div className="flex gap-3 pt-1">
+          <Link
+            href="/login"
+            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)]"
+          >
+            Iniciar sesión
+          </Link>
+          <Link
+            href="/register"
+            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium"
+          >
+            Crear cuenta
+          </Link>
+        </div>
       </header>
 
       <section
