@@ -4,6 +4,7 @@
   "private": true,
   "description": "DashGoBo backend / API central (NestJS)",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "prisma generate && nest build",
     "dev": "prisma generate && nest start --watch",
     "start": "node dist/main.js",
