@@ -25,3 +25,10 @@ export class ZodBody<TOutput> implements PipeTransform<unknown, TOutput> {
     return result.data;
   }
 }
+
+/**
+ * Same pipe, aliased for use on `@Query()` — querystring values arrive as
+ * strings, which the schema's `z.coerce`/defaults handle (see
+ * `paginationQuerySchema`).
+ */
+export const ZodQuery = ZodBody;

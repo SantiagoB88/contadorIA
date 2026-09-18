@@ -13,6 +13,7 @@ export * from './common/health';
 export * from './common/roles';
 export * from './auth/auth';
 export * from './organizations/organizations';
+export * from './customers/customers';
 
 export const API_VERSION = 'v1' as const;
 export const API_BASE_PATH = '/api/v1' as const;
