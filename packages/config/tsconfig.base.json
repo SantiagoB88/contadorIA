@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@dashgobo/config base (re-export of repo root base)",
+  "extends": "../../tsconfig.base.json"
+}

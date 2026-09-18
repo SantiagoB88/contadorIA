@@ -1,0 +1,61 @@
+name: dashgobo
+
+# The database is Supabase (managed Postgres), not a container — see
+# apps/api/.env.example for DATABASE_URL/DIRECT_URL. Docker is optional here:
+#
+#   Mailpit only (optional, for local email testing): docker compose -f infra/docker-compose.yml --env-file .env up -d
+#   Full stack in containers:                         docker compose -f infra/docker-compose.yml --env-file .env --profile apps up -d --build
+#
+# `pnpm dev` does not need Docker at all as long as DATABASE_URL/DIRECT_URL in
+# apps/api/.env point at Supabase.
+
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  api:
+    profiles: ['apps']
+    build:
+      context: ..
+      dockerfile: infra/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: 3001
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-access-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-only-encryption-key-change-me}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mailpit}
+      INVOICE_PROVIDER: ${INVOICE_PROVIDER:-mock}
+    ports:
+      - '${API_PORT:-3001}:3001'
+
+  web:
+    profiles: ['apps']
+    build:
+      context: ..
+      dockerfile: infra/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      API_INTERNAL_URL: http://api:3001
+    ports:
+      - '${WEB_PORT:-3000}:3000'

@@ -1,0 +1,47 @@
+{
+  "name": "dashgobo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SaaS de facturación para Argentina - monorepo",
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22.11.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}\"",
+    "db:generate": "pnpm --filter @dashgobo/api db:generate",
+    "db:migrate:init": "pnpm --filter @dashgobo/api db:migrate:init",
+    "db:migrate": "pnpm --filter @dashgobo/api db:migrate",
+    "db:migrate:deploy": "pnpm --filter @dashgobo/api db:migrate:deploy",
+    "db:studio": "pnpm --filter @dashgobo/api db:studio",
+    "db:seed": "pnpm --filter @dashgobo/api db:seed",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "argon2",
+      "esbuild",
+      "prisma",
+      "unrs-resolver"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.4",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1"
+  }
+}

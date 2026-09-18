@@ -1,0 +1,20 @@
+{
+  "name": "@dashgobo/config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./tsconfig.nest.json": "./tsconfig.nest.json"
+  },
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.node.json",
+    "tsconfig.nest.json"
+  ],
+  "scripts": {
+    "lint": "echo \"(no lint for @dashgobo/config)\"",
+    "typecheck": "echo \"(no typecheck for @dashgobo/config)\"",
+    "test": "echo \"(no tests for @dashgobo/config)\""
+  }
+}

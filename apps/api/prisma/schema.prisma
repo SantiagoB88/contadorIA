@@ -1,0 +1,308 @@
+// DashGoBo — modelo de datos (Fase 1)
+//
+// Convenciones:
+// - IDs: UUID (`@db.Uuid`).
+// - Dinero: enteros en la unidad menor de la moneda (centavos) como `BigInt`.
+//   Nunca floating point. La moneda se guarda junto al monto (ISO 4217).
+// - Fechas: `timestamptz` en UTC. La visualización por timezone de la
+//   organización es responsabilidad de la capa de presentación.
+// - Multi-tenant: toda entidad comercial lleva `organizationId` y los índices
+//   correspondientes. El scoping por tenant se garantiza en la capa de acceso
+//   a datos, nunca confiando en un `organizationId` provisto por el cliente.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection (Supabase pgbouncer, port 6543) — used at runtime.
+  url       = env("DATABASE_URL")
+  // Direct connection (port 5432) — Prisma Migrate needs this; pgbouncer's
+  // transaction mode doesn't support the prepared statements/DDL migrations use.
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  ACCOUNTANT
+  OPERATOR
+  VIEWER
+}
+
+enum TaxCondition {
+  RESPONSABLE_INSCRIPTO
+  MONOTRIBUTO
+  EXENTO
+  CONSUMIDOR_FINAL
+  NO_CATEGORIZADO
+}
+
+enum DocumentType {
+  CUIT
+  CUIL
+  DNI
+  PASSPORT
+  OTHER
+}
+
+enum ProductType {
+  GOOD
+  SERVICE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  AUTHORIZED
+  PAID
+  CANCELLED
+  ERROR
+}
+
+enum InvoiceType {
+  A
+  B
+  C
+  E
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  CHECK
+  MERCADO_PAGO
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+// ─────────────────────────── Identidad ───────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  firstName    String
+  lastName     String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+
+  memberships   OrganizationMember[]
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+}
+
+/// Opaque refresh tokens, stored hashed. Rotation: every use revokes the token
+/// and issues a successor in the same `familyId`. Presenting an already-revoked
+/// token is treated as theft and revokes the whole family.
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @db.Uuid
+  tokenHash         String    @unique
+  familyId          String    @db.Uuid
+  userAgent         String?
+  ip                String?
+  expiresAt         DateTime  @db.Timestamptz(6)
+  revokedAt         DateTime? @db.Timestamptz(6)
+  replacedByTokenId String?   @db.Uuid
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model Organization {
+  id              String       @id @default(uuid()) @db.Uuid
+  name            String
+  legalName       String?
+  cuit            String?
+  taxCondition    TaxCondition @default(NO_CATEGORIZADO)
+  email           String?
+  phone           String?
+  address         String?
+  logoUrl         String?
+  timezone        String       @default("America/Argentina/Buenos_Aires")
+  defaultCurrency String       @default("ARS")
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
+
+  members   OrganizationMember[]
+  customers Customer[]
+  products  Product[]
+  invoices  Invoice[]
+  payments  Payment[]
+  auditLogs AuditLog[]
+
+  @@unique([cuit])
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  organizationId String   @db.Uuid
+  role           OrgRole
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+// ─────────────────────────── Comercial ───────────────────────────
+
+model Customer {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  name           String
+  legalName      String?
+  documentType   DocumentType @default(CUIT)
+  documentNumber String
+  taxCondition   TaxCondition @default(CONSUMIDOR_FINAL)
+  email          String?
+  phone          String?
+  address        String?
+  notes          String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?    @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
+
+  @@unique([organizationId, documentType, documentNumber])
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+  @@index([documentNumber])
+}
+
+model Product {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @db.Uuid
+  name           String
+  description    String?
+  sku            String?
+  type           ProductType @default(SERVICE)
+  unitPrice      BigInt
+  currency       String      @default("ARS")
+  taxRate        Decimal     @default(21) @db.Decimal(5, 2)
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?   @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceItems InvoiceItem[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([sku])
+}
+
+model Invoice {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  customerId     String        @db.Uuid
+  status         InvoiceStatus @default(DRAFT)
+  invoiceType    InvoiceType   @default(B)
+  pointOfSale    Int           @default(1)
+  invoiceNumber  Int?
+  currency       String        @default("ARS")
+  subtotal       BigInt        @default(0)
+  taxes          BigInt        @default(0)
+  total          BigInt        @default(0)
+  cae            String?
+  caeExpiration  DateTime?     @db.Date
+  externalId     String?
+  notes          String?
+  issuedAt       DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  @@unique([organizationId, pointOfSale, invoiceType, invoiceNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([customerId])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  invoiceId   String  @db.Uuid
+  productId   String? @db.Uuid
+  description String
+  quantity    Decimal @db.Decimal(14, 4)
+  unitPrice   BigInt
+  taxRate     Decimal @db.Decimal(5, 2)
+  subtotal    BigInt
+  total       BigInt
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  invoiceId      String        @db.Uuid
+  amount         BigInt
+  currency       String        @default("ARS")
+  method         PaymentMethod @default(BANK_TRANSFER)
+  status         PaymentStatus @default(CONFIRMED)
+  paidAt         DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────── Auditoría ───────────────────────────
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid
+  userId         String?  @db.Uuid
+  action         String
+  entity         String
+  entityId       String?
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([entity, entityId])
+}

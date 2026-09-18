@@ -1,0 +1,18 @@
+{
+  "extends": "../../packages/config/tsconfig.nest.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "declaration": false,
+    "declarationMap": false,
+    // App build: `nest build` wipes `dist` each run, so incremental buildinfo
+    // (which lives outside `dist`) would wrongly suppress re-emit.
+    "incremental": false,
+    "types": ["node", "jest"],
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
