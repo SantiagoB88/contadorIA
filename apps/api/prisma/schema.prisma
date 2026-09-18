@@ -250,6 +250,7 @@ model Invoice {
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
+  @@index([organizationId, status, issuedAt])
   @@index([customerId])
 }
 
@@ -287,6 +288,7 @@ model Payment {
 
   @@index([organizationId])
   @@index([invoiceId])
+  @@index([organizationId, status, paidAt])
 }
 
 // ─────────────────────────── Auditoría ───────────────────────────

@@ -9,6 +9,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { CustomersModule } from './modules/customers/customers.module';
 import { ProductsModule } from './modules/products/products.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
@@ -28,6 +29,7 @@ import { HealthModule } from './modules/health/health.module';
     CustomersModule,
     ProductsModule,
     InvoicesModule,
+    DashboardModule,
     HealthModule,
   ],
 })
