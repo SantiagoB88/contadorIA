@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText } from '../common/zod-helpers';
 import { orgRoleSchema } from '../common/roles';
 
 export const PASSWORD_MIN_LENGTH = 8;
@@ -12,7 +13,7 @@ export const registerRequestSchema = z.object({
   lastName: z.string().trim().min(1).max(80),
   email: emailSchema,
   password: passwordSchema,
-  phone: z.string().trim().max(40).optional(),
+  phone: optionalText(z.string().trim().max(40)),
   organizationName: z.string().trim().min(1).max(120),
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
@@ -65,6 +66,28 @@ export const meResponseSchema = z.object({
   memberships: z.array(membershipSchema),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+export const forgotPasswordRequestSchema = z.object({ email: emailSchema });
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+/**
+ * Always the same shape regardless of whether the email exists — the
+ * message never reveals that (§ auth security: no account enumeration).
+ * `resetToken`/`resetUrl` are only populated outside production, so the
+ * flow is testable without a real mailbox (see MockEmailProvider).
+ */
+export const forgotPasswordResponseSchema = z.object({
+  message: z.string(),
+  resetToken: z.string().optional(),
+  resetUrl: z.string().optional(),
+});
+export type ForgotPasswordResponse = z.infer<typeof forgotPasswordResponseSchema>;
+
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().min(1),
+  newPassword: passwordSchema,
+});
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 
 /** JWT access-token claims. */
 export const accessTokenClaimsSchema = z.object({

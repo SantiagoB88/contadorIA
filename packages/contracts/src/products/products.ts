@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText } from '../common/zod-helpers';
 import { paginationQuerySchema } from '../common/pagination';
 
 export const productTypeSchema = z.enum(['GOOD', 'SERVICE']);
@@ -29,8 +30,8 @@ export type Product = z.infer<typeof productSchema>;
 
 export const createProductRequestSchema = z.object({
   name: z.string().trim().min(1).max(160),
-  description: z.string().trim().max(2000).optional(),
-  sku: z.string().trim().min(1).max(60).optional(),
+  description: optionalText(z.string().trim().max(2000)),
+  sku: optionalText(z.string().trim().min(1).max(60)),
   type: productTypeSchema.default('SERVICE'),
   unitPrice: z.coerce.number().int().nonnegative(),
   currency: z.string().trim().length(3).toUpperCase().default('ARS'),

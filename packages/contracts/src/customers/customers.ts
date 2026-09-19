@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText } from '../common/zod-helpers';
 import { paginationQuerySchema } from '../common/pagination';
 import { taxConditionSchema } from '../organizations/organizations';
 
@@ -58,14 +59,14 @@ export type CustomerDetail = z.infer<typeof customerDetailSchema>;
 export const createCustomerRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(160),
-    legalName: z.string().trim().max(200).optional(),
+    legalName: optionalText(z.string().trim().max(200)),
     documentType: documentTypeSchema.default('CUIT'),
     documentNumber: documentNumberSchema,
     taxCondition: taxConditionSchema.default('CONSUMIDOR_FINAL'),
-    email: z.string().trim().toLowerCase().email().max(320).optional(),
-    phone: z.string().trim().max(40).optional(),
-    address: z.string().trim().max(240).optional(),
-    notes: z.string().trim().max(2000).optional(),
+    email: optionalText(z.string().trim().toLowerCase().email().max(320)),
+    phone: optionalText(z.string().trim().max(40)),
+    address: optionalText(z.string().trim().max(240)),
+    notes: optionalText(z.string().trim().max(2000)),
   })
   .superRefine((val, ctx) => validateDocumentNumber(val.documentType, val.documentNumber, ctx));
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
@@ -73,14 +74,14 @@ export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 export const updateCustomerRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(160).optional(),
-    legalName: z.string().trim().max(200).optional(),
+    legalName: optionalText(z.string().trim().max(200)),
     documentType: documentTypeSchema.optional(),
     documentNumber: documentNumberSchema.optional(),
     taxCondition: taxConditionSchema.optional(),
-    email: z.string().trim().toLowerCase().email().max(320).optional(),
-    phone: z.string().trim().max(40).optional(),
-    address: z.string().trim().max(240).optional(),
-    notes: z.string().trim().max(2000).optional(),
+    email: optionalText(z.string().trim().toLowerCase().email().max(320)),
+    phone: optionalText(z.string().trim().max(40)),
+    address: optionalText(z.string().trim().max(240)),
+    notes: optionalText(z.string().trim().max(2000)),
   })
   .superRefine((val, ctx) => {
     if (val.documentType && val.documentNumber) {

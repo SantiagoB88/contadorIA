@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText } from '../common/zod-helpers';
 import { orgRoleSchema } from '../common/roles';
 
 export const taxConditionSchema = z.enum([
@@ -35,14 +36,14 @@ export type Organization = z.infer<typeof organizationSchema>;
 
 export const createOrganizationRequestSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  legalName: z.string().trim().max(160).optional(),
-  cuit: cuitSchema.optional(),
+  legalName: optionalText(z.string().trim().max(160)),
+  cuit: optionalText(cuitSchema),
   taxCondition: taxConditionSchema.optional(),
-  email: z.string().trim().toLowerCase().email().max(320).optional(),
-  phone: z.string().trim().max(40).optional(),
-  address: z.string().trim().max(240).optional(),
-  timezone: z.string().trim().max(64).optional(),
-  defaultCurrency: z.string().trim().length(3).toUpperCase().optional(),
+  email: optionalText(z.string().trim().toLowerCase().email().max(320)),
+  phone: optionalText(z.string().trim().max(40)),
+  address: optionalText(z.string().trim().max(240)),
+  timezone: optionalText(z.string().trim().max(64)),
+  defaultCurrency: optionalText(z.string().trim().length(3).toUpperCase()),
 });
 export type CreateOrganizationRequest = z.infer<typeof createOrganizationRequestSchema>;
 

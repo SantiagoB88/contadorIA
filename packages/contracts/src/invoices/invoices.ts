@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText } from '../common/zod-helpers';
 import { paginationQuerySchema } from '../common/pagination';
 
 export const invoiceStatusSchema = z.enum([
@@ -25,7 +26,7 @@ export type InvoiceType = z.infer<typeof invoiceTypeSchema>;
 export const invoiceItemInputSchema = z
   .object({
     productId: z.string().uuid().optional(),
-    description: z.string().trim().min(1).max(500).optional(),
+    description: optionalText(z.string().trim().min(1).max(500)),
     quantity: z.coerce.number().positive().max(1_000_000),
     unitPrice: z.coerce.number().int().nonnegative().optional(),
     taxRate: z.coerce.number().min(0).max(100).optional(),
@@ -59,8 +60,8 @@ export const createInvoiceRequestSchema = z.object({
   customerId: z.string().uuid(),
   invoiceType: invoiceTypeSchema.default('B'),
   pointOfSale: z.coerce.number().int().positive().default(1),
-  currency: z.string().trim().length(3).toUpperCase().optional(),
-  notes: z.string().trim().max(2000).optional(),
+  currency: optionalText(z.string().trim().length(3).toUpperCase()),
+  notes: optionalText(z.string().trim().max(2000)),
   items: z.array(invoiceItemInputSchema).min(1).max(100),
 });
 export type CreateInvoiceRequest = z.infer<typeof createInvoiceRequestSchema>;
@@ -82,6 +83,7 @@ export const invoiceSchema = z.object({
   id: z.string().uuid(),
   organizationId: z.string().uuid(),
   customerId: z.string().uuid(),
+  customerName: z.string(),
   status: invoiceStatusSchema,
   invoiceType: invoiceTypeSchema,
   pointOfSale: z.number().int(),
