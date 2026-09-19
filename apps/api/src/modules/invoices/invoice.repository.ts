@@ -1,14 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Invoice, type InvoiceStatus, type InvoiceType } from '@prisma/client';
+import { Prisma, type InvoiceStatus, type InvoiceType } from '@prisma/client';
 import type { InvoiceListQuery } from '@dashgobo/contracts';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { ComputedInvoice } from './domain/invoice-calculator';
 import type { AuthorizeInvoiceResult } from './providers/invoice-provider.interface';
 
-export type InvoiceWithItems = Prisma.InvoiceGetPayload<{ include: { items: true } }>;
+const CUSTOMER_NAME_INCLUDE = { customer: { select: { name: true } } } satisfies Prisma.InvoiceInclude;
+
+export type InvoiceWithItems = Prisma.InvoiceGetPayload<{
+  include: typeof CUSTOMER_NAME_INCLUDE & { items: true };
+}>;
+export type InvoiceWithCustomerName = Prisma.InvoiceGetPayload<{
+  include: typeof CUSTOMER_NAME_INCLUDE;
+}>;
 
 export interface ListResult {
-  data: Invoice[];
+  data: InvoiceWithCustomerName[];
   totalItems: number;
 }
 
@@ -50,14 +57,14 @@ export class InvoiceRepository {
           })),
         },
       },
-      include: { items: true },
+      include: { ...CUSTOMER_NAME_INCLUDE, items: true },
     });
   }
 
   findById(organizationId: string, id: string): Promise<InvoiceWithItems | null> {
     return this.prisma.invoice.findFirst({
       where: { id, organizationId },
-      include: { items: true },
+      include: { ...CUSTOMER_NAME_INCLUDE, items: true },
     });
   }
 
@@ -66,6 +73,7 @@ export class InvoiceRepository {
     const [data, totalItems] = await this.prisma.$transaction([
       this.prisma.invoice.findMany({
         where,
+        include: CUSTOMER_NAME_INCLUDE,
         orderBy: { [query.sort]: query.order },
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
@@ -99,7 +107,7 @@ export class InvoiceRepository {
         externalId: result.externalId,
         issuedAt: new Date(),
       },
-      include: { items: true },
+      include: { ...CUSTOMER_NAME_INCLUDE, items: true },
     });
   }
 

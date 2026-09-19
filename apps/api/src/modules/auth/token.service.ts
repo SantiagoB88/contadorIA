@@ -19,7 +19,16 @@ export interface GeneratedRefreshToken {
   expiresAt: Date;
 }
 
+export interface GeneratedPasswordResetToken {
+  /** The opaque value put in the emailed link. Never stored. */
+  token: string;
+  hash: string;
+  expiresAt: Date;
+}
+
 const REFRESH_TOKEN_BYTES = 48;
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
 
 @Injectable()
 export class TokenService {
@@ -56,5 +65,16 @@ export class TokenService {
   /** HMAC-SHA256 with the refresh secret as pepper: a DB leak alone can't be replayed. */
   hashRefreshToken(token: string): string {
     return createHmac('sha256', this.config.get('JWT_REFRESH_SECRET')).update(token).digest('hex');
+  }
+
+  generatePasswordResetToken(): GeneratedPasswordResetToken {
+    const token = randomBytes(RESET_TOKEN_BYTES).toString('base64url');
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_SECONDS * 1000);
+    return { token, hash: this.hashPasswordResetToken(token), expiresAt };
+  }
+
+  /** Peppered with ENCRYPTION_KEY — independent of the refresh-token pepper. */
+  hashPasswordResetToken(token: string): string {
+    return createHmac('sha256', this.config.get('ENCRYPTION_KEY')).update(token).digest('hex');
   }
 }

@@ -105,9 +105,10 @@ model User {
   createdAt    DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
 
-  memberships   OrganizationMember[]
-  auditLogs     AuditLog[]
-  refreshTokens RefreshToken[]
+  memberships         OrganizationMember[]
+  auditLogs           AuditLog[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 /// Opaque refresh tokens, stored hashed. Rotation: every use revokes the token
@@ -129,6 +130,22 @@ model RefreshToken {
 
   @@index([userId])
   @@index([familyId])
+}
+
+/// Single-use, short-lived token for the "forgot password" flow. Only the
+/// hash is stored (same reasoning as RefreshToken) — the raw token exists
+/// only in the emailed link and the client's request.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Organization {

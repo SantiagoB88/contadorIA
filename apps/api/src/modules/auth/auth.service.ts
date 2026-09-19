@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
-import type { AuthResult, LoginRequest, MeResponse, RegisterRequest } from '@dashgobo/contracts';
+import { Inject, Injectable } from '@nestjs/common';
+import type {
+  AuthResult,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  MeResponse,
+  RegisterRequest,
+  ResetPasswordRequest,
+} from '@dashgobo/contracts';
 import {
   EmailAlreadyRegisteredError,
   ForbiddenError,
@@ -9,6 +17,8 @@ import {
 } from '../../common/errors';
 import type { AuthenticatedUser } from '../../common/auth/auth-context';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AppConfigService } from '../../config/config.module';
+import { EMAIL_PROVIDER, type EmailProvider } from '../../infrastructure/email/email-provider.interface';
 import { AuditService } from '../audit/audit.service';
 import { MembershipService } from '../memberships/membership.service';
 import { UserRepository } from '../users/user.repository';
@@ -16,7 +26,11 @@ import { OrganizationRepository } from '../organizations/organization.repository
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { PasswordResetTokenRepository } from './password-reset-token.repository';
 import { toPublicUser } from './auth.mapper';
+
+const GENERIC_FORGOT_PASSWORD_MESSAGE =
+  'If that email is registered, a password reset link has been sent.';
 
 export interface RequestContext {
   ip?: string | null;
@@ -51,7 +65,10 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
     private readonly refreshTokens: RefreshTokenRepository,
+    private readonly passwordResetTokens: PasswordResetTokenRepository,
     private readonly audit: AuditService,
+    private readonly config: AppConfigService,
+    @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
   ) {}
 
   async register(dto: RegisterRequest, ctx: RequestContext): Promise<SessionResult> {
@@ -218,6 +235,71 @@ export class AuthService {
     if (!row) throw new UnauthenticatedError();
     const memberships = await this.memberships.listForUser(user.id);
     return { user: toPublicUser(row), memberships };
+  }
+
+  /**
+   * Always responds with the same generic message whether or not the email
+   * is registered — this must never let a caller distinguish the two (no
+   * account enumeration). Outside production, the raw reset link is also
+   * returned in the response so the flow is usable without a real mailbox.
+   */
+  async forgotPassword(dto: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user || user.status === 'DISABLED') {
+      return { message: GENERIC_FORGOT_PASSWORD_MESSAGE };
+    }
+
+    const reset = this.tokens.generatePasswordResetToken();
+    await this.passwordResetTokens.create({
+      userId: user.id,
+      tokenHash: reset.hash,
+      expiresAt: reset.expiresAt,
+    });
+
+    const resetUrl = `${this.config.get('APP_URL')}/reset-password?token=${reset.token}`;
+    await this.email.send({
+      to: user.email,
+      subject: 'Recuperar tu contraseña de DashGoBo',
+      text: `Entrá a este link para elegir una contraseña nueva (vence en 1 hora): ${resetUrl}`,
+    });
+
+    await this.audit.record({
+      action: 'FORGOT_PASSWORD_REQUESTED',
+      entity: 'User',
+      entityId: user.id,
+      userId: user.id,
+    });
+
+    return {
+      message: GENERIC_FORGOT_PASSWORD_MESSAGE,
+      ...(this.config.isProduction ? {} : { resetToken: reset.token, resetUrl }),
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordRequest): Promise<void> {
+    const record = await this.passwordResetTokens.findByHash(
+      this.tokens.hashPasswordResetToken(dto.token),
+    );
+    if (!record || record.usedAt || record.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthenticatedError('Invalid or expired reset token');
+    }
+
+    const user = await this.users.findById(record.userId);
+    if (!user) throw new UnauthenticatedError('Invalid or expired reset token');
+
+    const passwordHash = await this.passwords.hash(dto.newPassword);
+    await this.users.updatePassword(user.id, passwordHash);
+    await this.passwordResetTokens.markUsed(record.id);
+    // A password reset invalidates every existing session, on every device —
+    // whoever reset it might be recovering the account from an attacker.
+    await this.refreshTokens.revokeAllForUser(user.id);
+
+    await this.audit.record({
+      action: 'PASSWORD_RESET',
+      entity: 'User',
+      entityId: user.id,
+      userId: user.id,
+    });
   }
 
   private async issueSession(

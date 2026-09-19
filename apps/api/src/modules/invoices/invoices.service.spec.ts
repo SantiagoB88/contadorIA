@@ -78,6 +78,7 @@ function makeInvoiceRow(overrides: Partial<Invoice> = {}): InvoiceWithItems {
     createdAt: now,
     updatedAt: now,
     items: [],
+    customer: { name: 'Acme SRL' },
     ...overrides,
   };
 }

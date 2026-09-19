@@ -1,12 +1,13 @@
-import type { Invoice as InvoiceRow, InvoiceItem as InvoiceItemRow } from '@prisma/client';
+import type { InvoiceItem as InvoiceItemRow } from '@prisma/client';
 import type { Invoice, InvoiceDetail, InvoiceItemDto } from '@dashgobo/contracts';
-import type { InvoiceWithItems } from './invoice.repository';
+import type { InvoiceWithCustomerName, InvoiceWithItems } from './invoice.repository';
 
-export function toInvoiceDto(row: InvoiceRow): Invoice {
+export function toInvoiceDto(row: InvoiceWithCustomerName): Invoice {
   return {
     id: row.id,
     organizationId: row.organizationId,
     customerId: row.customerId,
+    customerName: row.customer.name,
     status: row.status,
     invoiceType: row.invoiceType,
     pointOfSale: row.pointOfSale,

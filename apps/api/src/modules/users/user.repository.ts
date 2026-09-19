@@ -17,4 +17,8 @@ export class UserRepository {
   create(data: Prisma.UserCreateInput, tx?: Prisma.TransactionClient): Promise<User> {
     return (tx ?? this.prisma).user.create({ data });
   }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
 }

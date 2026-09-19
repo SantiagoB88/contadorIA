@@ -1,14 +1,18 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   createOrganizationRequestSchema,
+  updateOrganizationRequestSchema,
   type CreateOrganizationRequest,
   type Organization,
   type OrganizationSummary,
+  type UpdateOrganizationRequest,
 } from '@dashgobo/contracts';
 import { ZodBody } from '../../common/validation/zod-validation.pipe';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { OrgScopeGuard } from '../../common/auth/org-scope.guard';
+import { PermissionsGuard } from '../../common/auth/permissions.guard';
+import { RequirePermission } from '../../common/auth/require-permission.decorator';
 import type { AuthenticatedUser } from '../../common/auth/auth-context';
 import { OrganizationsService } from './organizations.service';
 
@@ -37,5 +41,17 @@ export class OrganizationsController {
   @ApiOperation({ summary: 'Get one organization (caller must be a member).' })
   getById(@Param('organizationId', ParseUUIDPipe) organizationId: string): Promise<Organization> {
     return this.organizations.getById(organizationId);
+  }
+
+  @Patch(':organizationId')
+  @UseGuards(OrgScopeGuard, PermissionsGuard)
+  @RequirePermission('organization:update')
+  @ApiOperation({ summary: 'Update organization/fiscal data (OWNER/ADMIN only).' })
+  update(
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodBody(updateOrganizationRequestSchema)) dto: UpdateOrganizationRequest,
+  ): Promise<Organization> {
+    return this.organizations.update(organizationId, user.id, dto);
   }
 }

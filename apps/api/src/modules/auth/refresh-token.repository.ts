@@ -38,4 +38,13 @@ export class RefreshTokenRepository {
     });
     return result.count;
   }
+
+  /** Revoke every active session for a user, across all devices/families — used on password reset. */
+  async revokeAllForUser(userId: string): Promise<number> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count;
+  }
 }

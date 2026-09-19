@@ -4,12 +4,17 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
   type AuthResult,
+  forgotPasswordRequestSchema,
+  type ForgotPasswordRequest,
+  type ForgotPasswordResponse,
   loginRequestSchema,
   type LoginRequest,
   type MeResponse,
   type RefreshResult,
   registerRequestSchema,
   type RegisterRequest,
+  resetPasswordRequestSchema,
+  type ResetPasswordRequest,
 } from '@dashgobo/contracts';
 import { ZodBody } from '../../common/validation/zod-validation.pipe';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
@@ -91,6 +96,28 @@ export class AuthController {
   @ApiOperation({ summary: 'The authenticated user and their organization memberships.' })
   me(@CurrentUser() user: AuthenticatedUser): Promise<MeResponse> {
     return this.auth.me(user);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request a password reset link. Always returns 200 — never reveals if the email exists.',
+  })
+  forgotPassword(
+    @Body(new ZodBody(forgotPasswordRequestSchema)) dto: ForgotPasswordRequest,
+  ): Promise<ForgotPasswordResponse> {
+    return this.auth.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Set a new password from a reset token; revokes every existing session.' })
+  resetPassword(
+    @Body(new ZodBody(resetPasswordRequestSchema)) dto: ResetPasswordRequest,
+  ): Promise<void> {
+    return this.auth.resetPassword(dto);
   }
 
   private contextOf(req: Request): RequestContext {

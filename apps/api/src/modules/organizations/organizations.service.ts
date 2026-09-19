@@ -4,6 +4,7 @@ import type {
   CreateOrganizationRequest,
   Organization,
   OrganizationSummary,
+  UpdateOrganizationRequest,
 } from '@dashgobo/contracts';
 import { NotFoundError } from '../../common/errors';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -71,6 +72,38 @@ export class OrganizationsService {
       return created;
     });
     return toOrganizationDto(org);
+  }
+
+  async update(
+    id: string,
+    userId: string,
+    input: UpdateOrganizationRequest,
+  ): Promise<Organization> {
+    const existing = await this.repo.findById(id);
+    if (!existing) throw new NotFoundError('Organization not found', { organizationId: id });
+
+    const updated = await this.repo.update(id, {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.legalName !== undefined && { legalName: input.legalName }),
+      ...(input.cuit !== undefined && { cuit: input.cuit }),
+      ...(input.taxCondition !== undefined && { taxCondition: input.taxCondition }),
+      ...(input.email !== undefined && { email: input.email }),
+      ...(input.phone !== undefined && { phone: input.phone }),
+      ...(input.address !== undefined && { address: input.address }),
+      ...(input.timezone !== undefined && { timezone: input.timezone }),
+      ...(input.defaultCurrency !== undefined && { defaultCurrency: input.defaultCurrency }),
+    });
+
+    await this.audit.record({
+      action: 'UPDATE_ORGANIZATION',
+      entity: 'Organization',
+      entityId: id,
+      organizationId: id,
+      userId,
+      metadata: { fields: Object.keys(input) },
+    });
+
+    return toOrganizationDto(updated);
   }
 
   private toCreateInput(input: CreateOrganizationRequest): Prisma.OrganizationCreateInput {
