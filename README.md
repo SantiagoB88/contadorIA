@@ -4,12 +4,14 @@ Plataforma SaaS de facturación para Argentina. El **backend/API** es el núcleo
 sistema; la web (y más adelante un bot de WhatsApp, app móvil e IA) son clientes de
 esa misma API. Ninguna lógica de negocio crítica vive fuera del backend.
 
-> Estado actual: **Fase 2 — Auth + multi-tenancy + RBAC**. Sobre el modelo de
-> datos de la Fase 1 se sumó registro/login/refresh/logout (Argon2id + access
-> JWT + refresh rotativo en cookie httpOnly), `JwtAuthGuard` global,
-> `OrgScopeGuard` (sin acceso cross-tenant), matriz de permisos por rol,
-> rate limiting, auditoría y el CRUD de organizaciones. Las funciones de
-> negocio siguen por fases (ver [`docs/roadmap.md`](docs/roadmap.md)).
+> Estado actual: **Fase 7 — Frontend completo (MVP)**. Backend con auth +
+> multi-tenancy + RBAC, CRUD de clientes/productos, facturación con
+> `MockInvoiceProvider` (CAE simulado) e idempotencia, dashboard, y recuperación
+> de contraseña. Frontend Next.js conectado al API real: landing, login,
+> registro, recuperar/resetear contraseña, shell autenticado, dashboard,
+> clientes, productos y el flujo completo de facturación. Queda pendiente la
+> Fase 8 — seed de datos demo y documentación de cierre (ver
+> [`docs/roadmap.md`](docs/roadmap.md)).
 
 ## Stack
 

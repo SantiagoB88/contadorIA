@@ -37,7 +37,8 @@ aritmética y redondeo.
 representación apropiada". Enteros evitan por completo el error de redondeo y son
 portables a JS sin depender del tipo `Decimal` del driver. `Decimal` de Prisma
 queda como alternativa si contabilidad exige >2 decimales de forma generalizada.
-**Pendiente de confirmación del owner.**
+**Confirmado en uso:** validado de punta a punta en Fase 7 (conversión
+pesos↔centavos en un único punto del frontend, `apps/web/src/lib/money.ts`).
 
 ## ADR-003 · Refresh token en cookie httpOnly (web)
 
@@ -46,7 +47,8 @@ queda como alternativa si contabilidad exige >2 decimales de forma generalizada.
 **Motivo:** el pedido prohíbe secretos en el frontend y exige protección XSS. Un
 refresh token en `localStorage` es exfiltrable por XSS. El futuro bot de WhatsApp
 usará credenciales de servicio, no cookies, así que la API soporta ambos modos.
-**Pendiente de confirmación del owner.**
+**Confirmado en uso:** el frontend de Fase 7 (`apps/web/src/lib/auth-context.tsx`)
+guarda el access token solo en memoria y renueva en silencio vía la cookie.
 
 ## ADR-004 · Contratos compartidos con Zod, sin exponer Prisma
 
