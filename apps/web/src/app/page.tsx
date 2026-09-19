@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { HealthResponse } from '@dashgobo/contracts';
 import { apiFetch, ApiRequestError } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 
 type ApiStatus = { reachable: true; health: HealthResponse } | { reachable: false; reason: string };
 
@@ -22,35 +23,21 @@ export default async function LandingPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-16">
       <header className="space-y-3">
         <p className="text-sm font-medium tracking-wide text-[var(--color-accent)] uppercase">
-          Fase 2 · Auth + multi-tenancy + RBAC
+          Fase 7 · MVP completo
         </p>
         <h1 className="text-4xl font-semibold tracking-tight">DashGoBo</h1>
         <p className="max-w-prose text-[var(--color-muted)]">
-          Plataforma de facturación para Argentina. El backend ya tiene registro, login,
-          organizaciones, clientes y permisos por rol funcionando. La interfaz completa (dashboard,
-          clientes, productos, facturas) llega en la Fase 7 — por ahora hay un adelanto de
-          login/registro para probar la sesión, y{' '}
-          <a
-            href="http://localhost:3001/docs"
-            className="text-[var(--color-accent)] underline underline-offset-2"
-          >
-            Swagger
-          </a>{' '}
-          para el resto de la API.
+          Facturación para Argentina: clientes, productos, comprobantes y dashboard, conectado de
+          punta a punta a una base de datos real. La autorización usa un proveedor simulado
+          (MockInvoiceProvider) hasta integrar ARCA.
         </p>
         <div className="flex gap-3 pt-1">
-          <Link
-            href="/login"
-            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)]"
-          >
-            Iniciar sesión
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium"
-          >
-            Crear cuenta
-          </Link>
+          <Button asChild>
+            <Link href="/login">Iniciar sesión</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/register">Crear cuenta</Link>
+          </Button>
         </div>
       </header>
 
@@ -83,14 +70,13 @@ export default async function LandingPage() {
           </dl>
         ) : (
           <p className="mt-4 text-sm text-[var(--color-muted)]">
-            {status.reason}. Verificá que la API esté levantada (<code>pnpm dev</code> o{' '}
-            <code>docker compose up</code>).
+            {status.reason}. Verificá que la API esté levantada (<code>pnpm dev</code>).
           </p>
         )}
       </section>
 
       <footer className="text-sm text-[var(--color-muted)]">
-        Próximo: Fase 3 — CRUD de clientes.
+        Próximo: Fase 8 — seed de datos demo y documentación de cierre.
       </footer>
     </main>
   );

@@ -1,52 +1,36 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { registerRequestSchema, type RegisterRequest } from '@dashgobo/contracts';
 import { useAuth } from '@/lib/auth-context';
 import { ApiRequestError } from '@/lib/api';
-
-interface FormState {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  organizationName: string;
-}
-
-const EMPTY_FORM: FormState = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  password: '',
-  organizationName: '',
-};
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register: registerUser } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterRequest>({ resolver: zodResolver(registerRequestSchema) });
 
-  function set<K extends keyof FormState>(key: K) {
-    return (event: React.ChangeEvent<HTMLInputElement>) =>
-      setForm((prev) => ({ ...prev, [key]: event.target.value }));
-  }
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
+  const onSubmit = handleSubmit(async (data) => {
+    setFormError(null);
     try {
-      await register(form);
-      router.push('/app');
+      await registerUser(data);
+      router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'No se pudo crear la cuenta');
-    } finally {
-      setSubmitting(false);
+      setFormError(err instanceof ApiRequestError ? err.message : 'No se pudo crear la cuenta');
     }
-  }
+  });
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
@@ -57,89 +41,68 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field id="firstName" label="Nombre" value={form.firstName} onChange={set('firstName')} />
-          <Field id="lastName" label="Apellido" value={form.lastName} onChange={set('lastName')} />
+          <div className="space-y-1.5">
+            <Label htmlFor="firstName">Nombre</Label>
+            <Input id="firstName" autoComplete="given-name" {...register('firstName')} />
+            {errors.firstName && (
+              <p className="text-sm text-[var(--color-danger)]">{errors.firstName.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lastName">Apellido</Label>
+            <Input id="lastName" autoComplete="family-name" {...register('lastName')} />
+            {errors.lastName && (
+              <p className="text-sm text-[var(--color-danger)]">{errors.lastName.message}</p>
+            )}
+          </div>
         </div>
-        <Field
-          id="email"
-          label="Email"
-          type="email"
-          autoComplete="email"
-          value={form.email}
-          onChange={set('email')}
-        />
-        <Field
-          id="password"
-          label="Contraseña"
-          type="password"
-          autoComplete="new-password"
-          value={form.password}
-          onChange={set('password')}
-        />
-        <Field
-          id="organizationName"
-          label="Nombre de tu empresa"
-          value={form.organizationName}
-          onChange={set('organizationName')}
-        />
 
-        {error && (
-          <p role="alert" className="text-sm text-red-500">
-            {error}
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" {...register('email')} />
+          {errors.email && <p className="text-sm text-[var(--color-danger)]">{errors.email.message}</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Contraseña</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            {...register('password')}
+          />
+          {errors.password && (
+            <p className="text-sm text-[var(--color-danger)]">{errors.password.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="organizationName">Nombre de tu empresa</Label>
+          <Input id="organizationName" {...register('organizationName')} />
+          {errors.organizationName && (
+            <p className="text-sm text-[var(--color-danger)]">{errors.organizationName.message}</p>
+          )}
+        </div>
+
+        {formError && (
+          <p role="alert" className="text-sm text-[var(--color-danger)]">
+            {formError}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-accent-fg)] disabled:opacity-60"
-        >
-          {submitting ? 'Creando cuenta…' : 'Crear cuenta'}
-        </button>
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
+        </Button>
       </form>
 
-      <p className="text-sm text-[var(--color-muted)]">
+      <p className="text-center text-sm text-[var(--color-muted)]">
         ¿Ya tenés cuenta?{' '}
         <Link href="/login" className="text-[var(--color-accent)] underline underline-offset-2">
           Iniciá sesión
         </Link>
       </p>
     </main>
-  );
-}
-
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  type = 'text',
-  autoComplete,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: string;
-  autoComplete?: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        required
-        autoComplete={autoComplete}
-        value={value}
-        onChange={onChange}
-        className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-      />
-    </div>
   );
 }

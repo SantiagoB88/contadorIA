@@ -1,32 +1,36 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginRequestSchema, type LoginRequest } from '@dashgobo/contracts';
 import { useAuth } from '@/lib/auth-context';
 import { ApiRequestError } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginRequest>({ resolver: zodResolver(loginRequestSchema) });
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
+  const onSubmit = handleSubmit(async (data) => {
+    setFormError(null);
     try {
-      await login({ email, password });
-      router.push('/app');
+      await login(data);
+      router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'No se pudo iniciar sesión');
-    } finally {
-      setSubmitting(false);
+      setFormError(err instanceof ApiRequestError ? err.message : 'No se pudo iniciar sesión');
     }
-  }
+  });
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
@@ -35,53 +39,43 @@ export default function LoginPage() {
         <p className="text-sm text-[var(--color-muted)]">Entrá a tu cuenta de DashGoBo.</p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-          />
+      <form onSubmit={onSubmit} noValidate className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" {...register('email')} />
+          {errors.email && <p className="text-sm text-[var(--color-danger)]">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Contraseña
-          </label>
-          <input
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Contraseña</Label>
+            <Link href="/forgot-password" className="text-xs text-[var(--color-accent)] hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+          <Input
             id="password"
             type="password"
-            required
             autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+            {...register('password')}
           />
+          {errors.password && (
+            <p className="text-sm text-[var(--color-danger)]">{errors.password.message}</p>
+          )}
         </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-red-500">
-            {error}
+        {formError && (
+          <p role="alert" className="text-sm text-[var(--color-danger)]">
+            {formError}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-accent-fg)] disabled:opacity-60"
-        >
-          {submitting ? 'Entrando…' : 'Entrar'}
-        </button>
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? 'Entrando…' : 'Entrar'}
+        </Button>
       </form>
 
-      <p className="text-sm text-[var(--color-muted)]">
+      <p className="text-center text-sm text-[var(--color-muted)]">
         ¿No tenés cuenta?{' '}
         <Link href="/register" className="text-[var(--color-accent)] underline underline-offset-2">
           Registrate
