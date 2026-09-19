@@ -17,12 +17,14 @@ export class ApiRequestError extends Error {
   }
 }
 
-interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
+export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Force the Docker-internal base URL. Defaults to true on the server. */
   internal?: boolean;
   /** Sets `Authorization: Bearer <token>` — the access token from `useAuth()`. */
   accessToken?: string;
+  /** Sets `x-organization-id` — the current org id from `useOrg()`. */
+  organizationId?: string;
 }
 
 /**
@@ -33,7 +35,7 @@ interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
  */
 export async function apiFetch<TResponse>(
   path: string,
-  { body, internal, accessToken, headers, ...init }: ApiFetchOptions = {},
+  { body, internal, accessToken, organizationId, headers, ...init }: ApiFetchOptions = {},
 ): Promise<TResponse> {
   const isServer = typeof window === 'undefined';
   const base = (internal ?? isServer) ? env.apiInternalUrl : env.apiPublicUrl;
@@ -46,6 +48,7 @@ export async function apiFetch<TResponse>(
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(organizationId ? { 'x-organization-id': organizationId } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,

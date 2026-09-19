@@ -25,6 +25,8 @@ interface AuthContextValue extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (input: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
+  /** Exchanges the refresh cookie for a new access token. Returns null if the session is gone. */
+  refreshAccessToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -39,33 +41,30 @@ const INITIAL_STATE: AuthState = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(INITIAL_STATE);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function restoreSession(): Promise<void> {
-      try {
-        // The refresh token lives in an httpOnly cookie set by the API; this
-        // exchanges it for a fresh access token without the user re-entering
-        // credentials (silent session restore on page load).
-        const refreshed = await apiFetch<RefreshResult>('/auth/refresh', { method: 'POST' });
-        const me = await apiFetch<MeResponse>('/auth/me', { accessToken: refreshed.accessToken });
-        if (!cancelled) {
-          setState({
-            status: 'authenticated',
-            user: me.user,
-            memberships: me.memberships,
-            accessToken: refreshed.accessToken,
-          });
-        }
-      } catch {
-        if (!cancelled) setState({ ...INITIAL_STATE, status: 'anonymous' });
-      }
+  const restoreSession = useCallback(async (): Promise<string | null> => {
+    try {
+      // The refresh token lives in an httpOnly cookie set by the API; this
+      // exchanges it for a fresh access token without the user re-entering
+      // credentials (silent session restore, and mid-session token renewal
+      // once the short-lived access token expires — see useAuthenticatedFetch).
+      const refreshed = await apiFetch<RefreshResult>('/auth/refresh', { method: 'POST' });
+      const me = await apiFetch<MeResponse>('/auth/me', { accessToken: refreshed.accessToken });
+      setState({
+        status: 'authenticated',
+        user: me.user,
+        memberships: me.memberships,
+        accessToken: refreshed.accessToken,
+      });
+      return refreshed.accessToken;
+    } catch {
+      setState({ ...INITIAL_STATE, status: 'anonymous' });
+      return null;
     }
+  }, []);
 
+  useEffect(() => {
     void restoreSession();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only
   }, []);
 
   const applyAuthResult = useCallback((result: AuthResult) => {
@@ -108,7 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ ...state, login, register, logout, refreshAccessToken: restoreSession }}
+    >
       {children}
     </AuthContext.Provider>
   );
