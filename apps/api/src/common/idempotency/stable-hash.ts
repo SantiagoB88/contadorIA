@@ -10,6 +10,10 @@ export function stableHash(value: unknown): string {
 }
 
 function stableStringify(value: unknown): string {
+  // A bodyless request (e.g. POST /invoices/:id/authorize) hits this with
+  // `value === undefined`; JSON.stringify(undefined) returns the JS value
+  // `undefined` itself (not a string), which crashes createHash().update().
+  if (value === undefined) return 'undefined';
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
 

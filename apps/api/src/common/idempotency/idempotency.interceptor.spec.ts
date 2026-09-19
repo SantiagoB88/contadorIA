@@ -8,8 +8,12 @@ import { stableHash } from './stable-hash';
 
 const ORG_ID = 'org-1';
 
-function contextFor(headers: Record<string, string>, orgContext?: { organizationId: string }) {
-  const request = { headers, body: { foo: 'bar' }, orgContext };
+function contextFor(
+  headers: Record<string, string>,
+  orgContext?: { organizationId: string },
+  body: unknown = { foo: 'bar' },
+) {
+  const request = { headers, body, orgContext };
   return {
     switchToHttp: () => ({ getRequest: () => request }),
     getClass: () => ({ name: 'InvoicesController' }),
@@ -107,5 +111,24 @@ describe('IdempotencyInterceptor', () => {
       ),
     ).rejects.toBeInstanceOf(IdempotencyKeyConflictError);
     expect(handler.handle).not.toHaveBeenCalled();
+  });
+
+  it('handles a bodyless request (e.g. POST .../authorize) without throwing', async () => {
+    const repo = {
+      findByKey: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IdempotencyKeyRepository;
+    const interceptor = new IdempotencyInterceptor(repo);
+    const handler = handlerReturning({ id: 'inv-1', status: 'AUTHORIZED' });
+
+    const result = await firstValueFrom(
+      interceptor.intercept(
+        contextFor({ 'idempotency-key': 'client-key-1' }, { organizationId: ORG_ID }, undefined),
+        handler,
+      ),
+    );
+
+    expect(handler.handle).toHaveBeenCalled();
+    expect(result).toEqual({ id: 'inv-1', status: 'AUTHORIZED' });
   });
 });
