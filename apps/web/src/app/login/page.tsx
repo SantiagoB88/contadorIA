@@ -11,6 +11,7 @@ import { ApiRequestError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/components/shell/auth-layout';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -33,12 +34,7 @@ export default function LoginPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Iniciar sesión</h1>
-        <p className="text-sm text-[var(--color-muted)]">Entrá a tu cuenta de DashGoBo.</p>
-      </div>
-
+    <AuthLayout title="Iniciar sesión" description="Entrá a tu cuenta de DashGoBo.">
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
@@ -75,12 +71,12 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-[var(--color-muted)]">
+      <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
         ¿No tenés cuenta?{' '}
         <Link href="/register" className="text-[var(--color-accent)] underline underline-offset-2">
           Registrate
         </Link>
       </p>
-    </main>
+    </AuthLayout>
   );
 }

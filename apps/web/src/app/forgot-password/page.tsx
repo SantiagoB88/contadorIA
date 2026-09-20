@@ -13,6 +13,7 @@ import { apiFetch, ApiRequestError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/components/shell/auth-layout';
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState<ForgotPasswordResponse | null>(null);
@@ -38,37 +39,30 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Revisá tu email</h1>
-          <p className="text-sm text-[var(--color-muted)]">{sent.message}</p>
+      <AuthLayout title="Revisá tu email" description={sent.message}>
+        <div className="space-y-6">
+          {sent.resetUrl && (
+            <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 text-sm">
+              <p className="mb-1 font-medium">Modo desarrollo — no hay envío de email real:</p>
+              <Link href={sent.resetUrl} className="break-all text-[var(--color-accent)] underline">
+                {sent.resetUrl}
+              </Link>
+            </div>
+          )}
+
+          <Link href="/login" className="block text-center text-sm text-[var(--color-accent)] underline">
+            Volver a iniciar sesión
+          </Link>
         </div>
-
-        {sent.resetUrl && (
-          <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 text-sm">
-            <p className="mb-1 font-medium">Modo desarrollo — no hay envío de email real:</p>
-            <Link href={sent.resetUrl} className="break-all text-[var(--color-accent)] underline">
-              {sent.resetUrl}
-            </Link>
-          </div>
-        )}
-
-        <Link href="/login" className="text-center text-sm text-[var(--color-accent)] underline">
-          Volver a iniciar sesión
-        </Link>
-      </main>
+      </AuthLayout>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Recuperar contraseña</h1>
-        <p className="text-sm text-[var(--color-muted)]">
-          Ingresá tu email y te mandamos un link para elegir una nueva contraseña.
-        </p>
-      </div>
-
+    <AuthLayout
+      title="Recuperar contraseña"
+      description="Ingresá tu email y te mandamos un link para elegir una nueva contraseña."
+    >
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
@@ -87,9 +81,9 @@ export default function ForgotPasswordPage() {
         </Button>
       </form>
 
-      <Link href="/login" className="text-center text-sm text-[var(--color-accent)] underline">
+      <Link href="/login" className="mt-6 block text-center text-sm text-[var(--color-accent)] underline">
         Volver a iniciar sesión
       </Link>
-    </main>
+    </AuthLayout>
   );
 }

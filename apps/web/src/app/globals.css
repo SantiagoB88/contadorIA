@@ -29,11 +29,11 @@
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-bg: oklch(0.17 0.01 250);
-    --color-surface: oklch(0.21 0.012 250);
-    --color-surface-hover: oklch(0.25 0.014 250);
-    --color-surface-muted: oklch(0.24 0.013 250);
-    --color-border: oklch(0.3 0.012 250);
+    --color-bg: oklch(0.15 0.01 250);
+    --color-surface: oklch(0.225 0.013 250);
+    --color-surface-hover: oklch(0.27 0.015 250);
+    --color-surface-muted: oklch(0.255 0.014 250);
+    --color-border: oklch(0.33 0.014 250);
     --color-fg: oklch(0.96 0.003 240);
     --color-muted: oklch(0.7 0.015 250);
     --color-accent: oklch(0.72 0.12 250);

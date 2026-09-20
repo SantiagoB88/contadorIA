@@ -10,6 +10,7 @@ import { apiFetch, ApiRequestError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/components/shell/auth-layout';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -83,16 +84,13 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Elegí una nueva contraseña</h1>
-        <p className="text-sm text-[var(--color-muted)]">
-          Esto cierra sesión en todos tus dispositivos por seguridad.
-        </p>
-      </div>
+    <AuthLayout
+      title="Elegí una nueva contraseña"
+      description="Esto cierra sesión en todos tus dispositivos por seguridad."
+    >
       <Suspense fallback={null}>
         <ResetPasswordForm />
       </Suspense>
-    </main>
+    </AuthLayout>
   );
 }

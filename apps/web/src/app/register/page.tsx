@@ -11,6 +11,7 @@ import { ApiRequestError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/components/shell/auth-layout';
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -33,14 +34,10 @@ export default function RegisterPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Crear cuenta</h1>
-        <p className="text-sm text-[var(--color-muted)]">
-          Se crea tu usuario y tu primera organización (vos quedás como OWNER).
-        </p>
-      </div>
-
+    <AuthLayout
+      title="Crear cuenta"
+      description="Se crea tu usuario y tu primera organización (vos quedás como OWNER)."
+    >
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -97,12 +94,12 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-[var(--color-muted)]">
+      <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
         ¿Ya tenés cuenta?{' '}
         <Link href="/login" className="text-[var(--color-accent)] underline underline-offset-2">
           Iniciá sesión
         </Link>
       </p>
-    </main>
+    </AuthLayout>
   );
 }
