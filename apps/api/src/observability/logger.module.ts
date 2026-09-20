@@ -40,6 +40,19 @@ const REQUEST_ID_HEADER = 'x-request-id';
             userId: req.user?.id ?? null,
             organizationId: req.user?.organizationId ?? null,
           }),
+          // Trim req/res to what's actually useful for debugging. pino-http's
+          // default serializers dump every header (CSP, CORS, etc. repeated
+          // on every single line) which drowns out the actual signal.
+          serializers: {
+            req: (req: IncomingMessage & { id?: string; method?: string; url?: string }) => ({
+              id: req.id,
+              method: req.method,
+              url: req.url,
+            }),
+            res: (res: ServerResponse & { statusCode?: number }) => ({
+              statusCode: res.statusCode,
+            }),
+          },
           redact: {
             paths: [
               'req.headers.authorization',
