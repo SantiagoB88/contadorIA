@@ -1,12 +1,14 @@
 import {
-  BarChart3,
+  Building2,
   CreditCard,
   FileText,
+  HelpCircle,
   LayoutDashboard,
-  Package,
-  Plug,
+  ListChecks,
+  MessagesSquare,
+  Receipt,
   Settings,
-  Users,
+  FolderOpen,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -17,12 +19,17 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/invoices', label: 'Comprobantes', icon: FileText },
-  { href: '/customers', label: 'Clientes', icon: Users },
-  { href: '/products', label: 'Productos', icon: Package },
-  { href: '/payments', label: 'Pagos', icon: CreditCard, disabled: true },
-  { href: '/reports', label: 'Reportes', icon: BarChart3, disabled: true },
-  { href: '/integrations', label: 'Integraciones', icon: Plug, disabled: true },
-  { href: '/settings', label: 'Configuración', icon: Settings },
+  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+  { href: '/obligations', label: 'Mis obligaciones', icon: ListChecks },
+  { href: '/payments', label: 'Pagos', icon: CreditCard },
+  { href: '/receipts', label: 'Comprobantes', icon: Receipt },
+  { href: '/invoices', label: 'Facturación', icon: FileText },
+  { href: '/documents', label: 'Documentos', icon: FolderOpen },
+  { href: '/messages', label: 'Mensajes / Consultas', icon: MessagesSquare },
+  { href: '/settings', label: 'Mi empresa', icon: Building2 },
+];
+
+export const BOTTOM_NAV_ITEMS: NavItem[] = [
+  { href: '/account-settings', label: 'Configuración', icon: Settings },
+  { href: '/help', label: 'Ayuda', icon: HelpCircle },
 ];

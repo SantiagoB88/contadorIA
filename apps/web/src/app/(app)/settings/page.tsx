@@ -64,7 +64,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Configuración</h1>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Mi empresa</h1>
       <p className="mb-6 text-sm text-[var(--color-muted)]">Datos fiscales de tu organización.</p>
 
       {!canEdit && (
