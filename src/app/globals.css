@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* Acento azul petróleo */
+  --color-brand-50: #eef6f7;
+  --color-brand-100: #d4e9ec;
+  --color-brand-200: #a9d2d9;
+  --color-brand-500: #1f7a87;
+  --color-brand-600: #176674;
+  --color-brand-700: #12525e;
+  --color-brand-800: #0e414b;
+  --color-brand-900: #0b333b;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: #f6f7f8;
+  color: #1c2328;
+}
+
+/* Foco visible y consistente para navegación por teclado */
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

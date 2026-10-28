@@ -1,0 +1,150 @@
+// ContadorSmart · esquema mínimo del Paso 1 (versión simple, SQLite local).
+// Convenciones:
+//  - Importes en centavos (BigInt). Nunca se suma dinero con coma flotante.
+//  - Fechas contables como texto "YYYY-MM-DD" (sin zona horaria). Eventos técnicos en DateTime (UTC).
+//  - Los "enums" se guardan como String porque SQLite no los soporta; los valores válidos están en src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Study {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  users       User[]
+  taxpayers   Taxpayer[]
+  invoices    Invoice[]
+  auditEvents AuditEvent[]
+}
+
+model User {
+  id           String           @id @default(cuid())
+  studyId      String
+  study        Study            @relation(fields: [studyId], references: [id])
+  email        String           @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         String // ADMIN | CLIENTE
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  sessions     Session[]
+  accesses     TaxpayerAccess[]
+
+  @@index([studyId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Taxpayer {
+  id           String           @id @default(cuid())
+  studyId      String
+  study        Study            @relation(fields: [studyId], references: [id])
+  cuit         String // normalizado, 11 dígitos sin guiones
+  name         String
+  activity     String
+  regime       String           @default("MONOTRIBUTO")
+  categoryCode String? // categoría registrada (la carga el estudio)
+  startDate    String // YYYY-MM-DD
+  createdAt    DateTime         @default(now())
+  accesses     TaxpayerAccess[]
+  invoices     Invoice[]
+  coverage     DataCoverage?
+
+  @@unique([studyId, cuit])
+}
+
+model TaxpayerAccess {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  taxpayerId String
+  taxpayer   Taxpayer @relation(fields: [taxpayerId], references: [id])
+  status     String // APROBADO | PENDIENTE | REVOCADO
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, taxpayerId])
+}
+
+// Escala de categorías versionada. En esta versión solo hay una escala FICTICIA de prueba.
+model TaxScaleVersion {
+  id        String             @id @default(cuid())
+  name      String
+  source    String
+  status    String // DEMO | VALIDADA
+  validFrom String // YYYY-MM-DD
+  validTo   String? // YYYY-MM-DD
+  limits    TaxCategoryLimit[]
+}
+
+model TaxCategoryLimit {
+  id                String          @id @default(cuid())
+  scaleVersionId    String
+  scaleVersion      TaxScaleVersion @relation(fields: [scaleVersionId], references: [id])
+  code              String
+  annualLimitCents  BigInt
+
+  @@unique([scaleVersionId, code])
+}
+
+// Comprobantes / movimientos de facturación.
+model Invoice {
+  id            String   @id @default(cuid())
+  studyId       String
+  study         Study    @relation(fields: [studyId], references: [id])
+  taxpayerId    String
+  taxpayer      Taxpayer @relation(fields: [taxpayerId], references: [id])
+  issueDate     String // YYYY-MM-DD
+  recipientName String
+  description   String
+  amountCents   BigInt
+  currency      String   @default("ARS")
+  status        String // VERIFICADO | BORRADOR | RECHAZADO
+  source        String // DATOS_FICTICIOS | CARGA_MANUAL
+  environment   String   @default("DEMO")
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@index([taxpayerId, issueDate])
+}
+
+// Cobertura de datos: permite distinguir "cero" de "no hay información".
+model DataCoverage {
+  id         String   @id @default(cuid())
+  taxpayerId String   @unique
+  taxpayer   Taxpayer @relation(fields: [taxpayerId], references: [id])
+  fromDate   String // primer día con datos completos (YYYY-MM-DD)
+  complete   Boolean
+  source     String // texto visible: "Cargado por el estudio"
+  updatedAt  DateTime @updatedAt
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  studyId   String
+  study     Study    @relation(fields: [studyId], references: [id])
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([studyId, createdAt])
+}
