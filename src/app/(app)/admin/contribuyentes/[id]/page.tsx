@@ -5,9 +5,14 @@ import { prisma } from "@/lib/db";
 import { APP_MODE, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatARS } from "@/lib/money";
-import { formatDateAR, todayAR } from "@/lib/dates";
+import { formatDateAR, formatDateTimeAR, todayAR } from "@/lib/dates";
 import { Badge, Card, PageHeader } from "@/components/ui";
-import { CategoryForm, CoverageForm, InvoiceForm } from "@/components/admin/AdminForms";
+import { CoverageForm, InvoiceForm } from "@/components/admin/AdminForms";
+import { CategoryForm, DebtReviewForm, ObligationForm, ObligationStatusForm } from "@/components/fiscal/FiscalForms";
+import { DEBT_STATE, ScaleStatusBadge, amountText, debtStateText, formatPeriod, obligationBadge } from "@/components/fiscal/FiscalViews";
+import { findScaleForDate } from "@/modules/fiscal/scales";
+import { getCategoryHistory } from "@/modules/fiscal/category";
+import { getDebtSummary } from "@/modules/fiscal/obligations";
 
 export const metadata = { title: "Administrar contribuyente · ContadorSmart" };
 
@@ -27,16 +32,17 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
   });
   if (!taxpayer) notFound();
 
-  const [invoices, scale] = await Promise.all([
+  const today = todayAR();
+  const [invoices, scale, history, debt] = await Promise.all([
     prisma.invoice.findMany({
       where: { taxpayerId: taxpayer.id, environment: APP_MODE },
       orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }],
       take: 15,
     }),
-    prisma.taxScaleVersion.findFirst({ orderBy: { validFrom: "desc" }, include: { limits: true } }),
+    findScaleForDate(admin.studyId, today),
+    getCategoryHistory(taxpayer.id),
+    getDebtSummary(taxpayer.id, today),
   ]);
-  const codes = (scale?.limits ?? []).map((l) => l.code).sort();
-  const today = todayAR();
 
   return (
     <div className="space-y-6">
@@ -69,15 +75,36 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
         <div className="space-y-4">
           <Card>
             <h2 className="font-semibold text-slate-900">Categoría</h2>
-            <p className="mt-1 mb-4 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-slate-600">
               Actual: <strong>{taxpayer.categoryCode ?? "sin categoría"}</strong>
-              {scale && (
+              {scale ? (
                 <>
-                  {" "}· {scale.name} {scale.status === "DEMO" && <Badge tone="warning">Ficticia</Badge>}
+                  {" "}· escala vigente: {scale.name} <ScaleStatusBadge status={scale.status} />
                 </>
+              ) : (
+                <> · <span className="text-amber-800">no hay escala vigente hoy</span></>
               )}
             </p>
-            <CategoryForm taxpayerId={taxpayer.id} current={taxpayer.categoryCode} codes={codes} />
+            <p className="mt-1 mb-4 text-xs text-slate-500">
+              El sistema nunca cambia la categoría solo: la registra el estudio, con la fecha desde la que rige.
+            </p>
+            <CategoryForm taxpayerId={taxpayer.id} current={taxpayer.categoryCode} today={today} />
+            {history.length > 0 && (
+              <div className="mt-5 border-t border-slate-100 pt-4">
+                <h3 className="text-sm font-medium text-slate-700">Historial</h3>
+                <ul className="mt-2 divide-y divide-slate-100 text-sm">
+                  {history.map((h) => (
+                    <li key={h.id} className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:justify-between sm:gap-3">
+                      <span>
+                        <strong className="font-medium">{h.code ?? "Sin categoría"}</strong> desde el {formatDateAR(h.validFrom)}
+                        <span className="text-slate-500"> · {h.reason}</span>
+                      </span>
+                      <span className="tabular shrink-0 text-xs text-slate-500">{formatDateTimeAR(h.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -94,6 +121,61 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
           </Card>
         </div>
       </div>
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="font-semibold text-slate-900">Deudas y vencimientos</h2>
+            <p className="mt-1 text-sm text-slate-600">{debtStateText(debt)}</p>
+          </div>
+          <Badge tone={DEBT_STATE[debt.state].tone}>{DEBT_STATE[debt.state].label}</Badge>
+        </div>
+        {debt.review && (
+          <p className="mt-2 text-xs text-slate-500">
+            Última revisión: información al {formatDateAR(debt.review.asOfDate)} · {debt.review.source} ·{" "}
+            {formatDateTimeAR(debt.review.updatedAt)}
+            {debt.review.note ? ` · ${debt.review.note}` : ""}
+          </p>
+        )}
+
+        {debt.all.length > 0 && (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {debt.all.map((o) => (
+              <li key={o.id} className="py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    <strong className="font-medium text-slate-900">{o.concept}</strong>
+                    <span className="text-slate-600"> · {formatPeriod(o.period)} · vence {formatDateAR(o.dueDate)}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="tabular">{amountText(o)}</span>
+                    {obligationBadge(o, debt.today)}
+                  </span>
+                </div>
+                {o.statusNote && <p className="mt-1 text-xs text-slate-500">{o.statusNote}</p>}
+                <div className="mt-2">
+                  <ObligationStatusForm obligationId={o.id} status={o.status} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-5 grid gap-6 border-t border-slate-100 pt-5 lg:grid-cols-2">
+          <div>
+            <h3 className="font-medium text-slate-900">Cargar vencimiento</h3>
+            <p className="mt-1 mb-3 text-sm text-slate-600">Queda como “Cargado por el estudio”. El importe es opcional.</p>
+            <ObligationForm taxpayerId={taxpayer.id} currentMonth={today.slice(0, 7)} />
+          </div>
+          <div>
+            <h3 className="font-medium text-slate-900">Registrar revisión</h3>
+            <p className="mt-1 mb-3 text-sm text-slate-600">
+              Solo con una revisión “completa a esa fecha” el cliente ve “Sin deuda informada”. Sin revisión ve “No disponible”.
+            </p>
+            <DebtReviewForm taxpayerId={taxpayer.id} today={today} current={debt.review} />
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <h2 className="font-semibold text-slate-900">Usuarios con acceso</h2>
@@ -113,7 +195,13 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-slate-500">La aprobación y revocación de accesos se suma en el paso 2.</p>
+        <p className="mt-3 text-xs text-slate-500">
+          Los accesos se aprueban y revocan en{" "}
+          <Link href="/admin/accesos" className="font-medium text-brand-700 hover:underline">
+            Accesos
+          </Link>
+          .
+        </p>
       </Card>
 
       <Card className="p-0">

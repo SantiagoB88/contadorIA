@@ -18,5 +18,8 @@ Leé `docs/estado.md`, `docs/decisiones.md` y `docs/backlog.md`. Mantenelos actu
 - Importes en centavos `BigInt`; fechas contables como texto `YYYY-MM-DD` (hora de Argentina).
 - El estudio y los permisos salen de la sesión (`requireUser` / `requireAdmin` + `getAuthorizedTaxpayer`), nunca de parámetros del navegador.
 - Nunca mostrar un cero cuando faltan datos: usar la cobertura (`DataCoverage`).
+- La categoría registrada solo la cambia el estudio (`CategoryHistory`); el sistema nunca la cambia solo. La sugerencia por ingresos se muestra como "orientativa".
+- Deudas: una lista vacía no es "sin deuda". Solo una revisión del estudio con fecha (`DebtReview`) permite decir "Sin deuda informada".
+- Escalas por estudio, versionadas y sin superposiciones (`src/modules/fiscal/scales.ts`).
 - Interfaz en español de Argentina. Todo lo simulado se marca como DEMO.
 - Fuera de alcance por ahora: WhatsApp, IA, ARCA real, cobros.

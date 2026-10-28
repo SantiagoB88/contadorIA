@@ -25,6 +25,11 @@ import {
   type DraftInput,
 } from "@/modules/billing/service";
 import { buildInvoicePdf } from "@/modules/billing/pdf";
+import { COUNTED_INVOICE_STATUSES } from "@/lib/constants";
+import { computeMargin, getInvoices, suggestCategory, type PeriodMetric, type ScaleInfo } from "@/modules/dashboard/metrics";
+import { createScaleVersion, findScaleForDate, listScales, type ScaleInput } from "@/modules/fiscal/scales";
+import { getCategoryAt, setCategory } from "@/modules/fiscal/category";
+import { createObligation, getDebtSummary, updateObligationStatus } from "@/modules/fiscal/obligations";
 
 let passed = 0;
 async function check(name: string, fn: () => void | Promise<void>) {
@@ -425,6 +430,185 @@ async function main() {
     await revokeAccess(admin, access.id, "Prueba de revocación");
     assert.equal(await getAuthorizedInvoice(clienteA, draftId), null);
     await prisma.taxpayerAccess.update({ where: { id: access.id }, data: { status: "APROBADO" } });
+  });
+
+  console.log("Escalas y categorías");
+  const year = Number(today.slice(0, 4));
+  const elenaTp = await byName("Elena Paz");
+  const carla = await byName("Carla Ruiz");
+  const martin = await byName("Martín Gómez");
+
+  await check("cada estudio ve solo sus escalas", async () => {
+    const mine = await listScales(admin.studyId);
+    const others = await listScales(otherAdmin.studyId);
+    assert.equal(mine.length, 2);
+    assert.ok(mine.every((s) => s.studyId === admin.studyId));
+    assert.ok(others.every((s) => s.studyId === otherAdmin.studyId));
+  });
+  await check("la escala aplicada depende de la fecha de corte (borde de año)", async () => {
+    assert.equal((await findScaleForDate(admin.studyId, `${year}-01-01`))!.name, `Escala ficticia ${year}`);
+    assert.equal((await findScaleForDate(admin.studyId, `${year - 1}-12-31`))!.name, `Escala ficticia ${year - 1}`);
+    assert.equal(await findScaleForDate(admin.studyId, "2019-12-31"), null);
+  });
+  const scaleInput = (over: Partial<ScaleInput> = {}): ScaleInput => ({
+    name: "Escala de prueba",
+    source: "Valores de prueba",
+    status: "DEMO",
+    validFrom: `${year + 1}-01-01`,
+    validTo: "",
+    limits: { A: "1000", B: "2000", C: "3000" },
+    ...over,
+  });
+  await check("escala inválida: límites no crecientes, fecha imposible, validada sin fuente concreta", async () => {
+    const r1 = await createScaleVersion(admin, scaleInput({ limits: { A: "2000", B: "1000" } }));
+    assert.ok(!r1.ok && r1.fieldErrors?.["limit-B"]);
+    const r2 = await createScaleVersion(admin, scaleInput({ status: "VALIDADA", source: "ARCA" }));
+    assert.ok(!r2.ok && r2.fieldErrors?.source);
+    const r3 = await createScaleVersion(admin, scaleInput({ validFrom: "2026-02-30" }));
+    assert.ok(!r3.ok && r3.fieldErrors?.validFrom);
+    await assert.rejects(() => createScaleVersion(clienteA, scaleInput()));
+  });
+  await check("una versión nueva cierra la vigente y no se permiten superposiciones", async () => {
+    const created = await createScaleVersion(admin, scaleInput());
+    assert.equal(created.ok, true);
+    const current = await findScaleForDate(admin.studyId, today);
+    assert.equal(current!.validTo, `${year}-12-31`);
+    const clash = await createScaleVersion(admin, scaleInput({ validFrom: `${year}-06-01`, validTo: `${year}-07-01` }));
+    assert.ok(!clash.ok && clash.fieldErrors?.validFrom);
+    // El otro estudio no se entera.
+    assert.equal((await listScales(otherAdmin.studyId)).length, 2);
+    assert.equal((await findScaleForDate(otherAdmin.studyId, today))!.validTo, null);
+  });
+
+  const fakeRolling = (totalCents: bigint | null, coverage: PeriodMetric["coverage"] = "COMPLETA"): PeriodMetric => ({
+    key: "movil12",
+    label: "Últimos 12 meses",
+    description: "",
+    from: "2025-11-01",
+    to: "2026-10-28",
+    totalCents,
+    invoiceCount: 0,
+    coverage,
+  });
+  const fakeScale: ScaleInfo = {
+    id: "x",
+    name: "Prueba",
+    status: "DEMO",
+    source: "Prueba",
+    validFrom: "2020-01-01",
+    validTo: null,
+    limits: [
+      { code: "A", annualLimitCents: 800_000_000n },
+      { code: "B", annualLimitCents: 1_200_000_000n },
+      { code: "C", annualLimitCents: 1_700_000_000n },
+    ],
+  };
+  await check("margen firmado: el exceso se ve con su valor real", () => {
+    const m = computeMargin("A", "2020-01-01", fakeRolling(900_000_000n), fakeScale);
+    assert.ok(m.available);
+    assert.equal(m.marginCents, -100_000_000n);
+    assert.equal(m.percentTenths, 1125);
+    assert.equal(m.level, "SUPERADO");
+  });
+  await check("escala ausente, categoría sin límite o datos parciales → sin margen", () => {
+    assert.equal(computeMargin("A", "2020-01-01", fakeRolling(1n), null).available, false);
+    assert.equal(computeMargin("K", "2020-01-01", fakeRolling(1n), fakeScale).available, false);
+    assert.equal(computeMargin("A", "2020-01-01", fakeRolling(1n, "PARCIAL"), fakeScale).available, false);
+    assert.equal(computeMargin(null, "2020-01-01", fakeRolling(1n), fakeScale).available, false);
+  });
+  await check("categoría orientativa por ingresos y sus casos insuficientes", () => {
+    assert.deepEqual(suggestCategory("2020-01-01", fakeRolling(1_200_000_000n), fakeScale), { available: true, code: "B", aboveTop: false });
+    assert.deepEqual(suggestCategory("2020-01-01", fakeRolling(1_200_000_001n), fakeScale), { available: true, code: "C", aboveTop: false });
+    assert.deepEqual(suggestCategory("2020-01-01", fakeRolling(2_000_000_000n), fakeScale), { available: true, code: null, aboveTop: true });
+    assert.equal(suggestCategory("2026-03-01", fakeRolling(1n), fakeScale).available, false); // actividad reciente
+    assert.equal(suggestCategory("2020-01-01", fakeRolling(null, "SIN_DATOS"), fakeScale).available, false);
+    assert.equal(suggestCategory("2020-01-01", fakeRolling(1n), null).available, false);
+  });
+  await check("la categoría registrada no cambia sola aunque se supere el límite", async () => {
+    const data = await getDashboardData(bruno, today);
+    assert.ok(data.margin.available && data.margin.level === "SUPERADO");
+    assert.ok(data.category.suggestion.available && data.category.suggestion.code !== "C");
+    assert.equal((await byName("Bruno Díaz")).categoryCode, "C");
+  });
+  await check("historial: la categoría de cada fecha (Elena E → F)", async () => {
+    assert.equal((await getCategoryAt(elenaTp, today)).code, "F");
+    const sevenMonthsAgo = new Date(Date.UTC(year, Number(today.slice(5, 7)) - 1 - 7, 15)).toISOString().slice(0, 10);
+    assert.equal((await getCategoryAt(elenaTp, sevenMonthsAgo)).code, "E");
+  });
+  await check("registrar categoría: valida, guarda historial y actualiza la actual", async () => {
+    assert.ok(!(await setCategory(admin, carla.id, "Z", today, "Prueba")).ok);
+    assert.ok(!(await setCategory(admin, carla.id, "B", addDaysYmd(today, 1), "Prueba")).ok);
+    assert.ok(!(await setCategory(admin, carla.id, "B", today, "")).ok);
+    assert.ok(!(await setCategory(otherAdmin, carla.id, "B", today, "Prueba")).ok);
+    await assert.rejects(() => setCategory(clienteA, carla.id, "B", today, "Prueba"));
+    const r = await setCategory(admin, carla.id, "B", today, "Recategorización de prueba");
+    assert.ok(r.ok, r.message);
+    assert.equal((await byName("Carla Ruiz")).categoryCode, "B");
+    assert.equal((await getCategoryAt(carla, addDaysYmd(today, -1))).code, "A");
+    assert.ok(!(await setCategory(admin, carla.id, "B", today, "Otra vez")).ok);
+  });
+
+  console.log("Fechas límite y conciliación");
+  await check("períodos a ambos lados del cambio de año y año bisiesto", () => {
+    assert.deepEqual(periodRanges("2026-12-31").anual, { from: "2026-01-01", to: "2026-12-31" });
+    assert.deepEqual(periodRanges("2027-01-01").mensual, { from: "2027-01-01", to: "2027-01-01" });
+    assert.equal(periodRanges("2027-01-01").movil12.from, "2026-02-01");
+    assert.equal(periodRanges("2027-01-01").semestral.from, "2027-01-01");
+    assert.equal(periodRanges("2028-02-29").movil12.from, "2027-03-01");
+  });
+  for (const tp of [ana, bruno, martin]) {
+    await check(`cada total del tablero coincide con sus movimientos (${tp.name})`, async () => {
+      const data = await getDashboardData(tp, today);
+      for (const period of data.periods) {
+        const rows = (await getInvoices(tp.id, period.from, period.to)).filter((i) => COUNTED_INVOICE_STATUSES.includes(i.status));
+        assert.equal(period.totalCents, rows.reduce((a, i) => a + i.amountCents, 0n), period.key);
+        assert.equal(period.invoiceCount, rows.length, period.key);
+      }
+      const chartTotal = data.chart.reduce((a, b) => a + b.totalCents, 0n);
+      assert.equal(chartTotal, data.periods.find((p) => p.key === "movil12")!.totalCents);
+    });
+  }
+
+  console.log("Deudas y vencimientos");
+  await check("sin revisión ni datos → No disponible, nunca 'sin deuda'", async () => {
+    assert.equal((await getDebtSummary(martin.id, today)).state, "SIN_DATOS");
+  });
+  await check("deuda informada: suma solo vencidas con importe; las próximas no suman", async () => {
+    const d = await getDebtSummary(bruno.id, today);
+    assert.equal(d.state, "DEUDA_INFORMADA");
+    assert.equal(d.overdue.length, 3);
+    assert.equal(d.overdueTotalCents, 9_780_000n);
+    assert.equal(d.overdueWithoutAmount, 1);
+    assert.equal(d.upcoming.length, 1);
+  });
+  await check("revisada sin vencimientos → sin deuda informada; pago informado → pendiente de revisión", async () => {
+    assert.equal((await getDebtSummary(ana.id, today)).state, "SIN_DEUDA_INFORMADA");
+    assert.equal((await getDebtSummary(carla.id, today)).state, "SIN_DEUDA_INFORMADA");
+    assert.equal((await getDebtSummary(elenaTp.id, today)).state, "PENDIENTE_REVISION");
+  });
+  await check("un vencimiento de hoy no es deuda vencida; al día siguiente sí", async () => {
+    const due = (await getDebtSummary(ana.id, today)).upcoming[0].dueDate;
+    assert.equal((await getDebtSummary(ana.id, due)).overdue.length, 0);
+    assert.equal((await getDebtSummary(ana.id, addDaysYmd(due, 1))).overdue.length, 1);
+  });
+  await check("cargar vencimientos: validaciones y aislamiento", async () => {
+    const bad = await createObligation(admin, martin.id, { concept: "X", period: "2026-13", dueDate: "2026-02-30", amount: "-5" });
+    assert.ok(!bad.ok && bad.fieldErrors?.period && bad.fieldErrors?.dueDate && bad.fieldErrors?.amount && bad.fieldErrors?.concept);
+    const input = { concept: "Cuota mensual", period: today.slice(0, 7), dueDate: addDaysYmd(today, -1), amount: "" };
+    assert.ok(!(await createObligation(otherAdmin, martin.id, input)).ok);
+    await assert.rejects(() => createObligation(clienteA, martin.id, input));
+    assert.ok((await createObligation(admin, martin.id, input)).ok);
+    // Hay un vencimiento pero ninguna revisión: queda pendiente de revisión, no "sin deuda".
+    assert.equal((await getDebtSummary(martin.id, today)).state, "PENDIENTE_REVISION");
+  });
+  await check("verificar un pago exige evidencia y lo saca de la deuda", async () => {
+    const target = (await getDebtSummary(bruno.id, today)).overdue[0];
+    assert.ok(!(await updateObligationStatus(admin, target.id, "PAGO_VERIFICADO", "")).ok);
+    assert.ok(!(await updateObligationStatus(otherAdmin, target.id, "PAGO_VERIFICADO", "Comprobante")).ok);
+    assert.ok((await updateObligationStatus(admin, target.id, "PAGO_VERIFICADO", "Comprobante revisado")).ok);
+    const d = await getDebtSummary(bruno.id, today);
+    assert.equal(d.overdue.length, 2);
+    assert.equal(d.overdueTotalCents, 4_890_000n);
   });
 
   console.log(`\n${passed} verificaciones OK`);

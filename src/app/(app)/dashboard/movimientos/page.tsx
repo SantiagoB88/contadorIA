@@ -4,7 +4,7 @@ import { COUNTED_INVOICE_STATUSES, SOURCE_LABEL, STATUS_LABEL } from "@/lib/cons
 import { formatARS } from "@/lib/money";
 import { formatDateAR, isValidYmd, todayAR } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
-import { getInvoices, periodRanges } from "@/modules/dashboard/metrics";
+import { getInvoices, periodRanges, rangeCoverage } from "@/modules/dashboard/metrics";
 import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { Badge, Card, EmptyState, Notice, PageHeader, inputClass, labelClass } from "@/components/ui";
 
@@ -52,7 +52,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   const swapped = from > to;
   if (swapped) [from, to] = [to, from];
 
-  const invoices = await getInvoices(taxpayer.id, from, to);
+  const [invoices, coverage] = await Promise.all([getInvoices(taxpayer.id, from, to), rangeCoverage(taxpayer, from, to)]);
   const counted = invoices.filter((i) => COUNTED_INVOICE_STATUSES.includes(i.status));
   const total = counted.reduce((acc, i) => acc + i.amountCents, 0n);
 
@@ -94,6 +94,14 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
           </p>
         )}
       </Card>
+
+      {coverage !== "COMPLETA" && (
+        <Notice tone="warning" title="Información incompleta para este rango">
+          {coverage === "SIN_DATOS"
+            ? "El estudio todavía no cargó datos para estas fechas: el total no representa la facturación real."
+            : "Falta información de una parte del rango: el total puede ser menor que la facturación real."}
+        </Notice>
+      )}
 
       {invoices.length === 0 ? (
         <EmptyState title="No hay comprobantes en este rango">
@@ -143,7 +151,8 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
             </table>
           </div>
           <p className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-            Los borradores y rechazados se muestran tachados y no suman en el total ni en el tablero.
+            Este total es el mismo que muestra el tablero para estas fechas: suman los comprobantes verificados y, solo en
+            la demo, las facturas emitidas en simulación. Los borradores y rechazados se muestran tachados y no suman.
           </p>
         </Card>
       )}

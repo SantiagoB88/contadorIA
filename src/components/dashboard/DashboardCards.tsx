@@ -3,6 +3,8 @@ import { Badge, Card, type Tone } from "@/components/ui";
 import { formatARS } from "@/lib/money";
 import { formatDateAR } from "@/lib/dates";
 import type { AlertLevel, MarginInfo, MonthBar, PeriodMetric } from "@/modules/dashboard/metrics";
+import type { DebtSummary } from "@/modules/fiscal/obligations";
+import { DEBT_STATE, debtStateText } from "@/components/fiscal/FiscalViews";
 
 const compact = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -43,11 +45,20 @@ const LEVELS: Record<AlertLevel, { label: string; tone: Tone; bar: string }> = {
   SUPERADO: { label: "Límite superado", tone: "danger", bar: "bg-red-600" },
 };
 
-function formatPercent(tenths: number): string {
+export function formatPercent(tenths: number): string {
   return `${(tenths / 10).toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
 }
 
-export function MarginCard({ margin }: { margin: MarginInfo }) {
+function DetailLink({ href }: { href?: string }) {
+  if (!href) return null;
+  return (
+    <Link href={href} className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">
+      Ver cómo se calcula y la escala →
+    </Link>
+  );
+}
+
+export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailHref?: string }) {
   if (!margin.available) {
     return (
       <Card>
@@ -59,6 +70,7 @@ export function MarginCard({ margin }: { margin: MarginInfo }) {
           Categoría registrada: <strong>{margin.categoryCode ?? "sin cargar"}</strong>
         </p>
         <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{margin.reason}</p>
+        <DetailLink href={detailHref} />
       </Card>
     );
   }
@@ -73,7 +85,8 @@ export function MarginCard({ margin }: { margin: MarginInfo }) {
         <div>
           <h2 className="font-semibold text-slate-900">Margen de categoría</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Categoría registrada <strong>{margin.categoryCode}</strong> · últimos 12 meses
+            Categoría registrada <strong>{margin.categoryCode}</strong> · {formatDateAR(margin.referenceFrom)} al{" "}
+            {formatDateAR(margin.referenceTo)}
           </p>
         </div>
         <Badge tone={level.tone}>{level.label}</Badge>
@@ -124,6 +137,7 @@ export function MarginCard({ margin }: { margin: MarginInfo }) {
       <p className="mt-4 text-xs text-slate-500">
         Es una referencia por ingresos. No reemplaza la recategorización oficial, que considera otros parámetros.
       </p>
+      <DetailLink href={detailHref} />
     </Card>
   );
 }
@@ -191,6 +205,62 @@ export function MonthlyChart({ bars }: { bars: MonthBar[] }) {
           ))}
         </tbody>
       </table>
+    </Card>
+  );
+}
+
+export function DebtCard({ debt, href }: { debt: DebtSummary; href: string }) {
+  const state = DEBT_STATE[debt.state];
+  return (
+    <Card className="flex flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h2 className="font-semibold text-slate-900">Deudas</h2>
+        <Badge tone={state.tone}>{state.label}</Badge>
+      </div>
+      {debt.overdue.length > 0 && (
+        <p className="tabular mt-3 text-2xl font-semibold text-red-700">{formatARS(debt.overdueTotalCents)}</p>
+      )}
+      <p className="mt-2 text-sm text-slate-600">{debtStateText(debt)}</p>
+      <p className="mt-2 text-xs text-slate-500">
+        {debt.review ? `Información al ${formatDateAR(debt.review.asOfDate)} · ${debt.review.source}` : "Sin revisión del estudio"}
+        {debt.overdue.length > 0 && " · no incluye intereses"}
+      </p>
+      <div className="mt-auto pt-3">
+        <Link href={href} className="text-sm font-medium text-brand-700 hover:underline">
+          Ver deudas y vencimientos →
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+export function UpcomingCard({ debt, href }: { debt: DebtSummary; href: string }) {
+  const next = debt.upcoming.slice(0, 3);
+  return (
+    <Card className="flex flex-col">
+      <h2 className="font-semibold text-slate-900">Próximos vencimientos</h2>
+      {next.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-600">
+          {debt.state === "SIN_DATOS" ? "El estudio todavía no cargó vencimientos." : "No hay vencimientos pendientes cargados."}
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          {next.map((o) => (
+            <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span>
+                <span className="tabular font-medium text-slate-900">{formatDateAR(o.dueDate)}</span>
+                <span className="text-slate-600"> · {o.concept}</span>
+              </span>
+              <span className="tabular text-slate-800">{o.amountCents === null ? "Importe no informado" : formatARS(o.amountCents)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-auto pt-3">
+        <Link href={href} className="text-sm font-medium text-brand-700 hover:underline">
+          Ver todos →
+        </Link>
+      </div>
     </Card>
   );
 }

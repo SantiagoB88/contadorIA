@@ -6,6 +6,8 @@ import { formatCuit } from "@/lib/cuit";
 import { formatARS } from "@/lib/money";
 import { formatDateTimeAR, todayAR } from "@/lib/dates";
 import { getDashboardData, type AlertLevel } from "@/modules/dashboard/metrics";
+import { getDebtSummary } from "@/modules/fiscal/obligations";
+import { DEBT_STATE } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, PageHeader, type Tone } from "@/components/ui";
 
 export const metadata = { title: "Backoffice · ContadorSmart" };
@@ -29,7 +31,10 @@ export default async function AdminPage() {
 
   // Con pocos contribuyentes alcanza con calcular uno por uno usando el mismo servicio del tablero.
   const rows = await Promise.all(
-    taxpayers.map(async (t) => ({ taxpayer: t, data: await getDashboardData(t, today) })),
+    taxpayers.map(async (t) => {
+      const [data, debt] = await Promise.all([getDashboardData(t, today), getDebtSummary(t.id, today)]);
+      return { taxpayer: t, data, debt };
+    }),
   );
 
   const actorIds = [...new Set(events.map((e) => e.actorId).filter((id): id is string => !!id))];
@@ -38,6 +43,7 @@ export default async function AdminPage() {
 
   const withAlerts = rows.filter((r) => r.data.margin.available && r.data.margin.level !== "NORMAL").length;
   const incomplete = rows.filter((r) => !r.data.coverage?.complete).length;
+  const withDebt = rows.filter((r) => r.debt.state === "DEUDA_INFORMADA").length;
 
   return (
     <div className="space-y-6">
@@ -55,6 +61,7 @@ export default async function AdminPage() {
         <Card>
           <p className="text-sm text-slate-600">Con datos incompletos</p>
           <p className="tabular mt-1 text-2xl font-semibold">{incomplete}</p>
+          <p className="mt-1 text-xs text-slate-500">{withDebt} con deuda informada</p>
         </Card>
         <Card>
           <p className="text-sm text-slate-600">Solicitudes por validar</p>
@@ -73,21 +80,22 @@ export default async function AdminPage() {
             <h2 className="font-semibold text-slate-900">Contribuyentes</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-medium">Nombre</th>
                   <th scope="col" className="px-4 py-3 font-medium">CUIT</th>
                   <th scope="col" className="px-4 py-3 font-medium">Cat.</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Últimos 12 meses</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Estado</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Límite</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Deuda</th>
                   <th scope="col" className="px-4 py-3 font-medium">
                     <span className="sr-only">Acciones</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map(({ taxpayer, data }) => {
+                {rows.map(({ taxpayer, data, debt }) => {
                   const rolling = data.periods.find((p) => p.key === "movil12")!;
                   return (
                     <tr key={taxpayer.id}>
@@ -104,6 +112,9 @@ export default async function AdminPage() {
                         ) : (
                           <Badge tone="warning">Info. incompleta</Badge>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge tone={DEBT_STATE[debt.state].tone}>{DEBT_STATE[debt.state].label}</Badge>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         <Link

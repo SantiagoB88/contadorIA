@@ -10,10 +10,13 @@ export function AppNav({ isAdmin, orientation }: { isAdmin: boolean; orientation
   const items: Item[] = [
     { href: "/dashboard", label: "Inicio", exact: true },
     { href: "/dashboard/movimientos", label: "Movimientos" },
+    { href: "/dashboard/categoria", label: "Categoría" },
+    { href: "/dashboard/deudas", label: "Deudas" },
     { href: "/facturas", label: "Facturación" },
     ...(isAdmin
       ? [
           { href: "/admin", label: "Backoffice", exact: true },
+          { href: "/admin/escalas", label: "Escalas" },
           { href: "/admin/accesos", label: "Accesos" },
         ]
       : []),

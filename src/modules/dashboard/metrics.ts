@@ -11,10 +11,12 @@ import {
   todayAR,
   ymd,
 } from "@/lib/dates";
+import { findScaleForDate, sortedLimits } from "@/modules/fiscal/scales";
+import { getCategoryAt } from "@/modules/fiscal/category";
 
 // Servicio común de indicadores. Todo se calcula en el servidor; las pantallas solo muestran.
 // Versión de reglas que se informa junto con cada respuesta.
-export const RULES_VERSION = "demo-2026.10-v1";
+export const RULES_VERSION = "demo-2026.10-v2";
 
 export type CoverageState = "COMPLETA" | "PARCIAL" | "SIN_DATOS";
 
@@ -39,12 +41,34 @@ export type MonthBar = {
 
 export type AlertLevel = "NORMAL" | "PREVENTIVO" | "PROXIMO" | "SUPERADO";
 
+export type ScaleInfo = {
+  id: string;
+  name: string;
+  status: string;
+  source: string;
+  validFrom: string;
+  validTo: string | null;
+  limits: { code: string; annualLimitCents: bigint }[]; // ordenados A, B, C…
+};
+
+// Sugerencia por ingresos: nunca reemplaza ni cambia la categoría registrada.
+export type CategorySuggestion = { available: true; code: string | null; aboveTop: boolean } | { available: false; reason: string };
+
+export type CategoryInfo = {
+  code: string | null; // categoría registrada a la fecha de corte
+  since: string | null; // desde cuándo rige (null si no hay historial)
+  scale: ScaleInfo | null; // escala vigente a la fecha de corte
+  suggestion: CategorySuggestion;
+};
+
 export type MarginInfo =
   | {
       available: true;
       categoryCode: string;
       scaleName: string;
       scaleStatus: string;
+      referenceFrom: string;
+      referenceTo: string;
       limitCents: bigint;
       incomeCents: bigint;
       marginCents: bigint; // positivo = margen disponible; negativo = exceso
@@ -62,10 +86,11 @@ export type DashboardData = {
   periods: PeriodMetric[];
   chart: MonthBar[];
   margin: MarginInfo;
+  category: CategoryInfo;
   coverage: { source: string; fromDate: string; complete: boolean; updatedAt: Date } | null;
 };
 
-type TaxpayerInput = { id: string; categoryCode: string | null; startDate: string };
+type TaxpayerInput = { id: string; studyId: string; categoryCode: string | null; startDate: string };
 type CoverageRow = { fromDate: string; complete: boolean; source: string; updatedAt: Date } | null;
 
 /**
@@ -103,7 +128,7 @@ export function periodRanges(cutDate: string) {
   };
 }
 
-function coverageFor(coverage: CoverageRow, taxpayerStart: string, from: string, to: string): CoverageState {
+export function coverageFor(coverage: CoverageRow, taxpayerStart: string, from: string, to: string): CoverageState {
   if (!coverage) return "SIN_DATOS";
   // Antes del inicio de actividad no hay nada que facturar: no cuenta como dato faltante.
   const effectiveFrom = taxpayerStart > from ? taxpayerStart : from;
@@ -124,7 +149,7 @@ export function alertLevel(incomeCents: bigint, limitCents: bigint): AlertLevel 
 export async function getDashboardData(taxpayer: TaxpayerInput, cutDate: string): Promise<DashboardData> {
   const ranges = periodRanges(cutDate);
 
-  const [coverage, invoices, scale] = await Promise.all([
+  const [coverage, invoices, scaleRow, category] = await Promise.all([
     prisma.dataCoverage.findUnique({ where: { taxpayerId: taxpayer.id } }),
     prisma.invoice.findMany({
       where: {
@@ -135,12 +160,20 @@ export async function getDashboardData(taxpayer: TaxpayerInput, cutDate: string)
       },
       select: { issueDate: true, amountCents: true },
     }),
-    prisma.taxScaleVersion.findFirst({
-      where: { validFrom: { lte: cutDate }, OR: [{ validTo: null }, { validTo: { gte: cutDate } }] },
-      orderBy: { validFrom: "desc" },
-      include: { limits: true },
-    }),
+    findScaleForDate(taxpayer.studyId, cutDate),
+    getCategoryAt(taxpayer, cutDate),
   ]);
+  const scale: ScaleInfo | null = scaleRow
+    ? {
+        id: scaleRow.id,
+        name: scaleRow.name,
+        status: scaleRow.status,
+        source: scaleRow.source,
+        validFrom: scaleRow.validFrom,
+        validTo: scaleRow.validTo,
+        limits: sortedLimits(scaleRow.limits).map((l) => ({ code: l.code, annualLimitCents: l.annualLimitCents })),
+      }
+    : null;
 
   const sumRange = (from: string, to: string) => {
     let total = 0n;
@@ -191,7 +224,7 @@ export async function getDashboardData(taxpayer: TaxpayerInput, cutDate: string)
   });
 
   const rolling = periods.find((p) => p.key === "movil12")!;
-  const margin = computeMargin(taxpayer, rolling, scale);
+  const margin = computeMargin(category.code, taxpayer.startDate, rolling, scale);
 
   return {
     cutDate,
@@ -201,22 +234,21 @@ export async function getDashboardData(taxpayer: TaxpayerInput, cutDate: string)
     periods,
     chart,
     margin,
+    category: { code: category.code, since: category.since, scale, suggestion: suggestCategory(taxpayer.startDate, rolling, scale) },
     coverage: coverage
       ? { source: coverage.source, fromDate: coverage.fromDate, complete: coverage.complete, updatedAt: coverage.updatedAt }
       : null,
   };
 }
 
-type ScaleWithLimits = {
-  name: string;
-  status: string;
-  limits: { code: string; annualLimitCents: bigint }[];
-} | null;
-
-function computeMargin(taxpayer: TaxpayerInput, rolling: PeriodMetric, scale: ScaleWithLimits): MarginInfo {
-  const categoryCode = taxpayer.categoryCode;
+export function computeMargin(
+  categoryCode: string | null,
+  startDate: string,
+  rolling: PeriodMetric,
+  scale: ScaleInfo | null,
+): MarginInfo {
   if (!categoryCode) {
-    return { available: false, categoryCode: null, reason: "No hay una categoría registrada. El estudio debe cargarla." };
+    return { available: false, categoryCode: null, reason: "No hay una categoría registrada a la fecha de corte. El estudio debe cargarla." };
   }
   if (!scale) {
     return { available: false, categoryCode, reason: "No hay una escala de categorías vigente para la fecha de corte." };
@@ -235,7 +267,7 @@ function computeMargin(taxpayer: TaxpayerInput, rolling: PeriodMetric, scale: Sc
 
   const income = rolling.totalCents;
   const note =
-    taxpayer.startDate > rolling.from
+    startDate > rolling.from
       ? "La actividad empezó hace menos de 12 meses: el margen es solo orientativo. Consultá con el estudio."
       : null;
 
@@ -244,6 +276,8 @@ function computeMargin(taxpayer: TaxpayerInput, rolling: PeriodMetric, scale: Sc
     categoryCode,
     scaleName: scale.name,
     scaleStatus: scale.status,
+    referenceFrom: rolling.from,
+    referenceTo: rolling.to,
     limitCents: limit.annualLimitCents,
     incomeCents: income,
     marginCents: limit.annualLimitCents - income,
@@ -253,10 +287,35 @@ function computeMargin(taxpayer: TaxpayerInput, rolling: PeriodMetric, scale: Sc
   };
 }
 
+/**
+ * Categoría orientativa por ingresos: la menor categoría de la escala cuyo límite cubre los ingresos de 12 meses.
+ * Si falta historial, la actividad es reciente o no hay escala, no se sugiere nada (no se anualiza).
+ */
+export function suggestCategory(startDate: string, rolling: PeriodMetric, scale: ScaleInfo | null): CategorySuggestion {
+  if (!scale || scale.limits.length === 0) {
+    return { available: false, reason: "No hay una escala vigente a la fecha de corte." };
+  }
+  if (rolling.coverage !== "COMPLETA" || rolling.totalCents === null) {
+    return { available: false, reason: "Faltan datos de los últimos 12 meses." };
+  }
+  if (startDate > rolling.from) {
+    return { available: false, reason: "La actividad tiene menos de 12 meses: no hay historial suficiente." };
+  }
+  const income = rolling.totalCents;
+  const fit = scale.limits.find((l) => income <= l.annualLimitCents);
+  return { available: true, code: fit?.code ?? null, aboveTop: !fit };
+}
+
 /** Movimientos de un contribuyente en un rango (incluye borradores y rechazos, marcados). */
 export async function getInvoices(taxpayerId: string, from: string, to: string) {
   return prisma.invoice.findMany({
     where: { taxpayerId, environment: APP_MODE, issueDate: { gte: from, lte: to } },
     orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }],
   });
+}
+
+/** Cobertura de datos de un rango cualquiera (para explicar el detalle de movimientos). */
+export async function rangeCoverage(taxpayer: { id: string; startDate: string }, from: string, to: string): Promise<CoverageState> {
+  const coverage = await prisma.dataCoverage.findUnique({ where: { taxpayerId: taxpayer.id } });
+  return coverageFor(coverage, taxpayer.startDate, from, to);
 }

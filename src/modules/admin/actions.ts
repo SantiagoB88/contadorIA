@@ -113,42 +113,6 @@ export async function addInvoiceAction(_prev: FormState, formData: FormData): Pr
   return { ok: true, message: `Comprobante cargado: ${formatARS(invoice.amountCents)} del ${formatDateAR(invoice.issueDate)}.` };
 }
 
-export async function updateCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const admin = await requireAdmin();
-  const taxpayerId = String(formData.get("taxpayerId") ?? "");
-  const code = String(formData.get("categoryCode") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-  const values = { categoryCode: code, reason };
-
-  const taxpayer = await findStudyTaxpayer(admin.studyId, taxpayerId);
-  if (!taxpayer) return { ok: false, message: "No encontramos el contribuyente en tu estudio." };
-
-  const fieldErrors: Record<string, string> = {};
-  if (code !== "") {
-    const exists = await prisma.taxCategoryLimit.findFirst({ where: { code } });
-    if (!exists) fieldErrors.categoryCode = "Elegí una categoría de la escala.";
-  }
-  if (reason.length < 3) fieldErrors.reason = "Indicá el motivo del cambio (queda en la auditoría).";
-  if (reason.length > 300) fieldErrors.reason = "Máximo 300 caracteres.";
-  if (Object.keys(fieldErrors).length > 0) return { ok: false, message: "Revisá los campos marcados.", fieldErrors, values };
-
-  const newCode = code === "" ? null : code;
-  if (newCode === taxpayer.categoryCode) return { ok: false, message: "La categoría elegida es la misma que la actual.", values };
-
-  await prisma.taxpayer.update({ where: { id: taxpayer.id }, data: { categoryCode: newCode } });
-  await audit({
-    studyId: admin.studyId,
-    actorId: admin.id,
-    action: "CATEGORY_UPDATE",
-    entity: "Taxpayer",
-    entityId: taxpayer.id,
-    detail: `${taxpayer.categoryCode ?? "sin categoría"} → ${newCode ?? "sin categoría"}. Motivo: ${reason}`,
-  });
-
-  refresh(taxpayer.id);
-  return { ok: true, message: `Categoría actualizada a ${newCode ?? "sin categoría"}.` };
-}
-
 export async function updateCoverageAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const taxpayerId = String(formData.get("taxpayerId") ?? "");

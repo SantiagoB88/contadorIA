@@ -7,7 +7,10 @@
 - [ ] Rol **operador** con clientes asignados (quedó fuera de la entrega 2 para mantenerla simple)
 - [x] Facturador demo con idempotencia y PDF sin validez fiscal
 - [ ] Facturador: notas de crédito, editar/eliminar receptores guardados, otros puntos de venta, umbral de identificación del consumidor final
-- [ ] Escalas versionadas editables, deudas y vencimientos
+- [x] Escalas versionadas editables, historial de categoría, deudas y vencimientos
+- [ ] Deudas: que el cliente pueda informar un pago con un comprobante adjunto (necesita documentos, entrega 5)
+- [ ] Escalas: borrar una versión cargada por error (hoy se corrige editándola)
+- [ ] Generador de volumen (50 clientes, 5.000 movimientos) para probar rendimiento
 - [ ] Solicitudes al contador, mensajes, notas internas, documentos
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración
 - [ ] Tests E2E (Playwright) y revisión visual a 390 / 768 / 1440 px

@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import {
   addInvoiceAction,
-  updateCategoryAction,
   updateCoverageAction,
   type FormState,
 } from "@/modules/admin/actions";
@@ -87,64 +86,6 @@ export function InvoiceForm({ taxpayerId, today }: { taxpayerId: string; today: 
         <FieldError id="description-error" message={e.description} />
       </div>
       <SubmitButton pendingText="Guardando…">Cargar comprobante</SubmitButton>
-    </form>
-  );
-}
-
-export function CategoryForm({
-  taxpayerId,
-  current,
-  codes,
-}: {
-  taxpayerId: string;
-  current: string | null;
-  codes: string[];
-}) {
-  const [state, action] = useActionState<FormState, FormData>(updateCategoryAction, {});
-  const v = state.ok ? {} : (state.values ?? {});
-  const e = state.fieldErrors ?? {};
-
-  return (
-    <form action={action} className="space-y-4" noValidate>
-      <input type="hidden" name="taxpayerId" value={taxpayerId} />
-      <Feedback state={state} />
-      <div>
-        <label htmlFor="categoryCode" className={labelClass}>
-          Categoría registrada
-        </label>
-        <select
-          id="categoryCode"
-          name="categoryCode"
-          defaultValue={v.categoryCode ?? current ?? ""}
-          aria-invalid={!!e.categoryCode}
-          className={inputClass}
-        >
-          <option value="">Sin categoría</option>
-          {codes.map((c) => (
-            <option key={c} value={c}>
-              Categoría {c}
-            </option>
-          ))}
-        </select>
-        <FieldError id="categoryCode-error" message={e.categoryCode} />
-      </div>
-      <div>
-        <label htmlFor="reason" className={labelClass}>
-          Motivo
-        </label>
-        <input
-          id="reason"
-          name="reason"
-          maxLength={300}
-          placeholder="Ej.: recategorización informada por el cliente"
-          defaultValue={v.reason ?? ""}
-          aria-invalid={!!e.reason}
-          aria-describedby={e.reason ? "reason-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="reason-error" message={e.reason} />
-      </div>
-      <SubmitButton pendingText="Guardando…">Guardar categoría</SubmitButton>
     </form>
   );
 }

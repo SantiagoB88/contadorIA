@@ -58,7 +58,55 @@ async function upgradeEntrega2() {
   console.log("[ContadorSmart] Base actualizada para la entrega 2.");
 }
 
-upgradeEntrega2()
+async function upgradeEntrega4() {
+  const key = "upgrade-entrega4";
+  if (await prisma.appMeta.findUnique({ where: { key } })) return;
+  if ((await prisma.study.count()) === 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Las escalas pasan a ser de cada estudio. Las que no tenían estudio quedan en el primero
+    //    y se copian a los demás estudios que no tengan ninguna.
+    const studies = await tx.study.findMany({ orderBy: { createdAt: "asc" } });
+    const orphans = await tx.taxScaleVersion.findMany({ where: { studyId: null }, include: { limits: true } });
+    if (orphans.length > 0) {
+      for (const other of studies.slice(1)) {
+        if ((await tx.taxScaleVersion.count({ where: { studyId: other.id } })) > 0) continue;
+        for (const scale of orphans) {
+          await tx.taxScaleVersion.create({
+            data: {
+              studyId: other.id,
+              name: scale.name,
+              source: scale.source,
+              status: scale.status,
+              validFrom: scale.validFrom,
+              validTo: scale.validTo,
+              limits: { create: scale.limits.map((l) => ({ code: l.code, annualLimitCents: l.annualLimitCents })) },
+            },
+          });
+        }
+      }
+      await tx.taxScaleVersion.updateMany({ where: { studyId: null }, data: { studyId: studies[0].id } });
+    }
+
+    // 2. Historial de categoría: la categoría actual rige desde el inicio de actividad.
+    const taxpayers = await tx.taxpayer.findMany({ where: { categoryCode: { not: null }, categoryHistory: { none: {} } } });
+    for (const t of taxpayers) {
+      await tx.categoryHistory.create({
+        data: { taxpayerId: t.id, code: t.categoryCode, validFrom: t.startDate, reason: "Categoría registrada antes del historial" },
+      });
+    }
+
+    await tx.appMeta.create({ data: { key, value: new Date().toISOString() } });
+  });
+  console.log("[ContadorSmart] Base actualizada para la entrega 4.");
+}
+
+async function main() {
+  await upgradeEntrega2();
+  await upgradeEntrega4();
+}
+
+main()
   .catch((err) => {
     console.error("[ContadorSmart] No se pudo actualizar la base:", err);
     process.exitCode = 1;

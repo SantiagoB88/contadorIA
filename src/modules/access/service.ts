@@ -115,6 +115,17 @@ export async function approveRequest(
           startDate: request.declaredStartDate,
         },
       });
+      if (taxpayer.categoryCode) {
+        await tx.categoryHistory.create({
+          data: {
+            taxpayerId: taxpayer.id,
+            code: taxpayer.categoryCode,
+            validFrom: taxpayer.startDate,
+            reason: "Categoría inicial al aprobar el alta",
+            createdById: admin.id,
+          },
+        });
+      }
     }
     await tx.taxpayerAccess.upsert({
       where: { userId_taxpayerId: { userId: request.userId, taxpayerId: taxpayer.id } },

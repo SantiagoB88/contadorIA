@@ -58,3 +58,11 @@ export function percentTenths(part: bigint, total: bigint): number {
   // Redondeo al décimo más cercano.
   return Number((part * 1000n + total / 2n) / total);
 }
+
+/** Importe para precargar un campo de formulario: "8000000" o "1234,50" (sin separador de miles). */
+export function centsToInput(cents: bigint): string {
+  const sign = cents < 0n ? "-" : "";
+  const abs = cents < 0n ? -cents : cents;
+  const rest = abs % 100n;
+  return rest === 0n ? `${sign}${abs / 100n}` : `${sign}${abs / 100n},${String(rest).padStart(2, "0")}`;
+}

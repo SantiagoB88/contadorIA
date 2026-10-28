@@ -59,3 +59,26 @@ export const APP_MODE = process.env.APP_MODE ?? "DEMO";
 
 export const SESSION_COOKIE = "cs_session";
 export const SESSION_DAYS = 7;
+
+// Categorías del monotributo que admite la escala (los límites salen de cada versión de escala).
+export const CATEGORY_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"] as const;
+
+export const SCALE_STATUS = { DEMO: "DEMO", VALIDADA: "VALIDADA" } as const;
+
+export const OBLIGATION_STATUS = {
+  PENDIENTE: "PENDIENTE",
+  PAGO_INFORMADO: "PAGO_INFORMADO",
+  PAGO_VERIFICADO: "PAGO_VERIFICADO",
+  ANULADA: "ANULADA",
+} as const;
+
+export const OBLIGATION_STATUS_LABEL: Record<string, string> = {
+  PENDIENTE: "Pendiente",
+  PAGO_INFORMADO: "Pago informado (sin verificar)",
+  PAGO_VERIFICADO: "Pago verificado por el estudio",
+  ANULADA: "Anulada",
+};
+
+export const DEBT_REVIEW_STATUS = { REVISADA: "REVISADA", PENDIENTE_REVISION: "PENDIENTE_REVISION" } as const;
+
+export const STUDY_SOURCE = "Cargado por el estudio";

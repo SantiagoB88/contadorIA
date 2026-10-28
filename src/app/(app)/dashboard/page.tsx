@@ -7,7 +7,8 @@ import { formatDateAR, formatDateTimeAR, monthKey, parseYmd } from "@/lib/dates"
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
 import { getDashboardData, monthOptions, resolveCutDate } from "@/modules/dashboard/metrics";
 import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
-import { MarginCard, MonthlyChart, PeriodCard } from "@/components/dashboard/DashboardCards";
+import { DebtCard, MarginCard, MonthlyChart, PeriodCard, UpcomingCard } from "@/components/dashboard/DashboardCards";
+import { getDebtSummary } from "@/modules/fiscal/obligations";
 import { Badge, EmptyState, Notice, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Inicio · ContadorSmart" };
@@ -76,7 +77,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   const cutDate = resolveCutDate(first(sp.mes));
   const { year, month } = parseYmd(cutDate);
-  const data = await getDashboardData(taxpayer, cutDate);
+  const [data, debt] = await Promise.all([getDashboardData(taxpayer, cutDate), getDebtSummary(taxpayer.id)]);
+  const q = `c=${encodeURIComponent(taxpayer.id)}`;
 
   return (
     <div className="space-y-6">
@@ -86,7 +88,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>CUIT {formatCuit(taxpayer.cuit)}</span>
             <span>{taxpayer.activity}</span>
-            <span>Monotributo · Cat. {taxpayer.categoryCode ?? "sin cargar"}</span>
+            <span>
+              Monotributo · Cat. {data.category.code ?? "sin cargar"}
+              {data.category.code !== taxpayer.categoryCode && " (a la fecha de corte)"}
+            </span>
           </span>
         }
       >
@@ -143,11 +148,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <MarginCard margin={data.margin} />
+          <MarginCard margin={data.margin} detailHref={`/dashboard/categoria?${q}&mes=${monthKey(year, month)}`} />
         </div>
         <div className="min-w-0 lg:col-span-3">
           <MonthlyChart bars={data.chart} />
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <DebtCard debt={debt} href={`/dashboard/deudas?${q}`} />
+        <UpcomingCard debt={debt} href={`/dashboard/deudas?${q}`} />
       </div>
 
       <p className="text-xs text-slate-500">

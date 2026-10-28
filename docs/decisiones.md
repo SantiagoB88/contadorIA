@@ -29,6 +29,12 @@
 | Idempotencia | `InvoiceAttempt` con clave única + hash del pedido; la clave la genera el servidor al dibujar la revisión | Doble clic y reintentos no duplican. El proveedor se llama fuera de transacciones. |
 | PDF | `pdf-lib` 1.17.1, fuentes estándar | Sin dependencias nativas; marca de agua y leyendas en cada página. |
 | Borrado | Solo borradores | Un comprobante emitido nunca se elimina ni se edita. |
+| Escalas | Por estudio, versionadas, sin vigencias superpuestas. Una versión nueva cierra la vigente abierta el día anterior | El plan pide escalas versionadas y no mezclar ficticias con oficiales. Por estudio, para que un estudio no cambie los cálculos de otro. |
+| Escala aplicada | La vigente a la fecha de corte (si hubiera dos, la VALIDADA) | Cada mes del selector se calcula con la escala de su momento. |
+| Estado de una escala | DEMO (ficticia) o VALIDADA, que exige una fuente concreta | No presentar valores inventados como oficiales. |
+| Categoría registrada | Historial con fecha "rige desde"; la categoría de cada fecha de corte sale del historial | Nunca se cambia sola. La sugerencia por ingresos es "orientativa" y no se calcula si falta historial, la actividad tiene menos de 12 meses o no hay escala. |
+| Deudas | `Obligation` (concepto, período, vencimiento, importe opcional, estado) + `DebtReview` (información a una fecha) | Lista vacía ≠ sin deuda. "Vencida" se deriva (pendiente con vencimiento anterior a hoy). Las próximas no suman como deuda. Sin intereses. |
+| Estado de pago | Pendiente, pago informado, pago verificado (con evidencia), anulada | Sin confirmación bancaria inventada: verificar exige una nota con la evidencia. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

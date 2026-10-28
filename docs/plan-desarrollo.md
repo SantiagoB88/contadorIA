@@ -24,9 +24,9 @@ Registro, verificación de correo local (`/dev/correos`), recuperación de contr
 
 Receptores, conceptos, borradores, revisión, emisión simulada con idempotencia, rechazo simulado, historial con filtros y PDF "SIMULACIÓN SIN VALIDEZ FISCAL".
 
-## Entrega 4 — Categorías y tablero completo (paso 4)
+## Entrega 4 — Categorías y tablero completo (paso 4) ✅
 
-Escalas versionadas editables, detalle de cada indicador, deudas y vencimientos cargados por el estudio.
+Escalas versionadas por estudio y editables, historial de categoría registrada, categoría orientativa por ingresos, detalle de cada indicador, conciliación con movimientos y deudas y vencimientos cargados por el estudio.
 
 ## Entrega 5 — Operación del estudio (paso 5)
 

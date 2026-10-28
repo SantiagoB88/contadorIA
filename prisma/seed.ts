@@ -25,6 +25,12 @@ function shiftMonth(year: number, month: number, delta: number) {
 
 const pesos = (n: number) => BigInt(Math.round(n * 100));
 
+function addDays(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + delta));
+  return date.toISOString().slice(0, 10);
+}
+
 // Escala FICTICIA (no son valores de ARCA): límite anual de ingresos por categoría.
 const DEMO_SCALE: [string, number][] = [
   ["A", 8_000_000], ["B", 12_000_000], ["C", 17_000_000], ["D", 21_000_000],
@@ -57,6 +63,9 @@ const RECIPIENTS = ["Cliente Ficticio SRL", "Comercio Demo SA", "Consumidor Fina
 
 async function wipe() {
   await prisma.auditEvent.deleteMany();
+  await prisma.obligation.deleteMany();
+  await prisma.debtReview.deleteMany();
+  await prisma.categoryHistory.deleteMany();
   await prisma.invoiceAttempt.deleteMany();
   await prisma.invoiceItem.deleteMany();
   await prisma.invoiceSequence.deleteMany();
@@ -89,19 +98,35 @@ async function main() {
   const [ty, tm, td] = today.split("-").map(Number);
   const passwordHash = await hash(DEMO_PASSWORD, 10);
 
-  await prisma.taxScaleVersion.create({
-    data: {
-      name: "Escala ficticia de prueba",
-      source: "Valores inventados para la demo. No usar para decisiones fiscales.",
-      status: "DEMO",
-      validFrom: "2020-01-01",
-      limits: { create: DEMO_SCALE.map(([code, limit]) => ({ code, annualLimitCents: pesos(limit) })) },
-    },
-  });
-
   const study = await prisma.study.create({ data: { name: "Estudio Demo", acceptsSignups: true } });
   // Segundo estudio solo para comprobar aislamiento.
   const otherStudy = await prisma.study.create({ data: { name: "Estudio Aislamiento (pruebas)" } });
+
+  // Dos versiones FICTICIAS por estudio: la del año pasado (límites más bajos) y la vigente desde el 1/1.
+  // Así se ve que cada fecha de corte usa la escala de su momento.
+  for (const s of [study, otherStudy]) {
+    await prisma.taxScaleVersion.create({
+      data: {
+        studyId: s.id,
+        name: `Escala ficticia ${ty - 1}`,
+        source: "Valores inventados para la demo. No usar para decisiones fiscales.",
+        status: "DEMO",
+        validFrom: "2020-01-01",
+        validTo: `${ty - 1}-12-31`,
+        limits: { create: DEMO_SCALE.map(([code, limit]) => ({ code, annualLimitCents: pesos(Math.round(limit * 0.8)) })) },
+      },
+    });
+    await prisma.taxScaleVersion.create({
+      data: {
+        studyId: s.id,
+        name: `Escala ficticia ${ty}`,
+        source: "Valores inventados para la demo. No usar para decisiones fiscales.",
+        status: "DEMO",
+        validFrom: `${ty}-01-01`,
+        limits: { create: DEMO_SCALE.map(([code, limit]) => ({ code, annualLimitCents: pesos(limit) })) },
+      },
+    });
+  }
 
   const admin = await prisma.user.create({
     data: { studyId: study.id, email: "admin@contadorsmart.local", name: "Rodrigo (Admin demo)", passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
@@ -130,6 +155,11 @@ async function main() {
       },
     });
     taxpayers[p.key] = tp.id;
+    if (p.category) {
+      await prisma.categoryHistory.create({
+        data: { taxpayerId: tp.id, code: p.category, validFrom: tp.startDate, reason: "Categoría inicial (datos de demo)", createdById: admin.id },
+      });
+    }
 
     const covStart = shiftMonth(ty, tm, -(p.monthsWithData - 1));
     await prisma.dataCoverage.create({
@@ -214,8 +244,62 @@ async function main() {
     },
   });
 
-  // Este seed ya incluye los datos de la entrega 2: no hace falta la actualización de prisma/upgrade.ts.
-  await prisma.appMeta.create({ data: { key: "upgrade-entrega2", value: "seed" } });
+  // Elena se recategorizó hace 6 meses: antes era E. El historial permite ver la categoría de cada fecha.
+  const elenaChange = shiftMonth(ty, tm, -6);
+  await prisma.categoryHistory.updateMany({ where: { taxpayerId: taxpayers.elena }, data: { code: "E" } });
+  await prisma.categoryHistory.create({
+    data: {
+      taxpayerId: taxpayers.elena,
+      code: "F",
+      validFrom: `${elenaChange.year}-${pad(elenaChange.month)}-01`,
+      reason: "Recategorización informada por la clienta (demo)",
+      createdById: admin.id,
+    },
+  });
+
+  // Deudas y vencimientos ficticios, cargados "por el estudio".
+  const thisPeriod = `${ty}-${pad(tm)}`;
+  const prev = (n: number) => {
+    const m = shiftMonth(ty, tm, -n);
+    return `${m.year}-${pad(m.month)}`;
+  };
+  const ob = (taxpayerId: string, concept: string, period: string, dueDate: string, amount: number | null, status = "PENDIENTE", statusNote: string | null = null) => ({
+    studyId: study.id,
+    taxpayerId,
+    concept,
+    period,
+    dueDate,
+    amountCents: amount === null ? null : pesos(amount),
+    status,
+    statusNote,
+    createdById: admin.id,
+    updatedById: admin.id,
+  });
+  await prisma.obligation.createMany({
+    data: [
+      // Ana: al día, con un vencimiento próximo.
+      ob(taxpayers.ana, "Cuota mensual monotributo", prev(1), addDays(today, -18), 61_250, "PAGO_VERIFICADO", "Comprobante de pago revisado por el estudio"),
+      ob(taxpayers.ana, "Cuota mensual monotributo", thisPeriod, addDays(today, 12), 61_250),
+      // Bruno: deuda informada (dos cuotas impagas, una sin importe confirmado) y un vencimiento próximo.
+      ob(taxpayers.bruno, "Cuota mensual monotributo", prev(2), addDays(today, -45), 48_900),
+      ob(taxpayers.bruno, "Cuota mensual monotributo", prev(1), addDays(today, -15), 48_900),
+      ob(taxpayers.bruno, "Plan de pagos · cuota 3", prev(1), addDays(today, -8), null),
+      ob(taxpayers.bruno, "Cuota mensual monotributo", thisPeriod, addDays(today, 10), 48_900),
+      // Elena: pagó y lo informó, falta que el estudio lo verifique.
+      ob(taxpayers.elena, "Cuota mensual monotributo", prev(1), addDays(today, -12), 98_400, "PAGO_INFORMADO", "La clienta envió el comprobante por correo"),
+    ],
+  });
+  await prisma.debtReview.createMany({
+    data: [
+      { taxpayerId: taxpayers.ana, asOfDate: addDays(today, -1), status: "REVISADA", note: "Revisado con el estado de cuenta (demo)", reviewedById: admin.id },
+      { taxpayerId: taxpayers.bruno, asOfDate: addDays(today, -2), status: "REVISADA", note: "Revisado con el estado de cuenta (demo)", reviewedById: admin.id },
+      { taxpayerId: taxpayers.carla, asOfDate: addDays(today, -3), status: "REVISADA", reviewedById: admin.id },
+      { taxpayerId: taxpayers.elena, asOfDate: addDays(today, -1), status: "REVISADA", reviewedById: admin.id },
+    ],
+  });
+
+  // Este seed ya incluye los datos de las entregas 2 y 4: no hace falta la actualización de prisma/upgrade.ts.
+  await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }] });
 
   // Contribuyente del otro estudio (no debe verse nunca desde Estudio Demo).
   await prisma.taxpayer.create({

@@ -33,7 +33,18 @@ Contraseña de todos: `Demo1234!` (solo existen en esta base local).
 | `cliente.b@contadorsmart.local` | Cliente | Bruno Díaz (límite superado). Tiene una solicitud *pendiente* para Elena Paz que **no** le da acceso |
 | `admin.otro@contadorsmart.local` | Administrador | Otro estudio (sirve para probar aislamiento) |
 
-Perfiles sembrados: Ana (normal), Elena (preventivo, ~85 %), Martín (próximo, ~98 %), Bruno (superado, ~109 %), Carla (sin actividad: cero real), Diego (información incompleta).
+Perfiles sembrados:
+
+| Contribuyente | Límite | Deudas |
+|---|---|---|
+| Ana | Normal | Sin deuda informada, con un vencimiento próximo |
+| Elena | Preventivo (~85 %). Pasó de la categoría E a la F hace 6 meses | Pago informado, falta que el estudio lo verifique |
+| Martín | Próximo al límite (~98 %) | No disponible: el estudio no cargó nada |
+| Bruno | Superado (~109 %) | Deuda informada: tres vencimientos impagos, uno sin importe |
+| Carla | Sin actividad (cero real) | Sin deuda informada |
+| Diego | Información incompleta | No disponible |
+
+Hay dos escalas **ficticias**: la del año pasado (límites más bajos) y la vigente desde el 1 de enero.
 
 ## Correos de prueba
 
@@ -65,6 +76,20 @@ En la demo no se envía ningún correo real. Los correos de verificación y recu
 6. Hacé otra factura y, antes de confirmar, marcá "Simular un rechazo". Queda rechazada, no suma y no consume número. Con "Crear borrador a partir de esta" la podés corregir.
 7. Con `cliente.b`, abrí la URL de una factura de Ana: tiene que dar "no encontrado".
 
+**Categorías, escalas y deudas (entrega 4)**
+1. Entrá como `cliente.a` y, en el tablero, tocá "Ver cómo se calcula y la escala" en la tarjeta de margen. Vas a ver:
+   - la categoría registrada;
+   - la categoría orientativa por ingresos;
+   - la cuenta del margen paso a paso;
+   - la escala aplicada.
+2. Elegí un mes del año pasado en el selector: se aplica la escala de ese momento y los indicadores cambian.
+   Si tu base viene de una entrega anterior, tiene una sola escala y no tiene las deudas de ejemplo. Para ver todo, corré `npm run db:reset`, que borra lo que cargaste.
+3. Entrá en **Deudas** con Ana: dice "Sin deuda informada al…" y muestra el próximo vencimiento. Con Martín dice "No disponible".
+4. Entrá como admin y abrí **Escalas**. Creá una versión nueva con fecha de inicio el 1 de enero del año que viene: la vigente se cierra sola el 31 de diciembre. Si una fecha se superpone con otra versión, no te deja guardar.
+5. En Backoffice → Bruno, en **Deudas y vencimientos**, marcá una cuota como "Pago verificado" con su evidencia. El total de deuda baja.
+6. En Backoffice → Martín, cargá un vencimiento y registrá una revisión. Su estado pasa de "No disponible" a "Deuda informada" o "Sin deuda informada", según la fecha.
+7. En Backoffice → cualquier contribuyente, registrá una categoría nueva con fecha y motivo. Queda en el historial. El sistema nunca la cambia solo, aunque se supere el límite.
+
 **Contraseñas**
 - "¿Olvidaste tu contraseña?" → el enlace llega a `/dev/correos` → elegís una nueva. Ese enlace sirve una sola vez.
 - En **Mi perfil** podés cambiar tus datos y tu contraseña.
@@ -74,7 +99,7 @@ En la demo no se envía ningún correo real. Los correos de verificación y recu
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Prepara la base y levanta la app en modo desarrollo |
-| `npm run verify` | Corre 49 verificaciones (cálculos, permisos, alta, accesos, facturador) en una base **aparte** (`prisma/verify.db`) |
+| `npm run verify` | Corre 69 verificaciones (cálculos, permisos, alta, accesos, facturador, escalas, categorías y deudas) en una base **aparte** (`prisma/verify.db`) |
 | `npm run typecheck` | Chequeo de tipos |
 | `npm run build` | Build de producción |
 | `npm run db:reset` | **Borra todo** y vuelve a cargar los datos de demo |
