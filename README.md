@@ -20,7 +20,7 @@ Antes de levantar, `npm run dev` prepara la base:
 - si no existe, la crea con los datos de demo;
 - si existe, le aplica los cambios nuevos **sin borrar lo que cargaste**.
 
-> Después de actualizar el código (por ejemplo, con `git pull`), cortá `npm run dev` con Ctrl+C y volvé a levantarlo, así se aplican los cambios de la base.
+> Después de actualizar el código (por ejemplo, con `git pull`), cortá `npm run dev` con Ctrl+C y volvé a levantarlo, así se aplican los cambios de la base. Si te olvidás, la app no tira un error técnico: muestra la pantalla "Falta reiniciar la aplicación" con los pasos.
 
 ## Usuarios de demo
 
@@ -131,6 +131,8 @@ Si tu base viene de una entrega anterior, no tiene las solicitudes de ejemplo ni
 |---|---|
 | `npm run dev` | Prepara la base y levanta la app en modo desarrollo |
 | `npm run verify` | Corre 85 verificaciones (cálculos, permisos, alta, accesos, facturador, escalas, categorías, deudas, solicitudes y documentos) en una base y una carpeta de archivos **aparte** (`prisma/verify.db`, `storage-verify/`) |
+| `npm run test:e2e` | Pruebas de punta a punta en el navegador (Edge): recorre la app como una persona y revisa cada pantalla en celular, tablet y escritorio. Levanta sola una copia aparte en el puerto 3100, con su propia base: no toca tus datos ni tu `npm run dev` |
+| `npm run dev:test` | Levanta esa copia de prueba a mano (http://localhost:3100, base nueva en cada arranque) |
 | `npm run typecheck` | Chequeo de tipos |
 | `npm run build` | Build de producción |
 | `npm run db:reset` | **Borra todo** (base y documentos de `storage/`) y vuelve a cargar los datos de demo |

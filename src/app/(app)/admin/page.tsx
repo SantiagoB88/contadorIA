@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { REQUEST_STATUS, SR_STATUS } from "@/lib/constants";
+import { AUDIT_ACTION_LABEL, REQUEST_STATUS, SR_STATUS } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatARS } from "@/lib/money";
 import { formatDateTimeAR, todayAR } from "@/lib/dates";
@@ -51,7 +51,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <PageHeader title="Backoffice" subtitle={`${admin.studyName} · resumen operativo`} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <p className="text-sm text-slate-600">Contribuyentes</p>
           <p className="tabular mt-1 text-2xl font-semibold">{taxpayers.length}</p>
@@ -63,7 +63,10 @@ export default async function AdminPage() {
         <Card>
           <p className="text-sm text-slate-600">Con datos incompletos</p>
           <p className="tabular mt-1 text-2xl font-semibold">{incomplete}</p>
-          <p className="mt-1 text-xs text-slate-500">{withDebt} con deuda informada</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-600">Con deuda informada</p>
+          <p className="tabular mt-1 text-2xl font-semibold">{withDebt}</p>
         </Card>
         <Card>
           <p className="text-sm text-slate-600">Asociaciones por validar</p>
@@ -161,7 +164,7 @@ export default async function AdminPage() {
               <li key={e.id} className="flex flex-col gap-0.5 py-2 sm:flex-row sm:justify-between sm:gap-4">
                 <span className="text-slate-800">
                   <strong className="font-medium">{e.actorId ? (actorName.get(e.actorId) ?? "Usuario") : "Sistema"}</strong>{" "}
-                  · {e.action}
+                  · {AUDIT_ACTION_LABEL[e.action] ?? e.action}
                   {e.detail ? ` · ${e.detail}` : ""}
                 </span>
                 <span className="tabular shrink-0 text-slate-500">{formatDateTimeAR(e.createdAt)}</span>

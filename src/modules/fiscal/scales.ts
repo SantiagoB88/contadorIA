@@ -117,8 +117,9 @@ function assertAdmin(user: CurrentUser) {
 }
 
 /**
- * Crea una versión nueva. Si la única superposición es con la versión abierta (sin fecha de fin) que empezó antes,
- * esa versión se cierra el día anterior: así se carga una escala nueva sin editar la vieja a mano.
+ * Crea una versión nueva. Si la nueva no tiene fecha de fin y la única superposición es con la versión abierta
+ * que empezó antes, esa versión se cierra el día anterior: así se carga una escala nueva sin editar la vieja a mano.
+ * Una versión con fecha de fin nunca cierra a otra: dejaría días sin escala después de esa fecha.
  */
 export async function createScaleVersion(admin: CurrentUser, input: ScaleInput): Promise<ScaleResult> {
   assertAdmin(admin);
@@ -128,13 +129,15 @@ export async function createScaleVersion(admin: CurrentUser, input: ScaleInput):
 
   const others = await prisma.taxScaleVersion.findMany({ where: { studyId: admin.studyId } });
   const clashing = others.filter((o) => overlaps(o, data));
-  const toClose = clashing.length === 1 && clashing[0].validTo === null && clashing[0].validFrom < data.validFrom ? clashing[0] : null;
+  const replacesOpen = clashing.length === 1 && clashing[0].validTo === null && clashing[0].validFrom < data.validFrom;
+  const toClose = replacesOpen && data.validTo === null ? clashing[0] : null;
   if (clashing.length > 0 && !toClose) {
     const c = clashing[0];
+    const hint = replacesOpen ? " Para que la reemplace desde esa fecha, dejá vacía la fecha de fin." : "";
     return {
       ok: false,
       message: "Revisá los campos marcados.",
-      fieldErrors: { validFrom: `Se superpone con "${c.name}", vigente ${describeRange(c)}.` },
+      fieldErrors: { validFrom: `Se superpone con "${c.name}", vigente ${describeRange(c)}.${hint}` },
     };
   }
 

@@ -4,13 +4,21 @@ import { prisma } from "@/lib/db";
 import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
-import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
+import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 import { ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
 
 export const metadata = { title: "Accesos · ContadorSmart" };
 
-export default async function AccesosPage() {
+const NOTICES: Record<string, string> = {
+  aprobada: "Solicitud aprobada. El cliente ya ve al contribuyente; el acceso figura en “Accesos vigentes”.",
+  rechazada: "Solicitud rechazada. El cliente ve el motivo en su perfil.",
+  revocado: "Acceso revocado. El cliente deja de ver al contribuyente desde su próxima consulta.",
+};
+
+export default async function AccesosPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const admin = await requireAdmin();
+  const aviso = (await searchParams).aviso;
+  const notice = typeof aviso === "string" ? NOTICES[aviso] : undefined;
 
   const [pending, accesses, users] = await Promise.all([
     prisma.accessRequest.findMany({
@@ -41,6 +49,7 @@ export default async function AccesosPage() {
         </Link>
       </div>
       <PageHeader title="Accesos" subtitle="Solicitudes de asociación, accesos vigentes y usuarios del estudio" />
+      {notice && <Notice title="Listo">{notice}</Notice>}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">

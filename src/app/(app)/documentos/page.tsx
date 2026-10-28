@@ -85,7 +85,43 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
         </EmptyState>
       ) : (
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {docs.map((d) => (
+              <li key={d.id} className="space-y-1 px-4 py-4 text-sm">
+                <p className="break-all font-medium text-slate-900">{d.fileName}</p>
+                <p className="text-slate-600">
+                  {d.taxpayer.name} · {docCategoryLabel(d.category)}
+                  {isAdmin && d.visibility === "INTERNO" && (
+                    <span className="ml-2 align-middle">
+                      <Badge tone="warning">Interno</Badge>
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {formatBytes(d.sizeBytes)} · {d.uploadedBy.name} ({d.uploadedBy.role === ROLES.ADMIN ? "estudio" : "cliente"}) ·{" "}
+                  {formatDateTimeAR(d.createdAt)}
+                </p>
+                {d.note && <p className="text-xs text-slate-500">{d.note}</p>}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <a
+                    href={`/documentos/${d.id}/descargar`}
+                    className="rounded-lg border border-brand-300 px-3 py-1.5 font-medium text-brand-700 hover:bg-brand-50"
+                  >
+                    Descargar
+                  </a>
+                  {d.message && (
+                    <Link
+                      href={`${isAdmin ? "/admin/solicitudes" : "/solicitudes"}/${d.message.requestId}`}
+                      className="font-medium text-brand-700 hover:underline"
+                    >
+                      Ver solicitud
+                    </Link>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>

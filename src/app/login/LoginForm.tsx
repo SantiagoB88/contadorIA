@@ -1,15 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import { loginAction, type LoginState } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { inputClass, labelClass } from "@/components/ui";
 
 export function LoginForm() {
-  const [state, formAction] = useActionState<LoginState, FormData>(loginAction, {});
+  const [state, formAction] = useActionForm<LoginState>(loginAction, {});
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       {state.error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {state.error}
@@ -44,6 +44,6 @@ export function LoginForm() {
       <SubmitButton pendingText="Ingresando…" className="w-full">
         Ingresar
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }

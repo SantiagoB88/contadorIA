@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import { saveDraftAction, type DraftFormState } from "@/modules/billing/actions";
 import type { DraftInput } from "@/modules/billing/service";
 import { formatARS, lineSubtotalCents, parseAmountToCents, parseQuantityMilli } from "@/lib/money";
@@ -26,9 +27,9 @@ const TAX_CONDITIONS = [
   { value: "EXENTO", label: "Exento" },
 ];
 
-let nextKey = 1;
+// Las claves iniciales salen de la posición: así el HTML del servidor y el del navegador coinciden.
 const toRows = (items: DraftInput["items"]): Row[] =>
-  (items.length ? items : [{ description: "", quantity: "1", unitPrice: "" }]).map((it) => ({ key: nextKey++, ...it }));
+  (items.length ? items : [{ description: "", quantity: "1", unitPrice: "" }]).map((it, i) => ({ key: i + 1, ...it }));
 
 export function InvoiceForm({
   taxpayerId,
@@ -45,7 +46,7 @@ export function InvoiceForm({
   today: string;
   minDate: string;
 }) {
-  const [state, action] = useActionState<DraftFormState, FormData>(saveDraftAction, {});
+  const [state, action] = useActionForm<DraftFormState>(saveDraftAction, {});
   const v = state.values ?? initial;
   const e = state.fieldErrors ?? {};
 
@@ -54,6 +55,7 @@ export function InvoiceForm({
   );
   const [docType, setDocType] = useState(initial.docType || "CUIT");
   const [rows, setRows] = useState<Row[]>(() => toRows(initial.items));
+  const nextKey = useRef(Math.max(initial.items.length, 1) + 1);
 
   // Vista previa del total. El total que vale es el que recalcula el servidor al guardar.
   const preview = useMemo(() => {
@@ -72,11 +74,11 @@ export function InvoiceForm({
   const update = (key: number, field: keyof Omit<Row, "key">, value: string) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   const addRow = () =>
-    setRows((rs) => (rs.length >= MAX_ROWS ? rs : [...rs, { key: nextKey++, description: "", quantity: "1", unitPrice: "" }]));
+    setRows((rs) => (rs.length >= MAX_ROWS ? rs : [...rs, { key: nextKey.current++, description: "", quantity: "1", unitPrice: "" }]));
   const removeRow = (key: number) => setRows((rs) => (rs.length === 1 ? rs : rs.filter((r) => r.key !== key)));
 
   return (
-    <form action={action} className="space-y-6" noValidate>
+    <ActionForm form={action} className="space-y-6" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       {invoiceId && <input type="hidden" name="invoiceId" value={invoiceId} />}
       <Feedback state={state} />
@@ -322,6 +324,6 @@ export function InvoiceForm({
         </Link>
         <SubmitButton pendingText="Guardando…">Guardar borrador y revisar</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

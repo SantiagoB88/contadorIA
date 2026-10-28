@@ -77,7 +77,26 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
         <EmptyState title="No hay solicitudes con este filtro" />
       ) : (
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {rows.map((r) => (
+              <li key={r.id}>
+                <Link href={`/admin/solicitudes/${r.id}`} className="block space-y-1 px-4 py-3 text-sm hover:bg-slate-50">
+                  <p className="font-medium text-slate-900">{r.subject}</p>
+                  <p className="text-slate-600">
+                    {r.taxpayer.name} · {topicLabel(r.topic)}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    <PriorityBadge priority={r.priority} />
+                    <RequestStatusBadge status={r.status} />
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {r.assignedTo?.name ?? "Sin asignar"} · {formatDateTimeAR(r.lastActivityAt)}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>

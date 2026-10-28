@@ -154,13 +154,14 @@ export function MonthlyChart({ bars }: { bars: MonthBar[] }) {
       </div>
 
       <div className="mt-6 overflow-x-auto">
-        <div className="flex h-56 min-w-[520px] items-end gap-2" aria-hidden="true">
+        <div className="flex h-56 items-end gap-1 sm:gap-2" aria-hidden="true">
           {bars.map((bar) => {
             const missing = bar.coverage !== "COMPLETA";
             const height = max > 0n ? Number((bar.totalCents * 1000n) / max) / 10 : 0;
             return (
               <div key={bar.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                <span className="tabular text-[11px] text-slate-500">
+                {/* En el celular no entran los importes: están en las tarjetas de períodos y en la tabla accesible. */}
+                <span className="tabular hidden text-[11px] text-slate-500 sm:inline">
                   {missing && bar.totalCents === 0n ? "s/d" : compactARS(bar.totalCents)}
                 </span>
                 <div className="flex w-full flex-1 items-end">
@@ -172,7 +173,10 @@ export function MonthlyChart({ bars }: { bars: MonthBar[] }) {
                     style={{ height: `${Math.max(height, missing ? 4 : bar.totalCents > 0n ? 2 : 0)}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-slate-600">{bar.label}</span>
+                <span className="text-center text-[11px] leading-tight text-slate-600">
+                  {bar.label.split(" ")[0]}
+                  <span className="block sm:inline"> {bar.label.split(" ")[1]}</span>
+                </span>
               </div>
             );
           })}

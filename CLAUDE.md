@@ -9,6 +9,8 @@ Leé `docs/estado.md`, `docs/decisiones.md` y `docs/backlog.md`. Mantenelos actu
 ## Comandos
 
 - `npm run dev` (crea la base si falta), `npm run typecheck`, `npm run build`, `npm run verify`
+- `npm run test:e2e`: pruebas en el navegador (Edge) sobre una copia aparte en el puerto 3100 con `prisma/e2e.db` (no toca `dev.db`). Las capturas quedan en `capturas-e2e/`.
+- Si cambia `prisma/schema.prisma`, subir `SCHEMA_VERSION` en `src/lib/schema-version.ts`.
 - `npm run db:reset` borra todo: no correrlo sin confirmación del usuario.
 - El usuario prueba la app por su cuenta con `npm run dev`; no levantar el servidor salvo que lo pida.
 
@@ -22,5 +24,6 @@ Leé `docs/estado.md`, `docs/decisiones.md` y `docs/backlog.md`. Mantenelos actu
 - Deudas: una lista vacía no es "sin deuda". Solo una revisión del estudio con fecha (`DebtReview`) permite decir "Sin deuda informada".
 - Escalas por estudio, versionadas y sin superposiciones (`src/modules/fiscal/scales.ts`).
 - Archivos: solo PDF/PNG/JPEG validados por contenido, guardados en `storage/` con nombre aleatorio (`src/providers/storage.ts`); la descarga siempre pasa por `getAuthorizedDocument`. Las notas internas (`INTERNA`) y documentos `INTERNO` nunca se devuelven a un cliente: filtrarlos en la consulta.
+- Formularios con Server Actions: usar `ActionForm` + `useActionForm` (`src/components/ActionForm.tsx`), no `<form action>`, para que React no vacíe ni desarme el formulario después de enviar.
 - Interfaz en español de Argentina. Todo lo simulado se marca como DEMO.
 - Fuera de alcance por ahora: WhatsApp, IA, ARCA real, cobros.

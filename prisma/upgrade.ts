@@ -1,6 +1,7 @@
 // Actualiza los DATOS de una base creada con una entrega anterior (el esquema lo actualiza `prisma db push`).
 // Corre antes de `npm run dev`. Cada actualización se aplica una sola vez y queda anotada en AppMeta.
 import { PrismaClient } from "@prisma/client";
+import { SCHEMA_META_KEY, SCHEMA_VERSION } from "../src/lib/schema-version";
 
 const prisma = new PrismaClient();
 
@@ -104,6 +105,12 @@ async function upgradeEntrega4() {
 async function main() {
   await upgradeEntrega2();
   await upgradeEntrega4();
+  // Marca que la base ya tiene la estructura que espera el código (ver src/lib/db-status.ts).
+  await prisma.appMeta.upsert({
+    where: { key: SCHEMA_META_KEY },
+    update: { value: SCHEMA_VERSION },
+    create: { key: SCHEMA_META_KEY, value: SCHEMA_VERSION },
+  });
 }
 
 main()

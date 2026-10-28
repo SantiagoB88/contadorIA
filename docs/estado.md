@@ -1,4 +1,4 @@
-# Estado · 28/10/2026 (entrega 5)
+# Estado · 28/10/2026 (entrega 5 + revisión visual y pruebas)
 
 ## Entrega 1 — Login y primer tablero ✅
 
@@ -119,11 +119,52 @@
   - un documento interno de Martín y el detalle de deuda de Bruno.
 - **Actualización de bases existentes**: solo se agregan tablas nuevas. Probado sobre una copia de `dev.db`: conserva las 201 facturas.
 
+## Revisión visual y pruebas de punta a punta ✅
+
+**Pruebas nuevas** (`npm run test:e2e`, Playwright con el Edge instalado):
+- 17 recorridos en el navegador sobre una copia aparte (puerto 3100, base `prisma/e2e.db` nueva en cada arranque).
+- Recorridos de uso:
+  - ingreso, error de contraseña, cierre de sesión y menú del celular;
+  - registro, confirmación de correo, asociación por CUIT, aprobación, revocación y suspensión;
+  - recuperación de contraseña (con enlace de un solo uso) y perfil;
+  - facturador: error de validación, borrador, emisión, PDF, rechazo, duplicado y borrado;
+  - solicitudes: cliente → estudio (asignación, nota interna, respuesta) → cliente, sin que la nota interna aparezca en ninguna pantalla del cliente;
+  - informar un pago con comprobante;
+  - documentos: HTML disfrazado rechazado, interno invisible para el cliente, compartir y descargar con las cabeceras correctas;
+  - vencimientos y verificación de pagos, categoría y escalas;
+  - acceso cruzado por URL;
+  - conciliación tablero ↔ movimientos.
+- Revisión visual de 29 pantallas en celular (390 px), tablet (768 px) y escritorio (1440 px): sin scroll horizontal, sin errores de consola ni de Next, con captura de cada una.
+
+**Errores encontrados y corregidos**:
+- **Formularios**: después de enviar, React los vaciaba y los desarmaba.
+  - En una solicitud, tras guardar una nota interna se veía marcada "Respuesta al cliente" pero el botón decía "nota interna": lo marcado podía no coincidir con lo que se enviaba.
+  - En la gestión de solicitudes, después de asignar volvía a mostrar "Sin asignar".
+  - En Nueva factura, un error de validación desmarcaba "Uno nuevo".
+  - Corrección: todos los formularios usan `ActionForm`, que envía exactamente lo que se ve y solo vacía los de alta después de guardar.
+- **Adjuntos**: con el nuevo envío, una respuesta sin adjunto mandaba un "archivo vacío" que el servidor rechazaba. Corregido en los dos lados.
+- **Escalas**: una versión con fecha de fin superpuesta cerraba la vigente y dejaba días sin escala después de esa fecha. Ahora se rechaza y explica cómo hacerlo; está cubierto en `npm run verify`.
+- **Celular**: todas las pantallas con tablas se podían desplazar 400 px de costado, por un texto oculto para lectores de pantalla.
+- **Facturador**: diferencia de HTML entre servidor y navegador en Nueva factura (aviso de hidratación en consola).
+- **Accesos**: al aprobar, rechazar o revocar no había confirmación visible. Ahora hay un aviso.
+- **Base desactualizada**: en lugar del error técnico de Prisma, se muestra "Falta reiniciar la aplicación" con los pasos.
+
+**Mejoras de diseño**:
+- En celular y tablet, botón "Menú" con todas las secciones y el cierre de sesión, en lugar de una fila cortada.
+- La barra lateral queda fija desde 1024 px.
+- En celular, Deudas, Movimientos, Facturación, Documentos y Bandeja se ven como tarjetas, con el estado, "Informar pago" y "Descargar" a la vista.
+- El gráfico mensual muestra los 12 meses en el celular.
+- Selector de archivos en español que muestra lo elegido.
+- Actividad reciente en español, sin códigos como `LOGIN`.
+- Tarjeta propia de "Con deuda informada".
+- "Pago informado" muestra el mes como "octubre 2026".
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK
 - `npm run build` → OK (compilado en carpeta aparte para no pisar un `npm run dev` abierto)
-- `npm run verify` → **85/85 OK** en base aparte (y carpeta de archivos aparte, `storage-verify/`). La entrega 5 suma:
+- `npm run test:e2e` → **17/17 OK** (recorridos y revisión visual en 3 tamaños, sobre base nueva).
+- `npm run verify` → **86/86 OK** (se sumó el caso de escala con fecha de fin). Antes: **85/85 OK** en base aparte (y carpeta de archivos aparte, `storage-verify/`). La entrega 5 suma:
   - validación de archivos (HTML disfrazado, tipo y extensión que no coinciden, vacío, más de 10 MB, más de 3);
   - persistencia al reiniciar y clave que no sale de la carpeta;
   - recorrido cliente → estudio → cliente, en el que la nota interna no aparece en ninguna respuesta del cliente;
@@ -153,7 +194,8 @@
 
 ## No ejecutado todavía
 
-- Las pantallas de facturación, escalas, categoría, deudas, solicitudes y documentos no se probaron en navegador. Tampoco se probó la subida real de un archivo desde el navegador ni la ruta HTTP de descarga: los servicios que usan sí están cubiertos por `npm run verify`.
+- Las pruebas usan Edge en Windows. No se probó en Safari ni en un celular físico (solo con el tamaño de pantalla).
+- Los campos de fecha muestran el formato del idioma del navegador (`dd/mm/aaaa` en un Edge en español).
 - Sin tests E2E (Playwright) ni capturas a 390 / 1440 px.
 
 ## Próximo paso

@@ -12,3 +12,10 @@ prisma/verify.db-journal
 storage/
 storage-verify/
 prisma/respaldos/
+prisma/e2e.db
+prisma/e2e.db-journal
+storage-e2e/
+.next-e2e/
+test-results/
+playwright-report/
+capturas-e2e/

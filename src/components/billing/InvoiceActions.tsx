@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import { deleteDraftAction, duplicateAction, emitInvoiceAction, type SimpleState } from "@/modules/billing/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Feedback } from "@/components/forms";
@@ -10,9 +10,9 @@ import { Feedback } from "@/components/forms";
  * un doble clic o un reintento mandan la misma clave y no se duplica el comprobante.
  */
 export function EmitPanel({ invoiceId, idempotencyKey, isDemo }: { invoiceId: string; idempotencyKey: string; isDemo: boolean }) {
-  const [state, action] = useActionState<SimpleState, FormData>(emitInvoiceAction, {});
+  const [state, action] = useActionForm<SimpleState>(emitInvoiceAction, {});
   return (
-    <form action={action} className="space-y-4">
+    <ActionForm form={action} className="space-y-4">
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <Feedback state={state} />
@@ -25,32 +25,27 @@ export function EmitPanel({ invoiceId, idempotencyKey, isDemo }: { invoiceId: st
       <SubmitButton pendingText="Emitiendo…" className="w-full sm:w-auto">
         Confirmar emisión simulada
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function DeleteDraftButton({ invoiceId }: { invoiceId: string }) {
-  const [state, action] = useActionState<SimpleState, FormData>(deleteDraftAction, {});
+  const [state, action] = useActionForm<SimpleState>(deleteDraftAction, {});
   return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (!window.confirm("¿Eliminar este borrador? No se puede deshacer.")) e.preventDefault();
-      }}
-    >
+    <ActionForm form={action} confirmMessage="¿Eliminar este borrador? No se puede deshacer.">
       <input type="hidden" name="invoiceId" value={invoiceId} />
       {state.message && <p className="mb-2 text-sm text-red-700">{state.message}</p>}
       <button type="submit" className="rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50">
         Eliminar borrador
       </button>
-    </form>
+    </ActionForm>
   );
 }
 
 export function DuplicateButton({ invoiceId }: { invoiceId: string }) {
-  const [state, action] = useActionState<SimpleState, FormData>(duplicateAction, {});
+  const [state, action] = useActionForm<SimpleState>(duplicateAction, {});
   return (
-    <form action={action}>
+    <ActionForm form={action}>
       <input type="hidden" name="invoiceId" value={invoiceId} />
       {state.message && <p className="mb-2 text-sm text-red-700">{state.message}</p>}
       <button
@@ -59,6 +54,6 @@ export function DuplicateButton({ invoiceId }: { invoiceId: string }) {
       >
         Crear borrador a partir de esta
       </button>
-    </form>
+    </ActionForm>
   );
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSession, requireAdmin, requireUser } from "@/lib/auth";
 import { changePassword, updateProfile } from "@/modules/profile/service";
 import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "./service";
@@ -58,22 +59,26 @@ export async function changePasswordAction(_prev: ActionState, formData: FormDat
 export async function approveRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await approveRequest(admin, str(formData, "requestId"), str(formData, "category"), str(formData, "note"));
-  if (result.ok) refreshAll();
-  return result;
+  if (!result.ok) return result;
+  refreshAll();
+  // La tarjeta de la solicitud desaparece al aprobarla: el aviso se muestra arriba de la página.
+  redirect("/admin/accesos?aviso=aprobada");
 }
 
 export async function rejectRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await rejectRequest(admin, str(formData, "requestId"), str(formData, "note"));
-  if (result.ok) refreshAll();
-  return result.ok ? result : { ...result, values: { note: str(formData, "note") } };
+  if (!result.ok) return { ...result, values: { note: str(formData, "note") } };
+  refreshAll();
+  redirect("/admin/accesos?aviso=rechazada");
 }
 
 export async function revokeAccessAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await revokeAccess(admin, str(formData, "accessId"), str(formData, "reason"));
-  if (result.ok) refreshAll();
-  return result.ok ? result : { ...result, values: { reason: str(formData, "reason") } };
+  if (!result.ok) return { ...result, values: { reason: str(formData, "reason") } };
+  refreshAll();
+  redirect("/admin/accesos?aviso=revocado");
 }
 
 export async function setUserActiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

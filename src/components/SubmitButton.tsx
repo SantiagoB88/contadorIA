@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { useActionFormPending } from "@/components/ActionForm";
 
 type Props = {
   children: React.ReactNode;
@@ -10,7 +11,8 @@ type Props = {
 
 /** Botón que se deshabilita mientras se envía el formulario (evita doble envío). */
 export function SubmitButton({ children, pendingText = "Procesando…", className = "" }: Props) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const pending = useActionFormPending() ?? status.pending;
   return (
     <button
       type="submit"

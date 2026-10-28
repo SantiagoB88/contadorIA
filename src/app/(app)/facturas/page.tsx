@@ -149,7 +149,27 @@ export default async function FacturasPage({ searchParams }: { searchParams: Sea
         </EmptyState>
       ) : (
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {rows.map((inv) => (
+              <li key={inv.id}>
+                <Link href={`/facturas/${inv.id}`} className="block space-y-1 px-4 py-3 text-sm hover:bg-slate-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 font-medium text-slate-900">{inv.recipientName}</p>
+                    <p className="tabular shrink-0 font-semibold">{formatARS(inv.amountCents)}</p>
+                  </div>
+                  <p className="truncate text-slate-600">{inv.description}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span className="tabular">{formatDateAR(inv.issueDate)}</span>
+                    <span className="tabular font-medium text-brand-700">
+                      {inv.number ? formatInvoiceNumber(inv.invoiceType, inv.pointOfSale, inv.number) : "Borrador"}
+                    </span>
+                    <InvoiceStatusBadge status={inv.status} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>

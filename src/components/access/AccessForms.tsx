@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import {
   approveRequestAction,
   changePasswordAction,
@@ -51,11 +51,11 @@ function Input({
 // ---- Cliente ----
 
 export function AssociationForm({ today }: { today: string }) {
-  const [state, action] = useActionState<ActionState, FormData>(requestAssociationAction, {});
+  const [state, action] = useActionForm<ActionState>(requestAssociationAction, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} resetOnSuccess className="space-y-4" noValidate>
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Input id="as-cuit" name="cuit" label="CUIT" inputMode="numeric" placeholder="20-12345678-6" defaultValue={v.cuit} error={e.cuit} />
@@ -89,30 +89,30 @@ export function AssociationForm({ today }: { today: string }) {
         No te pedimos la clave fiscal. El estudio verifica que el CUIT sea tuyo antes de mostrarte información.
       </p>
       <SubmitButton pendingText="Enviando…">Enviar solicitud</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function ProfileForm({ name, phone, email }: { name: string; phone: string; email: string }) {
-  const [state, action] = useActionState<ActionState, FormData>(updateProfileAction, {});
+  const [state, action] = useActionForm<ActionState>(updateProfileAction, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} className="space-y-4" noValidate>
       <Feedback state={state} />
       <Input id="pf-email" name="email" label="Correo electrónico" value={email} readOnly disabled hint="El correo no se puede cambiar por ahora." />
       <Input id="pf-name" name="name" label="Nombre y apellido" autoComplete="name" defaultValue={v.name ?? name} error={e.name} />
       <Input id="pf-phone" name="phone" label="Teléfono" type="tel" autoComplete="tel" defaultValue={v.phone ?? phone} error={e.phone} />
       <SubmitButton pendingText="Guardando…">Guardar datos</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function ChangePasswordForm() {
-  const [state, action] = useActionState<ActionState, FormData>(changePasswordAction, {});
+  const [state, action] = useActionForm<ActionState>(changePasswordAction, {});
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} resetOnSuccess className="space-y-4" noValidate>
       <Feedback state={state} />
       <Input id="pw-current" name="current" label="Contraseña actual" type="password" autoComplete="current-password" error={e.current} />
       <Input
@@ -127,21 +127,21 @@ export function ChangePasswordForm() {
       <Input id="pw-confirm" name="confirm" label="Repetí la contraseña nueva" type="password" autoComplete="new-password" error={e.confirm} />
       <SubmitButton pendingText="Guardando…">Cambiar contraseña</SubmitButton>
       <p className="text-xs text-slate-500">Al cambiarla se cierran tus sesiones en otros dispositivos.</p>
-    </form>
+    </ActionForm>
   );
 }
 
 // ---- Administrador ----
 
 export function ReviewRequestForms({ requestId, declaredCategory }: { requestId: string; declaredCategory: string | null }) {
-  const [approveState, approve] = useActionState<ActionState, FormData>(approveRequestAction, {});
-  const [rejectState, reject] = useActionState<ActionState, FormData>(rejectRequestAction, {});
+  const [approveState, approve] = useActionForm<ActionState>(approveRequestAction, {});
+  const [rejectState, reject] = useActionForm<ActionState>(rejectRequestAction, {});
 
   if (approveState.ok || rejectState.ok) return <Feedback state={approveState.ok ? approveState : rejectState} />;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <form action={approve} className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-4" noValidate>
+      <ActionForm form={approve} className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-4" noValidate>
         <input type="hidden" name="requestId" value={requestId} />
         <p className="text-sm font-semibold text-emerald-900">Aprobar</p>
         <Feedback state={approveState} />
@@ -161,9 +161,9 @@ export function ReviewRequestForms({ requestId, declaredCategory }: { requestId:
         </div>
         <Input id={`note-ok-${requestId}`} name="note" label="Nota (opcional)" maxLength={300} />
         <SubmitButton pendingText="Aprobando…">Aprobar acceso</SubmitButton>
-      </form>
+      </ActionForm>
 
-      <form action={reject} className="space-y-3 rounded-lg border border-slate-200 p-4" noValidate>
+      <ActionForm form={reject} className="space-y-3 rounded-lg border border-slate-200 p-4" noValidate>
         <input type="hidden" name="requestId" value={requestId} />
         <p className="text-sm font-semibold text-slate-800">Rechazar</p>
         <Feedback state={rejectState} />
@@ -181,16 +181,16 @@ export function ReviewRequestForms({ requestId, declaredCategory }: { requestId:
         >
           Rechazar solicitud
         </button>
-      </form>
+      </ActionForm>
     </div>
   );
 }
 
 export function RevokeAccessForm({ accessId }: { accessId: string }) {
-  const [state, action] = useActionState<ActionState, FormData>(revokeAccessAction, {});
+  const [state, action] = useActionForm<ActionState>(revokeAccessAction, {});
   if (state.ok) return <Feedback state={state} />;
   return (
-    <form action={action} className="flex flex-col gap-2 sm:flex-row sm:items-start" noValidate>
+    <ActionForm form={action} resetOnSuccess className="flex flex-col gap-2 sm:flex-row sm:items-start" noValidate>
       <input type="hidden" name="accessId" value={accessId} />
       <div className="flex-1">
         <label htmlFor={`rv-${accessId}`} className="sr-only">
@@ -213,14 +213,14 @@ export function RevokeAccessForm({ accessId }: { accessId: string }) {
       >
         Revocar
       </button>
-    </form>
+    </ActionForm>
   );
 }
 
 export function UserStatusForm({ userId, active }: { userId: string; active: boolean }) {
-  const [state, action] = useActionState<ActionState, FormData>(setUserActiveAction, {});
+  const [state, action] = useActionForm<ActionState>(setUserActiveAction, {});
   return (
-    <form action={action} className="flex flex-col items-end gap-1">
+    <ActionForm form={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="active" value={active ? "false" : "true"} />
       <button
@@ -232,6 +232,6 @@ export function UserStatusForm({ userId, active }: { userId: string; active: boo
         {active ? "Suspender" : "Reactivar"}
       </button>
       {state.message && !state.ok && <p className="text-xs text-red-700">{state.message}</p>}
-    </form>
+    </ActionForm>
   );
 }

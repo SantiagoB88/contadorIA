@@ -109,7 +109,32 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
         </EmptyState>
       ) : (
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {invoices.map((inv) => {
+              const isCounted = COUNTED_INVOICE_STATUSES.includes(inv.status);
+              return (
+                <li key={inv.id} className={`space-y-1 px-4 py-3 text-sm ${isCounted ? "" : "text-slate-500"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 font-medium">{inv.recipientName}</p>
+                    <p className={`tabular shrink-0 font-semibold ${isCounted ? "" : "line-through"}`}>{formatARS(inv.amountCents)}</p>
+                  </div>
+                  <p className="text-slate-600">{inv.description}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span className="tabular">{formatDateAR(inv.issueDate)}</span>
+                    <Badge tone={isCounted ? "success" : "neutral"}>{STATUS_LABEL[inv.status] ?? inv.status}</Badge>
+                    <span>{SOURCE_LABEL[inv.source] ?? inv.source}</span>
+                  </div>
+                </li>
+              );
+            })}
+            <li className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3 text-sm">
+              <span className="font-medium">
+                Total computable ({counted.length} {counted.length === 1 ? "comprobante" : "comprobantes"})
+              </span>
+              <span className="tabular font-semibold">{formatARS(total)}</span>
+            </li>
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>

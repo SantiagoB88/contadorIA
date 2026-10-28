@@ -103,7 +103,34 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
         </EmptyState>
       ) : (
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          {/* Celular: una tarjeta por vencimiento, con todo a la vista. */}
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {debt.all.map((o) => (
+              <li key={o.id} className={`space-y-1.5 px-4 py-4 text-sm ${o.status === "ANULADA" ? "text-slate-500" : ""}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium text-slate-900">{o.concept}</p>
+                  <p className="tabular shrink-0 font-semibold">{amountText(o)}</p>
+                </div>
+                <p className="text-slate-600">
+                  {formatPeriod(o.period)} · vence <span className="tabular">{formatDateAR(o.dueDate)}</span>
+                </p>
+                <div>{obligationBadge(o, debt.today)}</div>
+                {o.statusNote && <p className="text-xs text-slate-500">{o.statusNote}</p>}
+                <p className="text-xs text-slate-500">
+                  {o.source} · {formatDateTimeAR(o.updatedAt)}
+                </p>
+                {canInform && o.status === OBLIGATION_STATUS.PENDIENTE && (
+                  <Link
+                    href={`/dashboard/deudas/informar/${o.id}`}
+                    className="inline-block rounded-lg border border-brand-300 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                  >
+                    Informar pago
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>

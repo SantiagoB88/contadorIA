@@ -44,6 +44,11 @@
 | Descarga | Ruta `/documentos/[id]/descargar` con autorización en cada pedido, `attachment`, `nosniff`, `no-store`, CSP `sandbox` | Una URL guardada deja de servir al revocar el acceso o al dejar de compartir. |
 | Informar pago | El cliente adjunta el comprobante; el vencimiento pasa a PAGO_INFORMADO y se crea una solicitud "Pago informado" | No se da por pagado hasta que el estudio lo verifica. El cambio es condicionado para no informar dos veces. |
 | Tamaño de envío | `serverActions.bodySizeLimit = 32mb` | Permite 3 archivos de 10 MB; el servidor vuelve a validar cada archivo. |
+| Envío de formularios | `ActionForm` + `useActionForm`: envío manual a la Server Action, sin el reinicio automático de React 19 | Con `<form action>` React restablece el formulario después de cada envío: selects y radios mostraban valores viejos o distintos de lo enviado. Ahora lo que se ve es lo que se envía. |
+| Pruebas de punta a punta | Playwright 1.63 con el Edge instalado (`channel: "msedge"`), sobre una copia en el puerto 3100 con `prisma/e2e.db` | No descarga navegadores y nunca toca la base del usuario. |
+| Base desactualizada | `AppMeta` guarda `schema-version`; si no coincide con `SCHEMA_VERSION`, se muestra "Falta reiniciar la aplicación" | Pasa si el servidor queda abierto mientras se actualiza el código. Es mejor que un error técnico. |
+| Menú en celular y tablet | Botón "Menú" hasta 1024 px; barra lateral fija desde ahí | Con 11 secciones, una fila desplazable no se entendía y en tablet la barra lateral comía un tercio del ancho. |
+| Tablas en celular | Tarjetas por fila debajo de 640 px; tabla desde ahí | Las acciones (descargar, informar pago) no deben quedar escondidas detrás de un scroll lateral. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

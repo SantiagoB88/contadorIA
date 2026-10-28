@@ -17,7 +17,9 @@
 - [ ] Solicitudes: búsqueda por texto y paginación en la bandeja (hoy muestra hasta 200)
 - [ ] Canal WhatsApp sobre los servicios de solicitudes (fuera de alcance por ahora)
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración (base **y** carpeta `storage/`)
-- [ ] Tests E2E (Playwright) y revisión visual a 390 / 768 / 1440 px
+- [x] Tests E2E (Playwright) y revisión visual a 390 / 768 / 1440 px
+- [ ] Probar en Safari / iPhone real y en Firefox
+- [ ] Tablas del backoffice (resumen, escalas, últimos comprobantes) en formato tarjeta para celular: hoy se desplazan dentro de su recuadro
 
 ## Deuda técnica conocida
 

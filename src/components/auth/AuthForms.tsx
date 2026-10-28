@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import {
   registerAction,
   requestResetAction,
@@ -47,7 +47,7 @@ const BackToLogin = () => (
 );
 
 export function RegisterForm() {
-  const [state, action] = useActionState<AuthFormState, FormData>(registerAction, {});
+  const [state, action] = useActionForm<AuthFormState>(registerAction, {});
   if (state.ok) {
     return (
       <div className="space-y-4">
@@ -59,7 +59,7 @@ export function RegisterForm() {
   const v = state.values ?? {};
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} className="space-y-4" noValidate>
       <Feedback state={state} />
       <Field id="name" label="Nombre y apellido" autoComplete="name" defaultValue={v.name} error={e.name} />
       <Field id="email" label="Correo electrónico" type="email" autoComplete="email" defaultValue={v.email} error={e.email} />
@@ -87,12 +87,12 @@ export function RegisterForm() {
       <p className="text-xs text-slate-500">
         Tu CUIT lo cargás después de confirmar el correo. El estudio valida la asociación antes de mostrarte datos fiscales.
       </p>
-    </form>
+    </ActionForm>
   );
 }
 
 export function VerifyEmailForm({ token }: { token: string }) {
-  const [state, action] = useActionState<AuthFormState, FormData>(verifyEmailAction, {});
+  const [state, action] = useActionForm<AuthFormState>(verifyEmailAction, {});
   if (state.message) {
     return (
       <div className="space-y-4">
@@ -102,18 +102,18 @@ export function VerifyEmailForm({ token }: { token: string }) {
     );
   }
   return (
-    <form action={action} className="space-y-4">
+    <ActionForm form={action} className="space-y-4">
       <input type="hidden" name="token" value={token} />
       <p className="text-sm text-slate-600">Tocá el botón para confirmar que este correo es tuyo.</p>
       <SubmitButton pendingText="Confirmando…" className="w-full">
         Confirmar mi correo
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function RequestResetForm() {
-  const [state, action] = useActionState<AuthFormState, FormData>(requestResetAction, {});
+  const [state, action] = useActionForm<AuthFormState>(requestResetAction, {});
   if (state.ok) {
     return (
       <div className="space-y-4">
@@ -123,18 +123,18 @@ export function RequestResetForm() {
     );
   }
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} className="space-y-4" noValidate>
       <Feedback state={state} />
       <Field id="email" label="Correo electrónico" type="email" autoComplete="email" defaultValue={state.values?.email} />
       <SubmitButton pendingText="Enviando…" className="w-full">
         Enviar enlace
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {
-  const [state, action] = useActionState<AuthFormState, FormData>(resetPasswordAction, {});
+  const [state, action] = useActionForm<AuthFormState>(resetPasswordAction, {});
   if (state.ok) {
     return (
       <div className="space-y-4">
@@ -145,7 +145,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   }
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} className="space-y-4" noValidate>
       <input type="hidden" name="token" value={token} />
       <Feedback state={state} />
       <Field
@@ -160,6 +160,6 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <SubmitButton pendingText="Guardando…" className="w-full">
         Guardar contraseña
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }

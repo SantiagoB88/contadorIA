@@ -128,3 +128,42 @@ export const DOC_CATEGORY_LABEL: Record<string, string> = {
 // Archivos: solo PDF, PNG y JPEG, hasta 10 MB cada uno y 3 por envío.
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD = 3;
+
+// Texto visible de cada evento de la auditoría (el código queda en la base).
+export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  LOGIN: "Ingresó",
+  SEED: "Creó los datos de demo",
+  USER_REGISTER: "Se registró",
+  EMAIL_VERIFIED: "Verificó su correo",
+  PASSWORD_RESET_REQUEST: "Pidió recuperar la contraseña",
+  PASSWORD_RESET: "Restableció su contraseña",
+  PASSWORD_CHANGE: "Cambió su contraseña",
+  PROFILE_UPDATE: "Actualizó su perfil",
+  ACCESS_REQUEST_CREATE: "Pidió asociarse a un CUIT",
+  ACCESS_REQUEST_APPROVE: "Aprobó una asociación",
+  ACCESS_REQUEST_REJECT: "Rechazó una asociación",
+  ACCESS_REVOKE: "Revocó un acceso",
+  USER_SUSPEND: "Suspendió a un usuario",
+  USER_REACTIVATE: "Reactivó a un usuario",
+  INVOICE_MANUAL_CREATE: "Cargó un comprobante manual",
+  INVOICE_DRAFT_CREATE: "Creó un borrador de factura",
+  INVOICE_DRAFT_UPDATE: "Editó un borrador de factura",
+  INVOICE_DRAFT_DELETE: "Eliminó un borrador de factura",
+  INVOICE_DRAFT_DUPLICATE: "Creó un borrador a partir de otra factura",
+  INVOICE_SIMULATED: "Emitió una factura (simulación)",
+  INVOICE_REJECTED: "Simuló un rechazo de factura",
+  CATEGORY_UPDATE: "Registró una categoría",
+  COVERAGE_UPDATE: "Actualizó la cobertura de datos",
+  SCALE_CREATE: "Creó una versión de escala",
+  SCALE_UPDATE: "Editó una escala",
+  OBLIGATION_CREATE: "Cargó un vencimiento",
+  OBLIGATION_STATUS: "Cambió el estado de un vencimiento",
+  OBLIGATION_PAYMENT_INFORMED: "Informó un pago",
+  DEBT_REVIEW: "Registró una revisión de deuda",
+  REQUEST_CREATE: "Creó una solicitud",
+  REQUEST_MESSAGE: "Escribió en una solicitud",
+  REQUEST_INTERNAL_NOTE: "Agregó una nota interna",
+  REQUEST_UPDATE: "Actualizó una solicitud",
+  DOCUMENT_UPLOAD: "Subió un documento",
+  DOCUMENT_VISIBILITY: "Cambió quién ve un documento",
+};

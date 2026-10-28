@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import type { FormState } from "@/modules/admin/actions";
 import {
   createObligationAction,
@@ -17,7 +17,7 @@ import { inputClass, labelClass } from "@/components/ui";
 const CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
 
 function useForm(action: (prev: FormState, formData: FormData) => Promise<FormState>) {
-  const [state, formAction] = useActionState<FormState, FormData>(action, {});
+  const [state, formAction] = useActionForm<FormState>(action, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
   return { state, formAction, v, e };
@@ -42,7 +42,7 @@ export function ScaleForm({ mode, scaleId, defaults }: { mode: "create" | "edit"
   const val = (key: string, fallback: string) => v[key] ?? fallback;
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <ActionForm form={formAction} className="space-y-5" noValidate>
       {scaleId && <input type="hidden" name="scaleId" value={scaleId} />}
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -147,7 +147,7 @@ export function ScaleForm({ mode, scaleId, defaults }: { mode: "create" | "edit"
       )}
 
       <SubmitButton pendingText="Guardando…">{mode === "create" ? "Crear versión" : "Guardar cambios"}</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -163,7 +163,7 @@ export function CategoryForm({
   const { state, formAction, v, e } = useForm(setCategoryAction);
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -215,7 +215,7 @@ export function CategoryForm({
         <FieldError id="catReason-error" message={e.reason} />
       </div>
       <SubmitButton pendingText="Guardando…">Registrar categoría</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -223,7 +223,7 @@ export function ObligationForm({ taxpayerId, currentMonth }: { taxpayerId: strin
   const { state, formAction, v, e } = useForm(createObligationAction);
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} resetOnSuccess className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <div>
@@ -274,7 +274,7 @@ export function ObligationForm({ taxpayerId, currentMonth }: { taxpayerId: strin
         </div>
       </div>
       <SubmitButton pendingText="Guardando…">Cargar vencimiento</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -284,7 +284,7 @@ export function ObligationStatusForm({ obligationId, status }: { obligationId: s
   const noteId = `note-${obligationId}`;
 
   return (
-    <form action={formAction} className="space-y-2" noValidate>
+    <ActionForm form={formAction} className="space-y-2" noValidate>
       <input type="hidden" name="obligationId" value={obligationId} />
       <Feedback state={state} />
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -315,7 +315,7 @@ export function ObligationStatusForm({ obligationId, status }: { obligationId: s
         </SubmitButton>
       </div>
       <FieldError id={`${noteId}-error`} message={e.note ?? e.status} />
-    </form>
+    </ActionForm>
   );
 }
 
@@ -331,7 +331,7 @@ export function DebtReviewForm({
   const { state, formAction, v, e } = useForm(debtReviewAction);
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -369,6 +369,6 @@ export function DebtReviewForm({
         <FieldError id="reviewNote-error" message={e.reviewNote} />
       </div>
       <SubmitButton pendingText="Guardando…">Registrar revisión</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }

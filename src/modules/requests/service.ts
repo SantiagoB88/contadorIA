@@ -11,7 +11,7 @@ import {
   SR_STATUS_LABEL,
   SR_TOPIC_LABEL,
 } from "@/lib/constants";
-import { formatDateAR, todayAR } from "@/lib/dates";
+import { formatDateAR, monthLabelLong, parseYmd, todayAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 import type { ServiceResult } from "@/modules/access/service";
 import { getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -505,7 +505,8 @@ export async function informPayment(
   if (!checked.ok) fieldErrors.files = checked.message;
   if (Object.keys(fieldErrors).length > 0 || !checked.ok) return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
 
-  const periodText = `${obligation.concept} ${obligation.period}`;
+  const { year, month } = parseYmd(`${obligation.period}-01`);
+  const periodText = `${obligation.concept} de ${monthLabelLong(year, month)}`;
   const body = note || `Informo el pago de ${periodText}. Adjunto el comprobante.`;
   const stored = await storeFiles(checked.files);
   const request = await withStoredFiles(stored, () =>

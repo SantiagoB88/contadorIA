@@ -492,6 +492,11 @@ async function main() {
     assert.ok(!r3.ok && r3.fieldErrors?.validFrom);
     await assert.rejects(() => createScaleVersion(clienteA, scaleInput()));
   });
+  await check("una versión con fecha de fin no cierra la vigente (no deja días sin escala)", async () => {
+    const r = await createScaleVersion(admin, scaleInput({ validFrom: `${year}-03-01`, validTo: `${year}-04-01` }));
+    assert.ok(!r.ok && r.fieldErrors?.validFrom?.includes("dejá vacía la fecha de fin"));
+    assert.equal((await findScaleForDate(admin.studyId, today))!.validTo, null);
+  });
   await check("una versión nueva cierra la vigente y no se permiten superposiciones", async () => {
     const created = await createScaleVersion(admin, scaleInput());
     assert.equal(created.ok, true);

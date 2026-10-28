@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import { createHash } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { storage } from "../src/providers/storage";
+import { SCHEMA_META_KEY, SCHEMA_VERSION } from "../src/lib/schema-version";
 
 const prisma = new PrismaClient();
 
@@ -394,7 +395,7 @@ async function main() {
   await saveDoc({ taxpayerId: taxpayers.bruno, title: "Detalle de deuda", fileName: "detalle-de-deuda-bruno-diaz.pdf", category: "DECLARACION", visibility: "CLIENTE", uploadedById: admin.id, note: "Estado de cuenta revisado por el estudio", createdAt: hoursAgo(40) });
 
   // Este seed ya incluye los datos de las entregas 2 y 4: no hace falta la actualización de prisma/upgrade.ts.
-  await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }] });
+  await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }, { key: SCHEMA_META_KEY, value: SCHEMA_VERSION }] });
 
   // Contribuyente del otro estudio (no debe verse nunca desde Estudio Demo).
   await prisma.taxpayer.create({

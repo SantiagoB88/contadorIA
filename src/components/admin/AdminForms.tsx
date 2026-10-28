@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import {
   addInvoiceAction,
   updateCoverageAction,
@@ -11,12 +11,12 @@ import { Feedback, FieldError } from "@/components/forms";
 import { inputClass, labelClass } from "@/components/ui";
 
 export function InvoiceForm({ taxpayerId, today }: { taxpayerId: string; today: string }) {
-  const [state, action] = useActionState<FormState, FormData>(addInvoiceAction, {});
+  const [state, action] = useActionForm<FormState>(addInvoiceAction, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} resetOnSuccess className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -86,7 +86,7 @@ export function InvoiceForm({ taxpayerId, today }: { taxpayerId: string; today: 
         <FieldError id="description-error" message={e.description} />
       </div>
       <SubmitButton pendingText="Guardando…">Cargar comprobante</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -101,12 +101,12 @@ export function CoverageForm({
   complete: boolean;
   today: string;
 }) {
-  const [state, action] = useActionState<FormState, FormData>(updateCoverageAction, {});
+  const [state, action] = useActionForm<FormState>(updateCoverageAction, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <ActionForm form={action} className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <div>
@@ -135,6 +135,6 @@ export function CoverageForm({
         <span>Confirmo que desde esa fecha están cargados todos los comprobantes</span>
       </label>
       <SubmitButton pendingText="Guardando…">Guardar cobertura</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }

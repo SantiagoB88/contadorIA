@@ -102,7 +102,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </span>
         }
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <TaxpayerPicker
             action="/dashboard"
             taxpayers={taxpayers.map((t) => ({ id: t.id, label: t.name }))}
@@ -167,7 +167,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <UpcomingCard debt={debt} href={`/dashboard/deudas?${q}`} />
         <Card className="md:col-span-2 xl:col-span-1">
           <div className="flex items-start justify-between gap-2">
-            <h2 className="text-sm font-medium text-slate-600">Solicitudes recientes</h2>
+            <h2 className="font-semibold text-slate-900">Solicitudes recientes</h2>
             <Link
               href={isAdmin ? "/admin/solicitudes" : `/solicitudes/nueva?${q}`}
               className="text-sm font-medium text-brand-700 hover:underline"

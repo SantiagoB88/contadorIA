@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ActionForm, useActionForm } from "@/components/ActionForm";
 import type { FormState } from "@/modules/admin/actions";
 import { createRequestAction, informPaymentAction, replyAction, updateRequestAction } from "@/modules/requests/actions";
 import { documentVisibilityAction, uploadDocumentsAction } from "@/modules/documents/actions";
@@ -12,7 +13,7 @@ const MAX_MB = 10;
 const MAX_FILES = 3;
 
 function useForm(action: (prev: FormState, formData: FormData) => Promise<FormState>) {
-  const [state, formAction] = useActionState<FormState, FormData>(action, {});
+  const [state, formAction] = useActionForm<FormState>(action, {});
   const v = state.ok ? {} : (state.values ?? {});
   const e = state.fieldErrors ?? {};
   return { state, formAction, v, e };
@@ -24,31 +25,70 @@ function errorProps(id: string, e: Record<string, string>) {
 
 type Option = { value: string; label: string };
 
-/** Selector de archivos con aviso inmediato de tamaño. La validación que vale la hace el servidor. */
+/**
+ * Selector de archivos con textos en español (el botón nativo depende del idioma del navegador),
+ * lista de lo elegido y aviso inmediato de tamaño. La validación que vale la hace el servidor.
+ */
 function FileField({ id, label, error, required }: { id: string; label: string; error?: string; required?: boolean }) {
   const [warning, setWarning] = useState<string | null>(null);
+  const [names, setNames] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Cuando el formulario se envía bien, React lo vacía: la lista también.
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const onReset = () => {
+      setNames([]);
+      setWarning(null);
+    };
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, []);
+
   return (
     <div>
-      <label htmlFor={id} className={labelClass}>
-        {label}
-      </label>
-      <input
-        id={id}
-        name="files"
-        type="file"
-        multiple
-        required={required}
-        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-        aria-invalid={!!error}
-        aria-describedby={`${id}-help${error ? ` ${id}-error` : ""}`}
-        onChange={(ev) => {
-          const files = Array.from(ev.currentTarget.files ?? []);
-          if (files.length > MAX_FILES) setWarning(`Elegiste ${files.length} archivos: el máximo es ${MAX_FILES}.`);
-          else if (files.some((f) => f.size > MAX_MB * 1024 * 1024)) setWarning(`Hay un archivo de más de ${MAX_MB} MB.`);
-          else setWarning(null);
-        }}
-        className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-      />
+      <span className={labelClass}>{label}</span>
+      <div className="relative flex flex-wrap items-center gap-3">
+        <input
+          ref={inputRef}
+          id={id}
+          name="files"
+          type="file"
+          multiple
+          required={required}
+          accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+          aria-label={label}
+          aria-invalid={!!error}
+          aria-describedby={`${id}-help${error ? ` ${id}-error` : ""}`}
+          onChange={(ev) => {
+            const files = Array.from(ev.currentTarget.files ?? []);
+            setNames(files.map((f) => f.name));
+            if (files.length > MAX_FILES) setWarning(`Elegiste ${files.length} archivos: el máximo es ${MAX_FILES}.`);
+            else if (files.some((f) => f.size > MAX_MB * 1024 * 1024)) setWarning(`Hay un archivo de más de ${MAX_MB} MB.`);
+            else setWarning(null);
+          }}
+          className="peer sr-only"
+        />
+        <label
+          htmlFor={id}
+          className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600"
+        >
+          {names.length ? "Cambiar archivos" : "Elegir archivos"}
+        </label>
+        <span className="min-w-0 text-sm text-slate-600">
+          {names.length === 0 ? "Ningún archivo elegido" : names.length === 1 ? names[0] : `${names.length} archivos elegidos`}
+        </span>
+      </div>
+      {names.length > 1 && (
+        <ul className="mt-2 space-y-0.5 text-sm text-slate-700">
+          {names.map((n, i) => (
+            <li key={`${n}-${i}`} className="truncate">
+              · {n}
+            </li>
+          ))}
+        </ul>
+      )}
       <p id={`${id}-help`} className="mt-1 text-xs text-slate-500">
         PDF, PNG o JPG · hasta {MAX_MB} MB cada uno · máximo {MAX_FILES} archivos.
       </p>
@@ -61,7 +101,7 @@ function FileField({ id, label, error, required }: { id: string; label: string; 
 export function NewRequestForm({ taxpayers, selectedId, topics }: { taxpayers: Option[]; selectedId: string; topics: Option[] }) {
   const { state, formAction, v, e } = useForm(createRequestAction);
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       <Feedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -110,7 +150,7 @@ export function NewRequestForm({ taxpayers, selectedId, topics }: { taxpayers: O
       </div>
       <FileField id="newFiles" label="Adjuntos (opcional)" error={e.files} />
       <SubmitButton pendingText="Enviando…">Enviar solicitud</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -120,33 +160,50 @@ export function ReplyForm({ requestId, staff, statuses }: { requestId: string; s
   const internal = visibility === "INTERNA";
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} resetOnSuccess className="space-y-4" noValidate>
       <input type="hidden" name="requestId" value={requestId} />
       <Feedback state={state} />
       {staff ? (
-        <fieldset>
-          <legend className={labelClass}>Tipo de mensaje</legend>
-          <div className="flex flex-wrap gap-2">
+        <div>
+          {/* El valor que se envía sale siempre del estado (campo oculto): lo que se ve marcado es lo que se guarda,
+              también después de que React vacía el formulario al terminar un envío. */}
+          <input type="hidden" name="visibility" value={visibility} />
+          <p id="visibility-label" className={labelClass}>
+            Tipo de mensaje
+          </p>
+          <div role="radiogroup" aria-labelledby="visibility-label" className="flex flex-wrap gap-2">
             {[
               { value: "PUBLICA", label: "Respuesta al cliente" },
               { value: "INTERNA", label: "Nota interna (el cliente no la ve)" },
-            ].map((o) => (
-              <label
-                key={o.value}
-                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                  visibility === o.value
-                    ? o.value === "INTERNA"
-                      ? "border-amber-400 bg-amber-50 text-amber-900"
-                      : "border-brand-400 bg-brand-50 text-brand-900"
-                    : "border-slate-300 text-slate-700"
-                }`}
-              >
-                <input type="radio" name="visibility" value={o.value} checked={visibility === o.value} onChange={() => setVisibility(o.value)} />
-                {o.label}
-              </label>
-            ))}
+            ].map((o) => {
+              const selected = visibility === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setVisibility(o.value)}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${
+                    selected
+                      ? o.value === "INTERNA"
+                        ? "border-amber-400 bg-amber-50 font-medium text-amber-900"
+                        : "border-brand-400 bg-brand-50 font-medium text-brand-900"
+                      : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-current" : "border-slate-400"}`}
+                  >
+                    {selected && <span className="h-2 w-2 rounded-full bg-current" />}
+                  </span>
+                  {o.label}
+                </button>
+              );
+            })}
           </div>
-        </fieldset>
+        </div>
       ) : (
         <input type="hidden" name="visibility" value="PUBLICA" />
       )}
@@ -184,7 +241,7 @@ export function ReplyForm({ requestId, staff, statuses }: { requestId: string; s
       )}
       <FileField id="replyFiles" label={internal ? "Adjuntos internos (opcional)" : "Adjuntos (opcional)"} error={e.files} />
       <SubmitButton pendingText="Enviando…">{internal ? "Guardar nota interna" : "Enviar"}</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -205,7 +262,7 @@ export function RequestSettingsForm({
 }) {
   const { state, formAction, v, e } = useForm(updateRequestAction);
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       <input type="hidden" name="requestId" value={requestId} />
       <Feedback state={state} />
       <div>
@@ -247,14 +304,14 @@ export function RequestSettingsForm({
       <SubmitButton pendingText="Guardando…" className="w-full">
         Guardar
       </SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function InformPaymentForm({ obligationId }: { obligationId: string }) {
   const { state, formAction, v, e } = useForm(informPaymentAction);
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} className="space-y-4" noValidate>
       <input type="hidden" name="obligationId" value={obligationId} />
       <Feedback state={state} />
       <FileField id="payFiles" label="Comprobante de pago" error={e.files} required />
@@ -275,14 +332,14 @@ export function InformPaymentForm({ obligationId }: { obligationId: string }) {
         <FieldError id="note-error" message={e.note} />
       </div>
       <SubmitButton pendingText="Enviando…">Informar pago</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function DocumentUploadForm({ taxpayerId, categories }: { taxpayerId: string; categories: Option[] }) {
   const { state, formAction, v, e } = useForm(uploadDocumentsAction);
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <ActionForm form={formAction} resetOnSuccess className="space-y-4" noValidate>
       <input type="hidden" name="taxpayerId" value={taxpayerId} />
       <Feedback state={state} />
       <FileField id="docFiles" label="Archivos" error={e.files} required />
@@ -319,21 +376,21 @@ export function DocumentUploadForm({ taxpayerId, categories }: { taxpayerId: str
         <FieldError id="note-error" message={e.note} />
       </div>
       <SubmitButton pendingText="Subiendo…">Subir documentos</SubmitButton>
-    </form>
+    </ActionForm>
   );
 }
 
 export function DocumentVisibilityButton({ documentId, visibility }: { documentId: string; visibility: string }) {
-  const [state, formAction] = useActionState<FormState, FormData>(documentVisibilityAction, {});
+  const [state, formAction] = useActionForm<FormState>(documentVisibilityAction, {});
   const next = visibility === "CLIENTE" ? "INTERNO" : "CLIENTE";
   return (
-    <form action={formAction} className="inline">
+    <ActionForm form={formAction} className="inline">
       <input type="hidden" name="documentId" value={documentId} />
       <input type="hidden" name="visibility" value={next} />
       <button type="submit" className="text-sm font-medium text-brand-700 hover:underline">
         {next === "CLIENTE" ? "Compartir con el cliente" : "Dejar de compartir"}
       </button>
       {state.message && !state.ok && <span className="ml-2 text-xs text-red-700">{state.message}</span>}
-    </form>
+    </ActionForm>
   );
 }
