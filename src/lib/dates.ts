@@ -36,6 +36,13 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
+/** Suma (o resta) días a una fecha "YYYY-MM-DD". */
+export function addDaysYmd(s: string, delta: number): string {
+  const { year, month, day } = parseYmd(s);
+  const d = new Date(Date.UTC(year, month - 1, day + delta));
+  return ymd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
 /** Suma (o resta) meses a un par año/mes. */
 export function addMonths(year: number, month: number, delta: number): { year: number; month: number } {
   const index = year * 12 + (month - 1) + delta;

@@ -20,9 +20,9 @@ Versión reducida de los pasos 0 y 1 del plan original.
 
 Registro, verificación de correo local (`/dev/correos`), recuperación de contraseña, perfil, asociación por CUIT con aprobación del estudio, rechazo, revocación de accesos y suspensión de usuarios. Pendiente de esta etapa: rol operador con clientes asignados.
 
-## Entrega 3 — Facturador en modo demo (paso 3)
+## Entrega 3 — Facturador en modo demo (paso 3) ✅
 
-Receptores, conceptos, borradores, revisión, emisión simulada con idempotencia, historial y PDF "SIMULACIÓN SIN VALIDEZ FISCAL".
+Receptores, conceptos, borradores, revisión, emisión simulada con idempotencia, rechazo simulado, historial con filtros y PDF "SIMULACIÓN SIN VALIDEZ FISCAL".
 
 ## Entrega 4 — Categorías y tablero completo (paso 4)
 

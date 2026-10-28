@@ -164,23 +164,97 @@ model TaxCategoryLimit {
 
 // Comprobantes / movimientos de facturación.
 model Invoice {
-  id            String   @id @default(cuid())
-  studyId       String
-  study         Study    @relation(fields: [studyId], references: [id])
-  taxpayerId    String
-  taxpayer      Taxpayer @relation(fields: [taxpayerId], references: [id])
-  issueDate     String // YYYY-MM-DD
-  recipientName String
-  description   String
-  amountCents   BigInt
-  currency      String   @default("ARS")
-  status        String // VERIFICADO | BORRADOR | RECHAZADO
-  source        String // DATOS_FICTICIOS | CARGA_MANUAL
-  environment   String   @default("DEMO")
-  createdById   String?
-  createdAt     DateTime @default(now())
+  id                    String            @id @default(cuid())
+  studyId               String
+  study                 Study             @relation(fields: [studyId], references: [id])
+  taxpayerId            String
+  taxpayer              Taxpayer          @relation(fields: [taxpayerId], references: [id])
+  issueDate             String // YYYY-MM-DD
+  recipientName         String
+  description           String
+  amountCents           BigInt // total; en el facturador lo calcula el servidor desde los ítems
+  currency              String            @default("ARS")
+  status                String // VERIFICADO | BORRADOR | EN_PROCESO | SIMULADO | RECHAZADO
+  source                String // DATOS_FICTICIOS | CARGA_MANUAL | FACTURADOR
+  environment           String            @default("DEMO")
+  createdById           String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @default(now()) @updatedAt
+  // Facturador: fotografía de los datos del receptor al momento del comprobante.
+  recipientId           String?
+  recipient             InvoiceRecipient? @relation(fields: [recipientId], references: [id])
+  recipientDocType      String? // CUIT | DNI | SIN_IDENTIFICAR
+  recipientDocNumber    String?
+  recipientTaxCondition String? // CONSUMIDOR_FINAL | RESPONSABLE_INSCRIPTO | MONOTRIBUTO | EXENTO
+  invoiceType           String? // C (monotributo)
+  pointOfSale           Int?
+  number                Int? // numeración interna de la simulación, no fiscal
+  issuedAt              DateTime?
+  rejectionReason       String?
+  items                 InvoiceItem[]
+  attempts              InvoiceAttempt[]
 
   @@index([taxpayerId, issueDate])
+  @@index([taxpayerId, source, status])
+}
+
+// Receptores guardados para reutilizar en próximas facturas.
+model InvoiceRecipient {
+  id           String    @id @default(cuid())
+  studyId      String
+  taxpayerId   String
+  name         String
+  docType      String // CUIT | DNI | SIN_IDENTIFICAR
+  docNumber    String?
+  taxCondition String
+  createdAt    DateTime  @default(now())
+  invoices     Invoice[]
+
+  @@index([taxpayerId])
+}
+
+model InvoiceItem {
+  id             String  @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  position       Int
+  description    String
+  quantityMilli  Int // cantidad × 1000 (admite 3 decimales)
+  unitPriceCents BigInt
+  subtotalCents  BigInt
+
+  @@index([invoiceId])
+}
+
+// Intento de emisión. La clave única evita emitir dos veces el mismo pedido (doble clic, reintento).
+model InvoiceAttempt {
+  id             String   @id @default(cuid())
+  studyId        String
+  taxpayerId     String
+  environment    String
+  idempotencyKey String
+  requestHash    String
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id])
+  status         String // EN_PROCESO | COMPLETADO | FALLIDO
+  resultStatus   String?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@unique([studyId, taxpayerId, environment, idempotencyKey])
+}
+
+// Numeración por contribuyente, ambiente, punto de venta y tipo.
+model InvoiceSequence {
+  id          String @id @default(cuid())
+  taxpayerId  String
+  environment String
+  pointOfSale Int
+  invoiceType String
+  lastNumber  Int
+
+  @@unique([taxpayerId, environment, pointOfSale, invoiceType])
 }
 
 // Cobertura de datos: permite distinguir "cero" de "no hay información".

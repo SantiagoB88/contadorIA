@@ -5,7 +5,8 @@
 - [x] Registro, verificación de correo local, recuperación de contraseña
 - [x] Solicitud de asociación por CUIT, aprobación / rechazo / revocación, suspensión de usuarios
 - [ ] Rol **operador** con clientes asignados (quedó fuera de la entrega 2 para mantenerla simple)
-- [ ] Facturador demo con idempotencia y PDF sin validez fiscal
+- [x] Facturador demo con idempotencia y PDF sin validez fiscal
+- [ ] Facturador: notas de crédito, editar/eliminar receptores guardados, otros puntos de venta, umbral de identificación del consumidor final
 - [ ] Escalas versionadas editables, deudas y vencimientos
 - [ ] Solicitudes al contador, mensajes, notas internas, documentos
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración

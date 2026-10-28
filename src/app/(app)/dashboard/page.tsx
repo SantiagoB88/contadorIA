@@ -90,13 +90,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </span>
         }
       >
-        <TaxpayerPicker
-          action="/dashboard"
-          taxpayers={taxpayers.map((t) => ({ id: t.id, label: t.name }))}
-          selectedId={taxpayer.id}
-          months={monthOptions()}
-          selectedMonth={monthKey(year, month)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <TaxpayerPicker
+            action="/dashboard"
+            taxpayers={taxpayers.map((t) => ({ id: t.id, label: t.name }))}
+            selectedId={taxpayer.id}
+            months={monthOptions()}
+            selectedMonth={monthKey(year, month)}
+          />
+          <Link
+            href={`/facturas/nueva?c=${taxpayer.id}`}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-brand-600 px-4 py-2.5 font-medium text-white hover:bg-brand-700"
+          >
+            Nueva factura
+          </Link>
+        </div>
       </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
@@ -143,8 +151,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       </div>
 
       <p className="text-xs text-slate-500">
-        Moneda {data.currency} · Ambiente {data.environment} · Reglas {data.rulesVersion} · Solo suman comprobantes
-        verificados; los borradores no se cuentan.
+        Moneda {data.currency} · Ambiente {data.environment} · Reglas {data.rulesVersion} · Suman los comprobantes
+        verificados y, solo en la demo, las facturas emitidas en simulación. Borradores y rechazos no se cuentan.
       </p>
     </div>
   );

@@ -23,18 +23,53 @@
 - **Mi perfil**: datos personales, cambio de contraseña, contribuyentes habilitados, estado de solicitudes y estado de vinculación fiscal ("No conectada").
 - **Actualización de bases existentes**: `prisma/upgrade.ts` corre en `npm run dev` y deja a los usuarios previos como verificados. También convierte los accesos pendientes en solicitudes y corrige los CUIT de demo para que tengan dígito válido. Se aplica una sola vez.
 
+## Entrega 3 — Facturador en modo demo ✅
+
+- **Facturación** (`/facturas`): listado con búsqueda, filtros por estado y fechas, paginación y orden estable.
+- **Nueva factura**: Factura C del monotributista.
+  - Receptor guardado o nuevo (CUIT, DNI o sin identificar, con su condición frente al IVA). Se puede guardar para la próxima.
+  - Conceptos con cantidad (hasta 3 decimales) y precio. El total que vale lo calcula el servidor; el del formulario es solo una vista previa.
+  - Fecha hasta 10 días anterior a hoy, nunca futura.
+- **Borrador → revisión → emisión simulada**:
+  - Antes de confirmar se muestra el modo de trabajo.
+  - El borrador se puede editar o eliminar. Una factura emitida no.
+  - Se puede simular un rechazo, que no suma ni consume número.
+  - Desde cualquier factura se puede "crear borrador a partir de esta".
+- **Idempotencia**:
+  - La clave única por estudio, contribuyente, ambiente y operación se guarda junto con un hash del pedido.
+  - El intento queda registrado antes de llamar al proveedor.
+  - Misma clave con el mismo pedido devuelve el mismo resultado; con otro pedido da conflicto.
+  - Un intento trabado más de 2 minutos se reconcilia solo.
+- **Numeración interna** por contribuyente, ambiente, punto de venta y tipo (`C 00001-00000001`), sin CAE.
+- **PDF** (`/facturas/[id]/pdf`):
+  - Marca de agua y leyendas "SIMULACIÓN SIN VALIDEZ FISCAL", sin CAE ni QR.
+  - Se autoriza en cada descarga: si se revoca el acceso, la URL deja de funcionar.
+- **Proveedor**: `SimulatedInvoiceProvider` detrás de `InvoiceProvider`. En otro modo falla de forma visible, nunca cae en silencio a la simulación.
+- **Tablero**: las facturas simuladas suman en los indicadores de la demo (ambiente DEMO), y hay un botón "Nueva factura".
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK
-- `npm run build` → OK (compilado en carpeta aparte porque había un `npm run dev` corriendo)
-- `npm run verify` → **37/37 OK** en base aparte: importes, períodos, umbrales, perfiles, aislamiento, CUIT, registro, verificación, recuperación, solicitudes, aprobación, rechazo, revocación, suspensión y cambio de contraseña.
-- Actualización de base: probada sobre una copia de `dev.db`. Conservó los 201 comprobantes, dejó 0 usuarios sin verificar y migró 1 solicitud. Una segunda corrida no cambió nada.
+- `npm run build` → OK (compilado en carpeta aparte para no pisar un `npm run dev` abierto)
+- `npm run verify` → **49/49 OK** en base aparte. Además de lo anterior, el facturador cubre:
+  - subtotales exactos;
+  - validaciones;
+  - acceso cruzado;
+  - **dos emisiones simultáneas con la misma clave → un solo comprobante**;
+  - conflicto de clave y reemisión con otra clave;
+  - suma en el tablero;
+  - numeración en orden;
+  - rechazo sin efecto en totales;
+  - edición y borrado solo en borrador;
+  - generación del PDF;
+  - revocación.
+- PDF revisado visualmente (incluye conceptos largos en varias líneas).
 
 ## No ejecutado todavía
 
-- Las pantallas nuevas no se probaron en navegador.
+- Las pantallas de facturación no se probaron en navegador.
 - Sin tests E2E (Playwright) ni capturas a 390 / 1440 px.
 
 ## Próximo paso
 
-Entrega 3: facturador en modo demo (receptor, conceptos, borrador, emisión simulada con idempotencia, historial y PDF sin validez fiscal).
+Entrega 4: categorías y tablero completo (escalas versionadas editables, detalle de indicadores, deudas y vencimientos).

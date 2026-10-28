@@ -56,6 +56,15 @@ En la demo no se envía ningún correo real. Los correos de verificación y recu
 6. En Accesos, **revocá** ese acceso. El cliente lo deja de ver apenas cambia de pantalla.
 7. En Accesos → Usuarios, **suspendé** al cliente: se le cierra la sesión y ya no puede ingresar.
 
+**Facturador en modo demo (entrega 3)**
+1. Entrá como `cliente.a` y tocá **Nueva factura**, desde el tablero o desde Facturación.
+2. Elegí un receptor guardado o cargá uno nuevo. Agregá conceptos: el total se actualiza mientras escribís.
+3. Tocá "Guardar borrador y revisar". Revisá los datos y tocá **Confirmar emisión simulada**. La factura recibe el número `C 00001-00000001`.
+4. Descargá el PDF: dice "SIMULACIÓN SIN VALIDEZ FISCAL" y no tiene CAE.
+5. Volvé al tablero: el total del mes subió por el importe de la factura.
+6. Hacé otra factura y, antes de confirmar, marcá "Simular un rechazo". Queda rechazada, no suma y no consume número. Con "Crear borrador a partir de esta" la podés corregir.
+7. Con `cliente.b`, abrí la URL de una factura de Ana: tiene que dar "no encontrado".
+
 **Contraseñas**
 - "¿Olvidaste tu contraseña?" → el enlace llega a `/dev/correos` → elegís una nueva. Ese enlace sirve una sola vez.
 - En **Mi perfil** podés cambiar tus datos y tu contraseña.
@@ -65,7 +74,7 @@ En la demo no se envía ningún correo real. Los correos de verificación y recu
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Prepara la base y levanta la app en modo desarrollo |
-| `npm run verify` | Corre 37 verificaciones (cálculos, permisos, alta, accesos) en una base **aparte** (`prisma/verify.db`) |
+| `npm run verify` | Corre 49 verificaciones (cálculos, permisos, alta, accesos, facturador) en una base **aparte** (`prisma/verify.db`) |
 | `npm run typecheck` | Chequeo de tipos |
 | `npm run build` | Build de producción |
 | `npm run db:reset` | **Borra todo** y vuelve a cargar los datos de demo |

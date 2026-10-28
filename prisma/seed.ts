@@ -57,7 +57,11 @@ const RECIPIENTS = ["Cliente Ficticio SRL", "Comercio Demo SA", "Consumidor Fina
 
 async function wipe() {
   await prisma.auditEvent.deleteMany();
+  await prisma.invoiceAttempt.deleteMany();
+  await prisma.invoiceItem.deleteMany();
+  await prisma.invoiceSequence.deleteMany();
   await prisma.invoice.deleteMany();
+  await prisma.invoiceRecipient.deleteMany();
   await prisma.dataCoverage.deleteMany();
   await prisma.taxpayerAccess.deleteMany();
   await prisma.accessRequest.deleteMany();
@@ -177,6 +181,14 @@ async function main() {
       status: "BORRADOR",
       source: "DATOS_FICTICIOS",
     },
+  });
+
+  // Receptores guardados de Ana, para probar el facturador.
+  await prisma.invoiceRecipient.createMany({
+    data: [
+      { studyId: study.id, taxpayerId: taxpayers.ana, name: "Comercio Demo SA", docType: "CUIT", docNumber: "30000000074", taxCondition: "RESPONSABLE_INSCRIPTO" },
+      { studyId: study.id, taxpayerId: taxpayers.ana, name: "Consumidor Final", docType: "SIN_IDENTIFICAR", docNumber: null, taxCondition: "CONSUMIDOR_FINAL" },
+    ],
   });
 
   // Accesos: cliente A ve a Ana y Martín; cliente B solo a Bruno.

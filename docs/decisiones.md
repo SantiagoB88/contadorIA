@@ -23,6 +23,12 @@
 | Alta pública | Crea usuarios en el estudio con `acceptsSignups = true` | Un solo estudio operativo en V1. |
 | Actualizar bases existentes | `prisma db push` (sin `--accept-data-loss`) + `prisma/upgrade.ts` con marcas en `AppMeta` | No obliga a resetear la base del usuario al cambiar de entrega. |
 | `npm run verify` | Usa `prisma/verify.db`, que borra y recrea solo ese archivo | Nunca toca `dev.db`. |
+| Tipo de comprobante | Solo Factura C, punto de venta 1 de demostración | El alcance es monotributo. Tipos y puntos de venta reales se definen en el hito fiscal. |
+| Fecha de la factura | Hasta 10 días anterior a hoy, nunca futura | Regla de producto simple para la demo; validar con el estudio la regla real por actividad. |
+| Simuladas en el tablero | `SIMULADO` suma junto con `VERIFICADO`, siempre filtrando por ambiente | El plan pide que en DEMO los simulados alimenten solo las métricas de demo. |
+| Idempotencia | `InvoiceAttempt` con clave única + hash del pedido; la clave la genera el servidor al dibujar la revisión | Doble clic y reintentos no duplican. El proveedor se llama fuera de transacciones. |
+| PDF | `pdf-lib` 1.17.1, fuentes estándar | Sin dependencias nativas; marca de agua y leyendas en cada página. |
+| Borrado | Solo borradores | Un comprobante emitido nunca se elimina ni se edita. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

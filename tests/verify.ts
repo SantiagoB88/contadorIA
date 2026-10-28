@@ -14,6 +14,17 @@ import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
 import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
+import { addDaysYmd } from "@/lib/dates";
+import { lineSubtotalCents, parseQuantityMilli } from "@/lib/money";
+import {
+  deleteDraft,
+  duplicateAsDraft,
+  emitInvoice,
+  getAuthorizedInvoice,
+  saveDraft,
+  type DraftInput,
+} from "@/modules/billing/service";
+import { buildInvoicePdf } from "@/modules/billing/pdf";
 
 let passed = 0;
 async function check(name: string, fn: () => void | Promise<void>) {
@@ -287,6 +298,133 @@ async function main() {
     assert.ok(passwordProblem("sinnumeros"));
     assert.ok(passwordProblem("12345678"));
     assert.equal(passwordProblem("Clave1234"), null);
+  });
+
+  console.log("Facturador (modo demo)");
+  await check("cantidades y subtotales exactos", () => {
+    assert.equal(parseQuantityMilli("1,5"), 1500);
+    assert.equal(parseQuantityMilli("2.255"), 2255);
+    assert.equal(parseQuantityMilli("1,2345"), null);
+    assert.equal(parseQuantityMilli("-1"), null);
+    assert.equal(lineSubtotalCents(1500, 33333n), 50000n); // 1,5 × 333,33 = 499,995 → 500,00
+    assert.equal(lineSubtotalCents(3000, 10n), 30n);
+  });
+
+  const draftInput = (over: Partial<DraftInput> = {}): DraftInput => ({
+    issueDate: today,
+    recipientMode: "nuevo",
+    recipientId: "",
+    recipientName: "Cliente de Prueba SRL",
+    docType: "CUIT",
+    docNumber: "20-12345678-6",
+    taxCondition: "RESPONSABLE_INSCRIPTO",
+    saveRecipient: true,
+    items: [
+      { description: "Diseño de logo", quantity: "1", unitPrice: "150.000,50" },
+      { description: "Horas de ajuste", quantity: "2,5", unitPrice: "10000" },
+    ],
+    ...over,
+  });
+
+  let draftId = "";
+  await check("guardar borrador: el servidor calcula el total y guarda el receptor", async () => {
+    const r = await saveDraft(clienteA, ana.id, draftInput());
+    assert.equal(r.ok, true);
+    draftId = (r as { invoiceId: string }).invoiceId;
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: draftId }, include: { items: true } });
+    assert.equal(inv.amountCents, 17500050n); // 150.000,50 + 25.000,00
+    assert.equal(inv.status, "BORRADOR");
+    assert.equal(inv.items.length, 2);
+    assert.equal(inv.recipientDocNumber, "20123456786");
+    assert.equal(await prisma.invoiceRecipient.count({ where: { taxpayerId: ana.id, name: "Cliente de Prueba SRL" } }), 1);
+  });
+  await check("validaciones del borrador", async () => {
+    const future = await saveDraft(clienteA, ana.id, draftInput({ issueDate: "2999-01-01" }));
+    assert.equal(future.ok, false);
+    const old = await saveDraft(clienteA, ana.id, draftInput({ issueDate: addDaysYmd(today, -11) }));
+    assert.equal(old.ok, false);
+    const badCuit = await saveDraft(clienteA, ana.id, draftInput({ docNumber: "20123456787" }));
+    assert.ok(!badCuit.ok && badCuit.fieldErrors?.docNumber);
+    const ri = await saveDraft(clienteA, ana.id, draftInput({ docType: "DNI", docNumber: "12345678" }));
+    assert.ok(!ri.ok && ri.fieldErrors?.docType); // RI necesita CUIT
+    const noItems = await saveDraft(clienteA, ana.id, draftInput({ items: [{ description: "", quantity: "", unitPrice: "" }] }));
+    assert.ok(!noItems.ok && noItems.fieldErrors?.items);
+    const badRow = await saveDraft(clienteA, ana.id, draftInput({ items: [{ description: "", quantity: "", unitPrice: "" }, { description: "X", quantity: "0", unitPrice: "abc" }] }));
+    assert.ok(!badRow.ok && badRow.fieldErrors?.["item-1-quantity"] && badRow.fieldErrors?.["item-1-price"]);
+  });
+  await check("otro cliente no puede ver ni facturar para Ana", async () => {
+    assert.equal(await getAuthorizedInvoice(clienteB, draftId), null);
+    assert.equal((await saveDraft(clienteB, ana.id, draftInput())).ok, false);
+    assert.equal((await emitInvoice(clienteB, draftId, "clave-ajena-123", false)).ok, false);
+    assert.equal(await getAuthorizedInvoice(otherAdmin, draftId), null);
+  });
+
+  const mensualAna = async () => (await getDashboardData(ana, today)).periods.find((p) => p.key === "mensual")!.totalCents!;
+  const before = await mensualAna();
+
+  await check("doble clic: dos emisiones simultáneas con la misma clave dan un solo comprobante", async () => {
+    const key = "doble-clic-0001";
+    const [a, b] = await Promise.all([emitInvoice(clienteA, draftId, key, false), emitInvoice(clienteA, draftId, key, false)]);
+    assert.ok(a.ok || b.ok, `${a.message} / ${b.message}`);
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: draftId } });
+    assert.equal(inv.status, "SIMULADO");
+    assert.equal(inv.number, 1);
+    assert.equal(await prisma.invoiceAttempt.count({ where: { invoiceId: draftId } }), 1);
+    // Reintento con la misma clave: mismo resultado, sin numerar de nuevo.
+    const again = await emitInvoice(clienteA, draftId, key, false);
+    assert.equal(again.ok, true);
+    assert.match(again.message, /C 00001-00000001/);
+  });
+  await check("misma clave con otro pedido → conflicto; otra clave → no reemite", async () => {
+    const conflict = await emitInvoice(clienteA, draftId, "doble-clic-0001", true);
+    assert.equal(conflict.ok, false);
+    const otherKey = await emitInvoice(clienteA, draftId, "otra-clave-0002", false);
+    assert.equal(otherKey.ok, false);
+    assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: draftId } })).number, 1);
+  });
+  await check("la factura simulada suma en el tablero de la demo", async () => {
+    assert.equal(await mensualAna(), before + 17500050n);
+  });
+  await check("la numeración sigue en orden", async () => {
+    const r = await saveDraft(clienteA, ana.id, draftInput({ recipientName: "Segundo Cliente", saveRecipient: false }));
+    const id2 = (r as { invoiceId: string }).invoiceId;
+    assert.equal((await emitInvoice(clienteA, id2, "segunda-0001", false)).ok, true);
+    assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: id2 } })).number, 2);
+  });
+  await check("un rechazo no suma en los totales ni consume número", async () => {
+    const totalBefore = await mensualAna();
+    const r = await saveDraft(clienteA, ana.id, draftInput({ saveRecipient: false }));
+    const id3 = (r as { invoiceId: string }).invoiceId;
+    const res = await emitInvoice(clienteA, id3, "rechazo-0001", true);
+    assert.equal(res.ok, false);
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: id3 } });
+    assert.equal(inv.status, "RECHAZADO");
+    assert.equal(inv.number, null);
+    assert.equal(await mensualAna(), totalBefore);
+    // Se puede copiar a un borrador nuevo para corregir.
+    const copy = await duplicateAsDraft(clienteA, id3);
+    assert.equal(copy.ok, true);
+  });
+  await check("solo se editan y eliminan borradores", async () => {
+    assert.equal((await saveDraft(clienteA, ana.id, draftInput(), draftId)).ok, false);
+    assert.equal((await deleteDraft(clienteA, draftId)).ok, false);
+    const r = await saveDraft(clienteA, ana.id, draftInput({ saveRecipient: false }));
+    const id4 = (r as { invoiceId: string }).invoiceId;
+    assert.equal((await saveDraft(clienteA, ana.id, draftInput({ saveRecipient: false, items: [{ description: "Editado", quantity: "1", unitPrice: "100" }] }), id4)).ok, true);
+    assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: id4 } })).amountCents, 10000n);
+    assert.equal((await deleteDraft(clienteA, id4)).ok, true);
+  });
+  await check("PDF de prueba se genera", async () => {
+    const inv = await getAuthorizedInvoice(clienteA, draftId);
+    const bytes = await buildInvoicePdf(inv!);
+    assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
+    assert.ok(bytes.length > 1500);
+  });
+  await check("al revocar el acceso, la factura deja de estar disponible", async () => {
+    const access = await prisma.taxpayerAccess.findFirstOrThrow({ where: { userId: clienteA.id, taxpayerId: ana.id } });
+    await revokeAccess(admin, access.id, "Prueba de revocación");
+    assert.equal(await getAuthorizedInvoice(clienteA, draftId), null);
+    await prisma.taxpayerAccess.update({ where: { id: access.id }, data: { status: "APROBADO" } });
   });
 
   console.log(`\n${passed} verificaciones OK`);

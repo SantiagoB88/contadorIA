@@ -10,6 +10,7 @@ export function AppNav({ isAdmin, orientation }: { isAdmin: boolean; orientation
   const items: Item[] = [
     { href: "/dashboard", label: "Inicio", exact: true },
     { href: "/dashboard/movimientos", label: "Movimientos" },
+    { href: "/facturas", label: "Facturación" },
     ...(isAdmin
       ? [
           { href: "/admin", label: "Backoffice", exact: true },
@@ -57,9 +58,6 @@ export function AppNav({ isAdmin, orientation }: { isAdmin: boolean; orientation
           {item.label}
         </Link>
       ))}
-      <span className="mt-2 px-3 py-2 text-sm text-slate-400" title="Se construye en el paso 3 del plan">
-        Facturación · próximamente
-      </span>
     </nav>
   );
 }

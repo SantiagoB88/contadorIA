@@ -35,6 +35,23 @@ export function parseAmountToCents(input: string): bigint | null {
   return BigInt(intPart) * 100n + BigInt(decPart.padEnd(2, "0"));
 }
 
+/** Cantidad a milésimas: "1" → 1000, "1,5" → 1500, "2.25" → 2250. Null si no es válida. */
+export function parseQuantityMilli(input: string): number | null {
+  const s = input.trim().replace(",", ".");
+  if (!/^\d{1,7}(\.\d{1,3})?$/.test(s)) return null;
+  const [intPart, decPart = ""] = s.split(".");
+  return Number(intPart) * 1000 + Number(decPart.padEnd(3, "0"));
+}
+
+export function formatQuantity(milli: number): string {
+  return (milli / 1000).toLocaleString("es-AR", { maximumFractionDigits: 3 });
+}
+
+/** Subtotal de una línea en centavos, redondeado al centavo (mitad hacia arriba). */
+export function lineSubtotalCents(quantityMilli: number, unitPriceCents: bigint): bigint {
+  return (BigInt(quantityMilli) * unitPriceCents + 500n) / 1000n;
+}
+
 /** Porcentaje con un decimal, calculado en enteros para no perder precisión. */
 export function percentTenths(part: bigint, total: bigint): number {
   if (total <= 0n) return 0;
