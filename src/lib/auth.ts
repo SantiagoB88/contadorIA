@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { hashToken, newRandomToken } from "./crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { ROLES, SESSION_COOKIE, SESSION_DAYS } from "./constants";
@@ -13,13 +13,10 @@ export type CurrentUser = {
   role: string;
 };
 
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 /** Crea una sesión en la base y deja el token en una cookie HttpOnly. Solo desde Server Actions. */
 export async function createSession(userId: string) {
-  const token = randomBytes(32).toString("base64url");
+  const token = newRandomToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   await prisma.session.create({ data: { tokenHash: hashToken(token), userId, expiresAt } });
 

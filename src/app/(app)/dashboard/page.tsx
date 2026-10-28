@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { ROLES } from "@/lib/constants";
+import { prisma } from "@/lib/db";
+import { REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatDateAR, formatDateTimeAR, monthKey, parseYmd } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -21,13 +22,35 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const taxpayers = await getAccessibleTaxpayers(user);
 
   if (taxpayers.length === 0) {
+    const pending =
+      user.role === ROLES.CLIENTE
+        ? await prisma.accessRequest.count({ where: { userId: user.id, status: REQUEST_STATUS.PENDIENTE } })
+        : 0;
     return (
       <div className="space-y-6">
         <PageHeader title={`Hola, ${user.name.split(" ")[0]}`} />
         <EmptyState title="Todavía no tenés contribuyentes habilitados">
-          {user.role === ROLES.ADMIN
-            ? "El estudio no tiene contribuyentes cargados."
-            : "Cuando el estudio valide la asociación con tu CUIT, vas a ver acá tu facturación y tu categoría."}
+          {user.role === ROLES.ADMIN ? (
+            "El estudio no tiene contribuyentes cargados."
+          ) : pending > 0 ? (
+            <p>
+              Tenés {pending} {pending === 1 ? "solicitud pendiente" : "solicitudes pendientes"} de validación. Cuando el
+              estudio la apruebe, vas a ver acá tu facturación y tu categoría.{" "}
+              <Link href="/perfil" className="font-medium text-brand-700 hover:underline">
+                Ver estado
+              </Link>
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <p>Asociá tu CUIT para que el estudio lo valide. Después vas a ver acá tu facturación y tu categoría.</p>
+              <Link
+                href="/perfil#asociar"
+                className="inline-flex rounded-lg bg-brand-600 px-4 py-2.5 font-medium text-white hover:bg-brand-700"
+              >
+                Asociar mi CUIT
+              </Link>
+            </div>
+          )}
         </EmptyState>
       </div>
     );

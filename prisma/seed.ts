@@ -45,12 +45,12 @@ type Profile = {
 
 // Seis perfiles del plan: sin actividad, normal, preventivo, próximo, superado, incompleto.
 const PROFILES: Profile[] = [
-  { key: "ana", name: "Ana Gómez", cuit: "27000000011", activity: "Diseño gráfico", category: "D", monthlyIncome: 1_100_000, monthsWithData: 24, startMonthsAgo: 36 },
-  { key: "martin", name: "Martín Gómez", cuit: "20000000022", activity: "Clases particulares", category: "B", monthlyIncome: 980_000, monthsWithData: 24, startMonthsAgo: 30 },
-  { key: "bruno", name: "Bruno Díaz", cuit: "20000000033", activity: "Reparación de PC", category: "C", monthlyIncome: 1_550_000, monthsWithData: 24, startMonthsAgo: 40 },
-  { key: "carla", name: "Carla Ruiz", cuit: "27000000044", activity: "Traducciones", category: "A", monthlyIncome: 0, monthsWithData: 24, startMonthsAgo: 20 },
-  { key: "diego", name: "Diego Fernández", cuit: "20000000055", activity: "Fotografía", category: "E", monthlyIncome: 1_300_000, monthsWithData: 4, startMonthsAgo: 26 },
-  { key: "elena", name: "Elena Paz", cuit: "27000000066", activity: "Consultoría", category: "F", monthlyIncome: 2_200_000, monthsWithData: 24, startMonthsAgo: 50 },
+  { key: "ana", name: "Ana Gómez", cuit: "27000000014", activity: "Diseño gráfico", category: "D", monthlyIncome: 1_100_000, monthsWithData: 24, startMonthsAgo: 36 },
+  { key: "martin", name: "Martín Gómez", cuit: "20000000028", activity: "Clases particulares", category: "B", monthlyIncome: 980_000, monthsWithData: 24, startMonthsAgo: 30 },
+  { key: "bruno", name: "Bruno Díaz", cuit: "20000000036", activity: "Reparación de PC", category: "C", monthlyIncome: 1_550_000, monthsWithData: 24, startMonthsAgo: 40 },
+  { key: "carla", name: "Carla Ruiz", cuit: "27000000049", activity: "Traducciones", category: "A", monthlyIncome: 0, monthsWithData: 24, startMonthsAgo: 20 },
+  { key: "diego", name: "Diego Fernández", cuit: "20000000052", activity: "Fotografía", category: "E", monthlyIncome: 1_300_000, monthsWithData: 4, startMonthsAgo: 26 },
+  { key: "elena", name: "Elena Paz", cuit: "27000000065", activity: "Consultoría", category: "F", monthlyIncome: 2_200_000, monthsWithData: 24, startMonthsAgo: 50 },
 ];
 
 const RECIPIENTS = ["Cliente Ficticio SRL", "Comercio Demo SA", "Consumidor Final", "Empresa de Prueba SAS", "Estudio Ejemplo"];
@@ -60,6 +60,10 @@ async function wipe() {
   await prisma.invoice.deleteMany();
   await prisma.dataCoverage.deleteMany();
   await prisma.taxpayerAccess.deleteMany();
+  await prisma.accessRequest.deleteMany();
+  await prisma.authToken.deleteMany();
+  await prisma.outboxEmail.deleteMany();
+  await prisma.appMeta.deleteMany();
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();
   await prisma.taxpayer.deleteMany();
@@ -91,21 +95,21 @@ async function main() {
     },
   });
 
-  const study = await prisma.study.create({ data: { name: "Estudio Demo" } });
+  const study = await prisma.study.create({ data: { name: "Estudio Demo", acceptsSignups: true } });
   // Segundo estudio solo para comprobar aislamiento.
   const otherStudy = await prisma.study.create({ data: { name: "Estudio Aislamiento (pruebas)" } });
 
   const admin = await prisma.user.create({
-    data: { studyId: study.id, email: "admin@contadorsmart.local", name: "Rodrigo (Admin demo)", passwordHash, role: "ADMIN" },
+    data: { studyId: study.id, email: "admin@contadorsmart.local", name: "Rodrigo (Admin demo)", passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
   });
   const clienteA = await prisma.user.create({
-    data: { studyId: study.id, email: "cliente.a@contadorsmart.local", name: "Ana Gómez", phone: "+54 11 0000-0001", passwordHash, role: "CLIENTE" },
+    data: { studyId: study.id, email: "cliente.a@contadorsmart.local", name: "Ana Gómez", phone: "+54 11 0000-0001", passwordHash, role: "CLIENTE", emailVerifiedAt: new Date() },
   });
   const clienteB = await prisma.user.create({
-    data: { studyId: study.id, email: "cliente.b@contadorsmart.local", name: "Bruno Díaz", phone: "+54 11 0000-0002", passwordHash, role: "CLIENTE" },
+    data: { studyId: study.id, email: "cliente.b@contadorsmart.local", name: "Bruno Díaz", phone: "+54 11 0000-0002", passwordHash, role: "CLIENTE", emailVerifiedAt: new Date() },
   });
   await prisma.user.create({
-    data: { studyId: otherStudy.id, email: "admin.otro@contadorsmart.local", name: "Admin otro estudio", passwordHash, role: "ADMIN" },
+    data: { studyId: otherStudy.id, email: "admin.otro@contadorsmart.local", name: "Admin otro estudio", passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
   });
 
   const taxpayers: Record<string, string> = {};
@@ -175,19 +179,35 @@ async function main() {
     },
   });
 
-  // Accesos: cliente A ve a Ana y Martín; cliente B solo a Bruno. Uno pendiente para mostrar que no da acceso.
+  // Accesos: cliente A ve a Ana y Martín; cliente B solo a Bruno.
   await prisma.taxpayerAccess.createMany({
     data: [
       { userId: clienteA.id, taxpayerId: taxpayers.ana, status: "APROBADO" },
       { userId: clienteA.id, taxpayerId: taxpayers.martin, status: "APROBADO" },
       { userId: clienteB.id, taxpayerId: taxpayers.bruno, status: "APROBADO" },
-      { userId: clienteB.id, taxpayerId: taxpayers.elena, status: "PENDIENTE" },
     ],
   });
 
+  // Solicitud pendiente de cliente B para Elena: hasta que el estudio la apruebe no le da acceso.
+  await prisma.accessRequest.create({
+    data: {
+      studyId: study.id,
+      userId: clienteB.id,
+      cuit: "27000000065",
+      declaredName: "Elena Paz",
+      declaredActivity: "Consultoría",
+      declaredCategory: "F",
+      declaredStartDate: "2022-01-01",
+      status: "PENDIENTE",
+    },
+  });
+
+  // Este seed ya incluye los datos de la entrega 2: no hace falta la actualización de prisma/upgrade.ts.
+  await prisma.appMeta.create({ data: { key: "upgrade-entrega2", value: "seed" } });
+
   // Contribuyente del otro estudio (no debe verse nunca desde Estudio Demo).
   await prisma.taxpayer.create({
-    data: { studyId: otherStudy.id, cuit: "30000000077", name: "Zeta Prueba SA", activity: "Comercio", categoryCode: "K", startDate: "2022-01-01" },
+    data: { studyId: otherStudy.id, cuit: "30000000074", name: "Zeta Prueba SA", activity: "Comercio", categoryCode: "K", startDate: "2022-01-01" },
   });
 
   await prisma.auditEvent.create({

@@ -14,30 +14,88 @@ datasource db {
 }
 
 model Study {
-  id          String       @id @default(cuid())
-  name        String
-  createdAt   DateTime     @default(now())
-  users       User[]
-  taxpayers   Taxpayer[]
-  invoices    Invoice[]
-  auditEvents AuditEvent[]
+  id             String          @id @default(cuid())
+  name           String
+  acceptsSignups Boolean         @default(false) // el registro público crea usuarios en este estudio
+  createdAt      DateTime        @default(now())
+  users          User[]
+  taxpayers      Taxpayer[]
+  invoices       Invoice[]
+  auditEvents    AuditEvent[]
+  accessRequests AccessRequest[]
 }
 
 model User {
-  id           String           @id @default(cuid())
-  studyId      String
-  study        Study            @relation(fields: [studyId], references: [id])
-  email        String           @unique
-  name         String
-  phone        String?
-  passwordHash String
-  role         String // ADMIN | CLIENTE
-  active       Boolean          @default(true)
-  createdAt    DateTime         @default(now())
-  sessions     Session[]
-  accesses     TaxpayerAccess[]
+  id              String           @id @default(cuid())
+  studyId         String
+  study           Study            @relation(fields: [studyId], references: [id])
+  email           String           @unique
+  name            String
+  phone           String?
+  passwordHash    String
+  role            String // ADMIN | CLIENTE
+  active          Boolean          @default(true)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime         @default(now())
+  sessions        Session[]
+  accesses        TaxpayerAccess[]
+  authTokens      AuthToken[]
+  accessRequests  AccessRequest[]  @relation("RequestUser")
 
   @@index([studyId])
+}
+
+// Tokens de un solo uso (verificación de correo y recuperación). Se guarda solo el hash.
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // VERIFICAR_CORREO | RESTABLECER_CLAVE
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+// Pedido de un usuario para asociarse a un CUIT. Declarar un CUIT no da acceso: lo aprueba el estudio.
+model AccessRequest {
+  id                String    @id @default(cuid())
+  studyId           String
+  study             Study     @relation(fields: [studyId], references: [id])
+  userId            String
+  user              User      @relation("RequestUser", fields: [userId], references: [id])
+  cuit              String
+  declaredName      String
+  declaredActivity  String
+  declaredCategory  String?
+  declaredStartDate String // YYYY-MM-DD
+  status            String // PENDIENTE | APROBADO | RECHAZADO
+  reviewNote        String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  taxpayerId        String?
+  createdAt         DateTime  @default(now())
+
+  @@index([studyId, status])
+  @@index([userId])
+}
+
+// Correo capturado localmente: en DEMO no se envía nada, se guarda acá y se ve en /dev/correos.
+model OutboxEmail {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+// Marcas de actualización de datos ya aplicadas (ver prisma/upgrade.ts).
+model AppMeta {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
 }
 
 model Session {
@@ -76,8 +134,9 @@ model TaxpayerAccess {
   user       User     @relation(fields: [userId], references: [id])
   taxpayerId String
   taxpayer   Taxpayer @relation(fields: [taxpayerId], references: [id])
-  status     String // APROBADO | PENDIENTE | REVOCADO
+  status     String // APROBADO | REVOCADO
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   @@unique([userId, taxpayerId])
 }

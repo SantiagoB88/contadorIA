@@ -1,5 +1,5 @@
 // Verificaciones rápidas sin servidor: `npm run verify`.
-// Usa la base local sembrada (npm run db:reset para dejarla como al principio).
+// Corre sobre una base aparte recién sembrada (scripts/verify.mjs), nunca sobre la de `npm run dev`.
 import assert from "node:assert/strict";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -8,6 +8,12 @@ import { todayAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 import { alertLevel, getDashboardData, periodRanges } from "@/modules/dashboard/metrics";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
+import { isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { passwordProblem } from "@/lib/crypto";
+import { TOKEN_TYPE } from "@/lib/constants";
+import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
+import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
+import { changePassword } from "@/modules/profile/service";
 
 let passed = 0;
 async function check(name: string, fn: () => void | Promise<void>) {
@@ -125,7 +131,8 @@ async function main() {
   await check("cliente B no puede abrir a Ana por ID", async () => {
     assert.equal(await getAuthorizedTaxpayer(clienteB, ana.id), null);
   });
-  await check("un acceso PENDIENTE no habilita (cliente B → Elena)", async () => {
+  await check("una solicitud PENDIENTE no habilita (cliente B → Elena)", async () => {
+    assert.equal(await prisma.accessRequest.count({ where: { userId: clienteB.id, status: "PENDIENTE" } }), 1);
     assert.equal(await getAuthorizedTaxpayer(clienteB, elena.id), null);
   });
   await check("el admin del estudio ve a todos los de su estudio", async () => {
@@ -142,6 +149,144 @@ async function main() {
     assert.equal(await compare("Demo1234!", u.passwordHash), true);
     assert.equal(await compare("otra", u.passwordHash), false);
     assert.notEqual(u.passwordHash, "Demo1234!");
+  });
+
+  console.log("CUIT");
+  await check("validación formal con dígito verificador", () => {
+    assert.equal(isValidCuit(normalizeCuit("20-12345678-6")), true);
+    assert.equal(isValidCuit("27000000014"), true);
+    assert.equal(isValidCuit("20123456787"), false); // dígito incorrecto
+    assert.equal(isValidCuit("99123456786"), false); // prefijo inexistente
+    assert.equal(isValidCuit("2012345678"), false); // 10 dígitos
+  });
+
+  console.log("Alta, verificación y recuperación");
+  const origin = "http://localhost:3000";
+  const newEmail = "nuevo.cliente@contadorsmart.local";
+  const lastLink = async (to: string, path: string) => {
+    const m = await prisma.outboxEmail.findFirstOrThrow({ where: { to }, orderBy: { createdAt: "desc" } });
+    const match = m.body.match(new RegExp(`${path}\\?token=([\\w-]+)`));
+    assert.ok(match, `no hay enlace ${path} en el correo`);
+    return match[1];
+  };
+
+  await check("registro crea un cliente sin verificar y manda el correo", async () => {
+    const r = await registerUser({ name: "Nuevo Cliente", email: newEmail, phone: "+54 11 5555-0000", password: "Clave1234" }, origin);
+    assert.equal(r.ok, true);
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: newEmail } });
+    assert.equal(u.role, "CLIENTE");
+    assert.equal(u.emailVerifiedAt, null);
+    assert.notEqual(u.passwordHash, "Clave1234");
+  });
+  await check("registrarse con un correo existente no crea otro usuario ni lo revela", async () => {
+    const before = await prisma.user.count();
+    const r = await registerUser({ name: "X", email: "cliente.a@contadorsmart.local", phone: "+54 11 5555-0001", password: "Clave1234" }, origin);
+    assert.equal(r.ok, true); // misma respuesta que un alta nueva
+    assert.equal(await prisma.user.count(), before);
+  });
+  await check("el enlace de verificación sirve una sola vez", async () => {
+    const token = await lastLink(newEmail, "/verificar");
+    assert.equal(await verifyEmail("token-inventado"), false);
+    assert.equal(await verifyEmail(token), true);
+    assert.equal(await verifyEmail(token), false);
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: newEmail } });
+    assert.ok(u.emailVerifiedAt);
+  });
+  await check("recuperación: token de un uso, cambia la clave y cierra sesiones", async () => {
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: newEmail } });
+    await prisma.session.create({ data: { userId: u.id, tokenHash: "sesion-de-prueba", expiresAt: new Date(Date.now() + 60_000) } });
+    await requestPasswordReset(newEmail, origin);
+    const token = await lastLink(newEmail, "/restablecer");
+    assert.equal(await isTokenUsable(token, TOKEN_TYPE.RESTABLECER_CLAVE), true);
+    assert.equal(await isTokenUsable(token, TOKEN_TYPE.VERIFICAR_CORREO), false); // no sirve para otra cosa
+    assert.equal(await resetPassword(token, "OtraClave99"), true);
+    assert.equal(await resetPassword(token, "OtraClave99"), false);
+    const after = await prisma.user.findUniqueOrThrow({ where: { email: newEmail } });
+    assert.equal(await compare("OtraClave99", after.passwordHash), true);
+    assert.equal(await prisma.session.count({ where: { userId: u.id } }), 0);
+  });
+  await check("pedir recuperación de un correo inexistente no manda nada", async () => {
+    const before = await prisma.outboxEmail.count();
+    await requestPasswordReset("nadie@contadorsmart.local", origin);
+    assert.equal(await prisma.outboxEmail.count(), before);
+  });
+
+  console.log("Asociación por CUIT, aprobación y revocación");
+  const nuevo = await asCurrentUser(newEmail);
+  await check("asociarse al CUIT de un cliente existente no da acceso ni datos", async () => {
+    const r = await requestAssociation(nuevo, { cuit: "27-00000001-4", name: "Ana", activity: "Diseño", category: "", startDate: "2024-01-01" });
+    assert.equal(r.ok, true);
+    assert.equal(await getAuthorizedTaxpayer(nuevo, ana.id), null);
+    assert.equal((await getAccessibleTaxpayers(nuevo)).length, 0);
+  });
+  await check("CUIT inválido y solicitud duplicada se rechazan", async () => {
+    const bad = await requestAssociation(nuevo, { cuit: "20123456787", name: "X", activity: "Y", category: "", startDate: "2024-01-01" });
+    assert.equal(bad.ok, false);
+    const dup = await requestAssociation(nuevo, { cuit: "27000000014", name: "Ana", activity: "Diseño", category: "", startDate: "2024-01-01" });
+    assert.equal(dup.ok, false);
+  });
+  await check("un cliente no puede aprobar solicitudes", async () => {
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: nuevo.id } });
+    await assert.rejects(() => approveRequest(nuevo, req.id, "", ""));
+  });
+  await check("el admin de otro estudio no puede aprobarla", async () => {
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: nuevo.id } });
+    const r = await approveRequest(otherAdmin, req.id, "", "");
+    assert.equal(r.ok, false);
+  });
+  await check("aprobación del estudio habilita el acceso (y no se aprueba dos veces)", async () => {
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: nuevo.id } });
+    assert.equal((await approveRequest(admin, req.id, "", "Verificado por teléfono")).ok, true);
+    assert.ok(await getAuthorizedTaxpayer(nuevo, ana.id));
+    assert.equal((await approveRequest(admin, req.id, "", "")).ok, false);
+  });
+  await check("aprobar un CUIT nuevo crea el contribuyente sin datos (información incompleta)", async () => {
+    const r = await requestAssociation(nuevo, { cuit: "20123456786", name: "Nuevo Monotributo", activity: "Programación", category: "C", startDate: "2025-03-01" });
+    assert.equal(r.ok, true);
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: nuevo.id, cuit: "20123456786" } });
+    assert.equal((await approveRequest(admin, req.id, "C", "")).ok, true);
+    const tp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit: "20123456786", studyId: admin.studyId } });
+    assert.equal(tp.categoryCode, "C");
+    const data = await getDashboardData(tp, today);
+    assert.equal(data.periods[0].totalCents, null);
+    assert.equal(data.margin.available, false);
+  });
+  await check("rechazo exige motivo y no da acceso", async () => {
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: clienteB.id, status: "PENDIENTE" } });
+    assert.equal((await rejectRequest(admin, req.id, "")).ok, false);
+    assert.equal((await rejectRequest(admin, req.id, "No es titular del CUIT")).ok, true);
+    assert.equal(await getAuthorizedTaxpayer(clienteB, elena.id), null);
+  });
+  await check("revocar corta el acceso en la siguiente consulta", async () => {
+    const access = await prisma.taxpayerAccess.findFirstOrThrow({ where: { userId: nuevo.id, taxpayerId: ana.id } });
+    assert.equal((await revokeAccess(admin, access.id, "")).ok, false);
+    assert.equal((await revokeAccess(otherAdmin, access.id, "Prueba")).ok, false);
+    assert.equal((await revokeAccess(admin, access.id, "Ya no es cliente")).ok, true);
+    assert.equal(await getAuthorizedTaxpayer(nuevo, ana.id), null);
+  });
+  await check("suspender cierra sesiones; no se puede suspender a uno mismo", async () => {
+    await prisma.session.create({ data: { userId: nuevo.id, tokenHash: "otra-sesion", expiresAt: new Date(Date.now() + 60_000) } });
+    assert.equal((await setUserActive(admin, admin.id, false)).ok, false);
+    assert.equal((await setUserActive(otherAdmin, nuevo.id, false)).ok, false);
+    assert.equal((await setUserActive(admin, nuevo.id, false)).ok, true);
+    assert.equal(await prisma.session.count({ where: { userId: nuevo.id } }), 0);
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: nuevo.id } })).active, false);
+    assert.equal((await setUserActive(admin, nuevo.id, true)).ok, true);
+  });
+
+  console.log("Perfil");
+  await check("cambiar contraseña exige la actual y cierra sesiones", async () => {
+    assert.equal((await changePassword(nuevo, "incorrecta", "Nueva12345", "Nueva12345")).ok, false);
+    assert.equal((await changePassword(nuevo, "OtraClave99", "corta", "corta")).ok, false);
+    await prisma.session.create({ data: { userId: nuevo.id, tokenHash: "sesion-3", expiresAt: new Date(Date.now() + 60_000) } });
+    assert.equal((await changePassword(nuevo, "OtraClave99", "Nueva12345", "Nueva12345")).ok, true);
+    assert.equal(await prisma.session.count({ where: { userId: nuevo.id } }), 0);
+  });
+  await check("política de contraseñas", () => {
+    assert.ok(passwordProblem("corta1"));
+    assert.ok(passwordProblem("sinnumeros"));
+    assert.ok(passwordProblem("12345678"));
+    assert.equal(passwordProblem("Clave1234"), null);
   });
 
   console.log(`\n${passed} verificaciones OK`);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { REQUEST_STATUS } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatARS } from "@/lib/money";
 import { formatDateTimeAR, todayAR } from "@/lib/dates";
@@ -23,7 +24,7 @@ export default async function AdminPage() {
   const [taxpayers, events, pendingAccesses] = await Promise.all([
     prisma.taxpayer.findMany({ where: { studyId: admin.studyId }, orderBy: { name: "asc" } }),
     prisma.auditEvent.findMany({ where: { studyId: admin.studyId }, orderBy: { createdAt: "desc" }, take: 10 }),
-    prisma.taxpayerAccess.count({ where: { status: "PENDIENTE", taxpayer: { studyId: admin.studyId } } }),
+    prisma.accessRequest.count({ where: { status: REQUEST_STATUS.PENDIENTE, studyId: admin.studyId } }),
   ]);
 
   // Con pocos contribuyentes alcanza con calcular uno por uno usando el mismo servicio del tablero.
@@ -42,7 +43,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <PageHeader title="Backoffice" subtitle={`${admin.studyName} · resumen operativo`} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-sm text-slate-600">Contribuyentes</p>
           <p className="tabular mt-1 text-2xl font-semibold">{taxpayers.length}</p>
@@ -54,12 +55,13 @@ export default async function AdminPage() {
         <Card>
           <p className="text-sm text-slate-600">Con datos incompletos</p>
           <p className="tabular mt-1 text-2xl font-semibold">{incomplete}</p>
-          {pendingAccesses > 0 && (
-            <p className="mt-1 text-xs text-slate-500">
-              {pendingAccesses} {pendingAccesses === 1 ? "acceso pendiente" : "accesos pendientes"} de validación (se
-              gestionan en el paso 2)
-            </p>
-          )}
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-600">Solicitudes por validar</p>
+          <p className="tabular mt-1 text-2xl font-semibold">{pendingAccesses}</p>
+          <Link href="/admin/accesos" className="mt-1 inline-block text-sm font-medium text-brand-700 hover:underline">
+            Ver accesos →
+          </Link>
         </Card>
       </div>
 

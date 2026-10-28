@@ -5,4 +5,7 @@ out/
 next-env.d.ts
 prisma/dev.db
 prisma/dev.db-journal
+prisma/verify.db
+prisma/verify.db-journal
 .env
+.next-verify/

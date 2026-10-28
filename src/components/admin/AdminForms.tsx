@@ -8,30 +8,8 @@ import {
   type FormState,
 } from "@/modules/admin/actions";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Feedback, FieldError } from "@/components/forms";
 import { inputClass, labelClass } from "@/components/ui";
-
-function Feedback({ state }: { state: FormState }) {
-  if (!state.message) return null;
-  return (
-    <p
-      role={state.ok ? "status" : "alert"}
-      className={`rounded-lg border px-3 py-2 text-sm ${
-        state.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"
-      }`}
-    >
-      {state.message}
-    </p>
-  );
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <p id={id} className="mt-1 text-sm text-red-700">
-      {message}
-    </p>
-  );
-}
 
 export function InvoiceForm({ taxpayerId, today }: { taxpayerId: string; today: string }) {
   const [state, action] = useActionState<FormState, FormData>(addInvoiceAction, {});

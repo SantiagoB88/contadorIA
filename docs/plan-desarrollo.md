@@ -16,9 +16,9 @@ Versión reducida de los pasos 0 y 1 del plan original.
 - Datos de demo con 6 perfiles y un segundo estudio para aislamiento.
 - `npm run verify`: 20 verificaciones de cálculos, umbrales y permisos.
 
-## Entrega 2 — Alta y administración de clientes (paso 2)
+## Entrega 2 — Alta y administración de clientes (paso 2) ✅
 
-Registro, verificación de correo local, recuperación de contraseña, perfil fiscal con CUIT, asociaciones pendientes y aprobación por el estudio, operadores asignados, revocación de accesos.
+Registro, verificación de correo local (`/dev/correos`), recuperación de contraseña, perfil, asociación por CUIT con aprobación del estudio, rechazo, revocación de accesos y suspensión de usuarios. Pendiente de esta etapa: rol operador con clientes asignados.
 
 ## Entrega 3 — Facturador en modo demo (paso 3)
 

@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "verify": "tsx tests/verify.ts",
+    "verify": "node scripts/verify.mjs",
     "postinstall": "prisma generate",
     "db:setup": "prisma db push && tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts --reset",

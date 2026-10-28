@@ -10,10 +10,19 @@ export function AppNav({ isAdmin, orientation }: { isAdmin: boolean; orientation
   const items: Item[] = [
     { href: "/dashboard", label: "Inicio", exact: true },
     { href: "/dashboard/movimientos", label: "Movimientos" },
-    ...(isAdmin ? [{ href: "/admin", label: "Backoffice" }] : []),
+    ...(isAdmin
+      ? [
+          { href: "/admin", label: "Backoffice", exact: true },
+          { href: "/admin/accesos", label: "Accesos" },
+        ]
+      : []),
+    { href: "/perfil", label: "Mi perfil" },
   ];
 
-  const isActive = (item: Item) => (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+  const isActive = (item: Item) =>
+    item.exact
+      ? pathname === item.href || (item.href === "/admin" && pathname.startsWith("/admin/contribuyentes"))
+      : pathname.startsWith(item.href);
 
   if (orientation === "horizontal") {
     return (
