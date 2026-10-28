@@ -9,3 +9,5 @@ prisma/verify.db
 prisma/verify.db-journal
 .env
 .next-verify/
+storage/
+storage-verify/

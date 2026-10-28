@@ -13,6 +13,11 @@ import { DEBT_STATE, ScaleStatusBadge, amountText, debtStateText, formatPeriod, 
 import { findScaleForDate } from "@/modules/fiscal/scales";
 import { getCategoryHistory } from "@/modules/fiscal/category";
 import { getDebtSummary } from "@/modules/fiscal/obligations";
+import { listDocuments, formatBytes } from "@/modules/documents/service";
+import { listRequestsForUser } from "@/modules/requests/service";
+import { DocumentUploadForm, DocumentVisibilityButton } from "@/components/requests/RequestForms";
+import { RequestList, docCategoryLabel } from "@/components/requests/RequestViews";
+import { DOC_CATEGORY_LABEL } from "@/lib/constants";
 
 export const metadata = { title: "Administrar contribuyente · ContadorSmart" };
 
@@ -33,7 +38,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
   if (!taxpayer) notFound();
 
   const today = todayAR();
-  const [invoices, scale, history, debt] = await Promise.all([
+  const [invoices, scale, history, debt, documents, requests] = await Promise.all([
     prisma.invoice.findMany({
       where: { taxpayerId: taxpayer.id, environment: APP_MODE },
       orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }],
@@ -42,6 +47,8 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
     findScaleForDate(admin.studyId, today),
     getCategoryHistory(taxpayer.id),
     getDebtSummary(taxpayer.id, today),
+    listDocuments(admin, { taxpayerId: taxpayer.id }),
+    listRequestsForUser(admin, { taxpayerId: taxpayer.id, view: "todas" }, 8),
   ]);
 
   return (
@@ -122,7 +129,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <Card>
+      <Card id="deudas" className="scroll-mt-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="font-semibold text-slate-900">Deudas y vencimientos</h2>
@@ -176,6 +183,58 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
           </div>
         </div>
       </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card id="documentos" className="scroll-mt-6">
+          <h2 className="font-semibold text-slate-900">Documentos</h2>
+          <p className="mt-1 mb-4 text-sm text-slate-600">
+            Se guardan en una carpeta privada. “Solo el estudio” no aparece nunca en el portal del cliente.
+          </p>
+          <DocumentUploadForm
+            taxpayerId={taxpayer.id}
+            categories={Object.entries(DOC_CATEGORY_LABEL).map(([value, label]) => ({ value, label }))}
+          />
+          {documents.length === 0 ? (
+            <p className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-600">Todavía no hay documentos.</p>
+          ) : (
+            <ul className="mt-5 divide-y divide-slate-100 border-t border-slate-100 text-sm">
+              {documents.map((d) => (
+                <li key={d.id} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="min-w-0">
+                    <a href={`/documentos/${d.id}/descargar`} className="block truncate font-medium text-slate-900 hover:text-brand-700 hover:underline">
+                      {d.fileName}
+                    </a>
+                    <p className="text-xs text-slate-500">
+                      {docCategoryLabel(d.category)} · {formatBytes(d.sizeBytes)} · {d.uploadedBy.name} · {formatDateTimeAR(d.createdAt)}
+                    </p>
+                    {d.message && (
+                      <Link href={`/admin/solicitudes/${d.message.requestId}`} className="text-xs font-medium text-brand-700 hover:underline">
+                        Adjunto de una solicitud{d.message.visibility === "INTERNA" ? " (nota interna)" : ""}
+                      </Link>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+                    <Badge tone={d.visibility === "CLIENTE" ? "success" : "warning"}>
+                      {d.visibility === "CLIENTE" ? "Lo ve el cliente" : "Solo el estudio"}
+                    </Badge>
+                    {d.message?.visibility !== "INTERNA" && <DocumentVisibilityButton documentId={d.id} visibility={d.visibility} />}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="font-semibold text-slate-900">Solicitudes</h2>
+            <Link href="/admin/solicitudes" className="text-sm font-medium text-brand-700 hover:underline">
+              Bandeja
+            </Link>
+          </div>
+          <RequestList rows={requests} hrefBase="/admin/solicitudes" empty="Este contribuyente no tiene solicitudes." />
+        </Card>
+      </div>
 
       <Card>
         <h2 className="font-semibold text-slate-900">Usuarios con acceso</h2>

@@ -21,5 +21,6 @@ Leé `docs/estado.md`, `docs/decisiones.md` y `docs/backlog.md`. Mantenelos actu
 - La categoría registrada solo la cambia el estudio (`CategoryHistory`); el sistema nunca la cambia solo. La sugerencia por ingresos se muestra como "orientativa".
 - Deudas: una lista vacía no es "sin deuda". Solo una revisión del estudio con fecha (`DebtReview`) permite decir "Sin deuda informada".
 - Escalas por estudio, versionadas y sin superposiciones (`src/modules/fiscal/scales.ts`).
+- Archivos: solo PDF/PNG/JPEG validados por contenido, guardados en `storage/` con nombre aleatorio (`src/providers/storage.ts`); la descarga siempre pasa por `getAuthorizedDocument`. Las notas internas (`INTERNA`) y documentos `INTERNO` nunca se devuelven a un cliente: filtrarlos en la consulta.
 - Interfaz en español de Argentina. Todo lo simulado se marca como DEMO.
 - Fuera de alcance por ahora: WhatsApp, IA, ARCA real, cobros.

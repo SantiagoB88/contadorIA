@@ -8,11 +8,15 @@
 - [x] Facturador demo con idempotencia y PDF sin validez fiscal
 - [ ] Facturador: notas de crédito, editar/eliminar receptores guardados, otros puntos de venta, umbral de identificación del consumidor final
 - [x] Escalas versionadas editables, historial de categoría, deudas y vencimientos
-- [ ] Deudas: que el cliente pueda informar un pago con un comprobante adjunto (necesita documentos, entrega 5)
+- [x] Deudas: que el cliente pueda informar un pago con un comprobante adjunto
 - [ ] Escalas: borrar una versión cargada por error (hoy se corrige editándola)
 - [ ] Generador de volumen (50 clientes, 5.000 movimientos) para probar rendimiento
-- [ ] Solicitudes al contador, mensajes, notas internas, documentos
-- [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración
+- [x] Solicitudes al contador, mensajes, notas internas, documentos
+- [ ] Documentos: borrar o reemplazar un archivo subido por error (hoy se puede dejar de compartir)
+- [ ] Análisis antimalware de archivos antes de un piloto con archivos reales
+- [ ] Solicitudes: búsqueda por texto y paginación en la bandeja (hoy muestra hasta 200)
+- [ ] Canal WhatsApp sobre los servicios de solicitudes (fuera de alcance por ahora)
+- [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración (base **y** carpeta `storage/`)
 - [ ] Tests E2E (Playwright) y revisión visual a 390 / 768 / 1440 px
 
 ## Deuda técnica conocida

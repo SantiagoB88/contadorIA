@@ -28,9 +28,9 @@ Receptores, conceptos, borradores, revisión, emisión simulada con idempotencia
 
 Escalas versionadas por estudio y editables, historial de categoría registrada, categoría orientativa por ingresos, detalle de cada indicador, conciliación con movimientos y deudas y vencimientos cargados por el estudio.
 
-## Entrega 5 — Operación del estudio (paso 5)
+## Entrega 5 — Operación del estudio (paso 5) ✅
 
-Solicitudes al contador, mensajes, notas internas, adjuntos y documentos privados.
+Solicitudes al estudio, bandeja con asignación y estados, mensajes públicos, notas internas, adjuntos, documentos privados con descarga autorizada y pagos informados por el cliente con comprobante. Campo de canal listo para otro canal (sin WhatsApp). Pendiente de esta etapa: rol operador limitado a sus clientes asignados (hoy se asigna entre administradores del estudio).
 
 ## Entrega 6 — Calidad y preparación para hosting (paso 6)
 

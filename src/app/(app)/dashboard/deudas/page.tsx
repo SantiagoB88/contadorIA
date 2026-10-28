@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { OBLIGATION_STATUS, ROLES } from "@/lib/constants";
 import { formatARS } from "@/lib/money";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -44,6 +45,7 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
 
   const debt = await getDebtSummary(taxpayer.id);
   const state = DEBT_STATE[debt.state];
+  const canInform = user.role !== ROLES.ADMIN;
 
   return (
     <div className="space-y-6">
@@ -123,7 +125,17 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
                     <td className="whitespace-nowrap px-4 py-3">{formatPeriod(o.period)}</td>
                     <td className="tabular whitespace-nowrap px-4 py-3">{formatDateAR(o.dueDate)}</td>
                     <td className="tabular whitespace-nowrap px-4 py-3 text-right">{amountText(o)}</td>
-                    <td className="px-4 py-3">{obligationBadge(o, debt.today)}</td>
+                    <td className="px-4 py-3">
+                      {obligationBadge(o, debt.today)}
+                      {canInform && o.status === OBLIGATION_STATUS.PENDIENTE && (
+                        <Link
+                          href={`/dashboard/deudas/informar/${o.id}`}
+                          className="mt-1 block text-xs font-medium text-brand-700 hover:underline"
+                        >
+                          Informar pago
+                        </Link>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-600">
                       {o.source}
                       <br />
@@ -139,7 +151,8 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
 
       <p className="text-xs text-slate-500">
         En esta versión no hay consulta automática a ARCA: las deudas y vencimientos los carga el estudio. Un pago figura
-        como verificado solo cuando el estudio revisó el comprobante; no hay confirmación bancaria.
+        como verificado solo cuando el estudio revisó el comprobante; no hay confirmación bancaria. Si ya pagaste, usá
+        “Informar pago” y adjuntá el comprobante.
       </p>
     </div>
   );

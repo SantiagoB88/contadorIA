@@ -27,21 +27,25 @@ model Study {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  studyId         String
-  study           Study            @relation(fields: [studyId], references: [id])
-  email           String           @unique
-  name            String
-  phone           String?
-  passwordHash    String
-  role            String // ADMIN | CLIENTE
-  active          Boolean          @default(true)
-  emailVerifiedAt DateTime?
-  createdAt       DateTime         @default(now())
-  sessions        Session[]
-  accesses        TaxpayerAccess[]
-  authTokens      AuthToken[]
-  accessRequests  AccessRequest[]  @relation("RequestUser")
+  id               String           @id @default(cuid())
+  studyId          String
+  study            Study            @relation(fields: [studyId], references: [id])
+  email            String           @unique
+  name             String
+  phone            String?
+  passwordHash     String
+  role             String // ADMIN | CLIENTE
+  active           Boolean          @default(true)
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime         @default(now())
+  sessions         Session[]
+  accesses         TaxpayerAccess[]
+  authTokens       AuthToken[]
+  accessRequests   AccessRequest[]  @relation("RequestUser")
+  requestsCreated  ServiceRequest[] @relation("RequestCreator")
+  requestsAssigned ServiceRequest[] @relation("RequestAssignee")
+  requestMessages  RequestMessage[]
+  documents        Document[]
 
   @@index([studyId])
 }
@@ -128,6 +132,8 @@ model Taxpayer {
   categoryHistory CategoryHistory[]
   obligations     Obligation[]
   debtReview      DebtReview?
+  serviceRequests ServiceRequest[]
+  documents       Document[]
 
   @@unique([studyId, cuit])
 }
@@ -341,4 +347,72 @@ model AuditEvent {
   createdAt DateTime @default(now())
 
   @@index([studyId, createdAt])
+}
+
+// Solicitud del cliente al estudio. channel = WEB: el campo queda listo para otro canal (por ejemplo WhatsApp), sin construirlo.
+model ServiceRequest {
+  id             String           @id @default(cuid())
+  studyId        String
+  taxpayerId     String
+  taxpayer       Taxpayer         @relation(fields: [taxpayerId], references: [id])
+  createdById    String
+  createdBy      User             @relation("RequestCreator", fields: [createdById], references: [id])
+  assignedToId   String?
+  assignedTo     User?            @relation("RequestAssignee", fields: [assignedToId], references: [id])
+  topic          String // FACTURACION | CATEGORIA | DEUDAS | DOCUMENTACION | PAGO | OTRO
+  subject        String
+  status         String // ABIERTA | EN_CURSO | ESPERANDO_CLIENTE | RESUELTA
+  priority       String           @default("NORMAL") // NORMAL | ALTA
+  channel        String           @default("WEB")
+  obligationId   String? // pago informado por el cliente sobre un vencimiento
+  lastActivityAt DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt
+  messages       RequestMessage[]
+
+  @@index([studyId, assignedToId, status])
+  @@index([taxpayerId, lastActivityAt])
+}
+
+// Mensaje de una solicitud. INTERNA = nota del estudio: nunca se devuelve al cliente.
+model RequestMessage {
+  id         String         @id @default(cuid())
+  requestId  String
+  request    ServiceRequest @relation(fields: [requestId], references: [id])
+  authorId   String
+  author     User           @relation(fields: [authorId], references: [id])
+  body       String
+  visibility String // PUBLICA | INTERNA
+  channel    String         @default("WEB")
+  createdAt  DateTime       @default(now())
+  documents  Document[]
+
+  @@index([requestId, createdAt])
+}
+
+// Archivo privado. Se guarda fuera de la carpeta pública con un nombre interno aleatorio (storageKey);
+// la descarga pasa siempre por la autorización actual. CLIENTE = lo ve el cliente; INTERNO = solo el estudio.
+model Document {
+  id           String          @id @default(cuid())
+  studyId      String
+  taxpayerId   String
+  taxpayer     Taxpayer        @relation(fields: [taxpayerId], references: [id])
+  storageKey   String          @unique
+  fileName     String
+  mimeType     String // application/pdf | image/png | image/jpeg
+  sizeBytes    Int
+  sha256       String
+  category     String // CONSTANCIA | COMPROBANTE_PAGO | DECLARACION | FACTURA | ADJUNTO | OTRO
+  visibility   String // CLIENTE | INTERNO
+  note         String?
+  uploadedById String
+  uploadedBy   User            @relation(fields: [uploadedById], references: [id])
+  messageId    String?
+  message      RequestMessage? @relation(fields: [messageId], references: [id])
+  obligationId String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @default(now()) @updatedAt
+
+  @@index([taxpayerId, createdAt])
+  @@index([messageId])
 }

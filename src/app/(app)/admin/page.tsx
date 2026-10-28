@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { REQUEST_STATUS } from "@/lib/constants";
+import { REQUEST_STATUS, SR_STATUS } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatARS } from "@/lib/money";
 import { formatDateTimeAR, todayAR } from "@/lib/dates";
@@ -23,10 +23,12 @@ export default async function AdminPage() {
   const admin = await requireAdmin();
   const today = todayAR();
 
-  const [taxpayers, events, pendingAccesses] = await Promise.all([
+  const [taxpayers, events, pendingAccesses, openRequests, unassignedRequests] = await Promise.all([
     prisma.taxpayer.findMany({ where: { studyId: admin.studyId }, orderBy: { name: "asc" } }),
     prisma.auditEvent.findMany({ where: { studyId: admin.studyId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.accessRequest.count({ where: { status: REQUEST_STATUS.PENDIENTE, studyId: admin.studyId } }),
+    prisma.serviceRequest.count({ where: { studyId: admin.studyId, status: { not: SR_STATUS.RESUELTA } } }),
+    prisma.serviceRequest.count({ where: { studyId: admin.studyId, status: { not: SR_STATUS.RESUELTA }, assignedToId: null } }),
   ]);
 
   // Con pocos contribuyentes alcanza con calcular uno por uno usando el mismo servicio del tablero.
@@ -49,7 +51,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <PageHeader title="Backoffice" subtitle={`${admin.studyName} · resumen operativo`} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <p className="text-sm text-slate-600">Contribuyentes</p>
           <p className="tabular mt-1 text-2xl font-semibold">{taxpayers.length}</p>
@@ -64,10 +66,20 @@ export default async function AdminPage() {
           <p className="mt-1 text-xs text-slate-500">{withDebt} con deuda informada</p>
         </Card>
         <Card>
-          <p className="text-sm text-slate-600">Solicitudes por validar</p>
+          <p className="text-sm text-slate-600">Asociaciones por validar</p>
           <p className="tabular mt-1 text-2xl font-semibold">{pendingAccesses}</p>
           <Link href="/admin/accesos" className="mt-1 inline-block text-sm font-medium text-brand-700 hover:underline">
             Ver accesos →
+          </Link>
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-600">Solicitudes sin resolver</p>
+          <p className="tabular mt-1 text-2xl font-semibold">{openRequests}</p>
+          <Link
+            href="/admin/solicitudes?estado=activas&asignado=sin"
+            className="mt-1 inline-block text-sm font-medium text-brand-700 hover:underline"
+          >
+            {unassignedRequests} sin asignar →
           </Link>
         </Card>
       </div>

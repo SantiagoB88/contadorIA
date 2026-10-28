@@ -35,6 +35,15 @@
 | Categoría registrada | Historial con fecha "rige desde"; la categoría de cada fecha de corte sale del historial | Nunca se cambia sola. La sugerencia por ingresos es "orientativa" y no se calcula si falta historial, la actividad tiene menos de 12 meses o no hay escala. |
 | Deudas | `Obligation` (concepto, período, vencimiento, importe opcional, estado) + `DebtReview` (información a una fecha) | Lista vacía ≠ sin deuda. "Vencida" se deriva (pendiente con vencimiento anterior a hoy). Las próximas no suman como deuda. Sin intereses. |
 | Estado de pago | Pendiente, pago informado, pago verificado (con evidencia), anulada | Sin confirmación bancaria inventada: verificar exige una nota con la evidencia. |
+| Solicitudes | `ServiceRequest` + `RequestMessage` (PUBLICA o INTERNA). Estados: nueva, en curso, esperando al cliente y resuelta | Simple y suficiente para el recorrido del plan. Las notas internas se excluyen en la consulta (no en la pantalla), así una respuesta para el cliente nunca las contiene. |
+| Asignación | Entre los administradores activos del estudio | El rol operador sigue postergado. Cuando exista, la asignación ya está modelada (`assignedToId`). |
+| Canal | Campo `channel` en solicitudes y mensajes (hoy WEB); servicios sin dependencias de Next | El plan pide dejar el punto de extensión sin construir WhatsApp. |
+| Avisos | Correo local con enlace, sin el texto del mensaje | No sacar contenido del sistema por correo; una nota interna no avisa al cliente. |
+| Archivos | Carpeta `storage/` (o `STORAGE_DIR`), nombre aleatorio sin extensión, hash SHA-256; PDF/PNG/JPEG hasta 10 MB y 3 por envío, validados por extensión, tipo declarado y firma del contenido | Pedido del plan. Sin servicios externos. El análisis antimalware queda pendiente para un piloto con archivos reales. |
+| Documentos | Una sola tabla `Document` para cargas del estudio y adjuntos (con `messageId`); visibilidad CLIENTE o INTERNO | Un único lugar con la misma autorización para listar y descargar. Un adjunto hereda la visibilidad de su mensaje. |
+| Descarga | Ruta `/documentos/[id]/descargar` con autorización en cada pedido, `attachment`, `nosniff`, `no-store`, CSP `sandbox` | Una URL guardada deja de servir al revocar el acceso o al dejar de compartir. |
+| Informar pago | El cliente adjunta el comprobante; el vencimiento pasa a PAGO_INFORMADO y se crea una solicitud "Pago informado" | No se da por pagado hasta que el estudio lo verifica. El cambio es condicionado para no informar dos veces. |
+| Tamaño de envío | `serverActions.bodySizeLimit = 32mb` | Permite 3 archivos de 10 MB; el servidor vuelve a validar cada archivo. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

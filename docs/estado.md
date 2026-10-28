@@ -1,4 +1,4 @@
-# Estado · 28/10/2026 (entrega 4)
+# Estado · 28/10/2026 (entrega 5)
 
 ## Entrega 1 — Login y primer tablero ✅
 
@@ -78,11 +78,65 @@
 - **Backoffice**: columna de estado de deuda por contribuyente.
 - **Actualización de bases existentes**: `prisma/upgrade.ts` asigna la escala existente a cada estudio y crea el historial de categorías. Probado sobre una copia de `dev.db`: conserva las 201 facturas y se aplica una sola vez.
 
+## Entrega 5 — Operación del estudio ✅
+
+- **Solicitudes** (cliente, `/solicitudes`):
+  - crear con contribuyente, tema, asunto, mensaje y hasta 3 adjuntos;
+  - historial con filtros "En curso", "Resueltas" y "Todas";
+  - conversación con la respuesta y el estado del estudio. Si el cliente responde a una solicitud que esperaba su respuesta o estaba resuelta, vuelve a "En curso".
+- **Bandeja del estudio** (`/admin/solicitudes`):
+  - filtros por estado (nueva, en curso, esperando al cliente, resuelta) y por asignación (todas, mías, sin asignar);
+  - conteos en el título y en el resumen del backoffice, con enlace al listado filtrado.
+- **Detalle de una solicitud para el estudio**:
+  - asignar a una persona del estudio, cambiar el estado y la prioridad;
+  - responder al cliente o escribir una **nota interna** con adjuntos internos;
+  - la primera respuesta pública toma la solicitud si nadie la tenía.
+  Todo queda en la auditoría.
+- **Notas internas**: se filtran en la consulta del servidor, así que nunca llegan a una pantalla, respuesta o correo del cliente. Sus adjuntos son internos y no se pueden compartir.
+- **Avisos por correo** (bandeja local): llegan al estudio cuando hay una solicitud o un mensaje nuevo, y al cliente cuando el estudio responde o resuelve. No incluyen el texto de los mensajes, solo el enlace.
+- **Documentos**:
+  - el estudio sube archivos en la ficha del contribuyente con categoría, nota y visibilidad ("lo ve el cliente" o "solo el estudio"), y puede compartirlos o dejar de compartirlos;
+  - `/documentos` lista con filtros por contribuyente, categoría y nombre;
+  - el cliente ve solo lo compartido y los adjuntos públicos de sus solicitudes.
+- **Archivos**:
+  - solo PDF, PNG o JPG, de hasta 10 MB y hasta 3 por envío;
+  - se valida la extensión, el tipo declarado y el contenido real (firma), así que no se acepta un HTML renombrado;
+  - se guardan en `storage/`, fuera de `public/`, con un nombre aleatorio y un hash SHA-256.
+- **Descarga** (`/documentos/[id]/descargar`):
+  - se autoriza en cada pedido con los permisos actuales;
+  - verifica el hash;
+  - responde con `attachment`, `nosniff`, `no-store` y una CSP restrictiva;
+  - nunca expone la ruta física.
+- **Informar pago**: desde Deudas, el cliente adjunta el comprobante de una cuota pendiente.
+  - El vencimiento pasa a "pago informado" con un cambio condicionado, así que no se informa dos veces.
+  - Se crea una solicitud "Pago informado" vinculada.
+  - El estudio la verifica como antes.
+- **Canal**: las solicitudes y los mensajes guardan `channel` (hoy siempre WEB). Los servicios de `src/modules/requests` no dependen de Next, así que un canal futuro podría reutilizarlos. WhatsApp no está construido.
+- **Tablero**: tarjeta de solicitudes recientes del contribuyente.
+- **Datos de demo**:
+  - usuaria `contadora@contadorsmart.local`;
+  - tres solicitudes: Ana resuelta con la constancia, Martín esperando al cliente con una nota interna, Bruno nueva sin asignar y con prioridad alta;
+  - un documento interno de Martín y el detalle de deuda de Bruno.
+- **Actualización de bases existentes**: solo se agregan tablas nuevas. Probado sobre una copia de `dev.db`: conserva las 201 facturas.
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK
 - `npm run build` → OK (compilado en carpeta aparte para no pisar un `npm run dev` abierto)
-- `npm run verify` → **69/69 OK** en base aparte. La entrega 4 suma escalas por estudio, borde de año, superposiciones, margen con exceso, escala ausente, categoría orientativa, categoría que no cambia sola, historial por fecha, conciliación tablero ↔ movimientos (3 perfiles), estados de deuda, vencimiento del día y verificación de pagos.
+- `npm run verify` → **85/85 OK** en base aparte (y carpeta de archivos aparte, `storage-verify/`). La entrega 5 suma:
+  - validación de archivos (HTML disfrazado, tipo y extensión que no coinciden, vacío, más de 10 MB, más de 3);
+  - persistencia al reiniciar y clave que no sale de la carpeta;
+  - recorrido cliente → estudio → cliente, en el que la nota interna no aparece en ninguna respuesta del cliente;
+  - correos sin notas internas;
+  - el cliente no puede escribir notas ni cambiar estados;
+  - acceso cruzado a solicitudes y documentos (otro cliente y otro estudio);
+  - asignación solo a personal del estudio;
+  - descarga rechazada tras revocar el acceso;
+  - carga del estudio con visibilidad;
+  - hash alterado;
+  - pago informado sin duplicados;
+  - campo de canal.
+- Hasta la entrega 4 (69 verificaciones): La entrega 4 suma escalas por estudio, borde de año, superposiciones, margen con exceso, escala ausente, categoría orientativa, categoría que no cambia sola, historial por fecha, conciliación tablero ↔ movimientos (3 perfiles), estados de deuda, vencimiento del día y verificación de pagos.
 - El facturador (entrega 3) cubre:
   - subtotales exactos;
   - validaciones;
@@ -99,9 +153,9 @@
 
 ## No ejecutado todavía
 
-- Las pantallas de facturación, escalas, categoría y deudas no se probaron en navegador.
+- Las pantallas de facturación, escalas, categoría, deudas, solicitudes y documentos no se probaron en navegador. Tampoco se probó la subida real de un archivo desde el navegador ni la ruta HTTP de descarga: los servicios que usan sí están cubiertos por `npm run verify`.
 - Sin tests E2E (Playwright) ni capturas a 390 / 1440 px.
 
 ## Próximo paso
 
-Entrega 5: operación del estudio (solicitudes al contador, mensajes, notas internas, documentos).
+Entrega 6: calidad y preparación para hosting (PostgreSQL, Docker Compose, tests E2E, backup y restauración de base **y archivos**, revisión visual a 390 / 768 / 1440 px).

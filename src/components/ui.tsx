@@ -1,7 +1,7 @@
 // Piezas visuales simples y reutilizables (sin lógica de negocio).
 
-export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
+export function Card({ children, className = "", id }: { children: React.ReactNode; className?: string; id?: string }) {
+  return <section id={id} className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
 }
 
 export type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info";

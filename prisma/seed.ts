@@ -2,6 +2,9 @@
 // Uso: `npm run db:setup` (base vacía) o `npm run db:reset` (borra todo y vuelve a sembrar).
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
+import { createHash } from "node:crypto";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { storage } from "../src/providers/storage";
 
 const prisma = new PrismaClient();
 
@@ -61,8 +64,23 @@ const PROFILES: Profile[] = [
 
 const RECIPIENTS = ["Cliente Ficticio SRL", "Comercio Demo SA", "Consumidor Final", "Empresa de Prueba SAS", "Estudio Ejemplo"];
 
+/** PDF de demostración, con la leyenda de que no es un documento real. */
+async function demoPdf(title: string): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595, 842]);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  page.drawText("DOCUMENTO DE DEMOSTRACIÓN", { x: 60, y: 760, size: 20, font: bold, color: rgb(0.7, 0.1, 0.1) });
+  page.drawText(title, { x: 60, y: 720, size: 16, font: bold });
+  page.drawText("Generado por ContadorSmart con datos ficticios. Sin validez fiscal ni legal.", { x: 60, y: 690, size: 11, font });
+  return pdf.save();
+}
+
 async function wipe() {
   await prisma.auditEvent.deleteMany();
+  await prisma.document.deleteMany();
+  await prisma.requestMessage.deleteMany();
+  await prisma.serviceRequest.deleteMany();
   await prisma.obligation.deleteMany();
   await prisma.debtReview.deleteMany();
   await prisma.categoryHistory.deleteMany();
@@ -92,7 +110,10 @@ async function main() {
     console.log("La base ya tiene datos. No se modificó nada. Para empezar de cero: npm run db:reset");
     return;
   }
-  if (reset) await wipe();
+  if (reset) {
+    await wipe();
+    await storage.clear(); // archivos de documentos y adjuntos de la base anterior
+  }
 
   const today = todayAR();
   const [ty, tm, td] = today.split("-").map(Number);
@@ -298,6 +319,80 @@ async function main() {
     ],
   });
 
+  // Solicitudes, mensajes, notas internas y documentos (entrega 5). Los archivos son PDF de demostración.
+  const contadora = await prisma.user.create({
+    data: { studyId: study.id, email: "contadora@contadorsmart.local", name: "Laura Méndez (Contadora demo)", passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
+  });
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+  const saveDoc = async (data: {
+    taxpayerId: string;
+    title: string;
+    fileName: string;
+    category: string;
+    visibility: "CLIENTE" | "INTERNO";
+    uploadedById: string;
+    messageId?: string;
+    note?: string;
+    createdAt: Date;
+  }) => {
+    const bytes = await demoPdf(data.title);
+    const storageKey = storage.newKey();
+    await storage.put(storageKey, bytes);
+    await prisma.document.create({
+      data: {
+        studyId: study.id,
+        taxpayerId: data.taxpayerId,
+        storageKey,
+        fileName: data.fileName,
+        mimeType: "application/pdf",
+        sizeBytes: bytes.length,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+        category: data.category,
+        visibility: data.visibility,
+        note: data.note ?? null,
+        uploadedById: data.uploadedById,
+        messageId: data.messageId ?? null,
+        createdAt: data.createdAt,
+      },
+    });
+  };
+  const message = (requestId: string, authorId: string, body: string, visibility: "PUBLICA" | "INTERNA", createdAt: Date) =>
+    prisma.requestMessage.create({ data: { requestId, authorId, body, visibility, createdAt } });
+
+  // Ana: pidió la constancia; el estudio dejó una nota interna y respondió con el PDF. Resuelta.
+  const anaReq = await prisma.serviceRequest.create({
+    data: {
+      studyId: study.id, taxpayerId: taxpayers.ana, createdById: clienteA.id, assignedToId: admin.id, topic: "DOCUMENTACION",
+      subject: "Necesito la constancia de inscripción", status: "RESUELTA", createdAt: hoursAgo(72), lastActivityAt: hoursAgo(48),
+    },
+  });
+  await message(anaReq.id, clienteA.id, "Hola, me la pide un cliente para darme de alta como proveedora. ¿Me la pueden mandar?", "PUBLICA", hoursAgo(72));
+  await message(anaReq.id, admin.id, "Revisé que la categoría esté actualizada antes de enviarla. Todo OK.", "INTERNA", hoursAgo(50));
+  const anaReply = await message(anaReq.id, admin.id, "Hola Ana, te adjuntamos la constancia. Cualquier cosa nos escribís por acá.", "PUBLICA", hoursAgo(48));
+  await saveDoc({ taxpayerId: taxpayers.ana, title: "Constancia de inscripción", fileName: "constancia-inscripcion-ana-gomez.pdf", category: "CONSTANCIA", visibility: "CLIENTE", uploadedById: admin.id, messageId: anaReply.id, createdAt: hoursAgo(48) });
+
+  // Martín (también de cliente.a): consulta sobre recategorización, el estudio espera su respuesta.
+  const martinReq = await prisma.serviceRequest.create({
+    data: {
+      studyId: study.id, taxpayerId: taxpayers.martin, createdById: clienteA.id, assignedToId: contadora.id, topic: "CATEGORIA",
+      subject: "¿Me tengo que recategorizar?", status: "ESPERANDO_CLIENTE", createdAt: hoursAgo(30), lastActivityAt: hoursAgo(20),
+    },
+  });
+  await message(martinReq.id, clienteA.id, "En el tablero me dice que estoy cerca del límite. ¿Qué tengo que hacer?", "PUBLICA", hoursAgo(30));
+  await message(martinReq.id, contadora.id, "Está al 98 %. Antes de recategorizar hay que confirmar si tiene facturas sin cargar de septiembre.", "INTERNA", hoursAgo(21));
+  await message(martinReq.id, contadora.id, "Hola Martín. ¿Emitiste facturas en septiembre que no veas en Movimientos? Con eso definimos si conviene recategorizar.", "PUBLICA", hoursAgo(20));
+  await saveDoc({ taxpayerId: taxpayers.martin, title: "Papel de trabajo: recategorización", fileName: "papel-de-trabajo-recategorizacion.pdf", category: "OTRO", visibility: "INTERNO", uploadedById: contadora.id, note: "Borrador interno del estudio", createdAt: hoursAgo(21) });
+
+  // Bruno: deuda informada y una solicitud nueva sin asignar (perfil del plan).
+  const brunoReq = await prisma.serviceRequest.create({
+    data: {
+      studyId: study.id, taxpayerId: taxpayers.bruno, createdById: clienteB.id, topic: "DEUDAS", priority: "ALTA",
+      subject: "Quiero regularizar la deuda", status: "ABIERTA", createdAt: hoursAgo(5), lastActivityAt: hoursAgo(5),
+    },
+  });
+  await message(brunoReq.id, clienteB.id, "Veo que tengo cuotas vencidas. ¿Puedo entrar en un plan de pagos?", "PUBLICA", hoursAgo(5));
+  await saveDoc({ taxpayerId: taxpayers.bruno, title: "Detalle de deuda", fileName: "detalle-de-deuda-bruno-diaz.pdf", category: "DECLARACION", visibility: "CLIENTE", uploadedById: admin.id, note: "Estado de cuenta revisado por el estudio", createdAt: hoursAgo(40) });
+
   // Este seed ya incluye los datos de las entregas 2 y 4: no hace falta la actualización de prisma/upgrade.ts.
   await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }] });
 
@@ -312,6 +407,7 @@ async function main() {
 
   console.log("Datos de demo creados. Usuarios (contraseña Demo1234!):");
   console.log("  admin@contadorsmart.local      → administrador del Estudio Demo");
+  console.log("  contadora@contadorsmart.local  → contadora del Estudio Demo (para asignar solicitudes)");
   console.log("  cliente.a@contadorsmart.local  → Ana Gómez y Martín Gómez");
   console.log("  cliente.b@contadorsmart.local  → Bruno Díaz");
   console.log("  admin.otro@contadorsmart.local → otro estudio (aislamiento)");

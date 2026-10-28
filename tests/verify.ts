@@ -30,6 +30,30 @@ import { computeMargin, getInvoices, suggestCategory, type PeriodMetric, type Sc
 import { createScaleVersion, findScaleForDate, listScales, type ScaleInput } from "@/modules/fiscal/scales";
 import { getCategoryAt, setCategory } from "@/modules/fiscal/category";
 import { createObligation, getDebtSummary, updateObligationStatus } from "@/modules/fiscal/obligations";
+import { createHash } from "node:crypto";
+import { MAX_FILE_BYTES } from "@/lib/constants";
+import { LocalFileStorage, storageDir } from "@/providers/storage";
+import {
+  checkFile,
+  checkFiles,
+  cleanFileName,
+  getAuthorizedDocument,
+  listDocuments,
+  readDocumentBytes,
+  setDocumentVisibility,
+  storeFiles,
+  uploadTaxpayerDocuments,
+  type UploadFile,
+} from "@/modules/documents/service";
+import {
+  addMessage,
+  createRequest,
+  getRequestForUser,
+  informPayment,
+  listInbox,
+  listRequestsForUser,
+  updateRequest,
+} from "@/modules/requests/service";
 
 let passed = 0;
 async function check(name: string, fn: () => void | Promise<void>) {
@@ -609,6 +633,204 @@ async function main() {
     const d = await getDebtSummary(bruno.id, today);
     assert.equal(d.overdue.length, 2);
     assert.equal(d.overdueTotalCents, 4_890_000n);
+  });
+
+  console.log("Archivos");
+  const pdfBytes = (text = "demo") => new TextEncoder().encode(`%PDF-1.4\n% ${text}\n%%EOF\n`);
+  const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const pdfFile = (name = "comprobante.pdf", text?: string): UploadFile => ({ name, type: "application/pdf", bytes: pdfBytes(text) });
+
+  await check("se aceptan PDF, PNG y JPG válidos", () => {
+    assert.ok(checkFile(pdfFile()).ok);
+    assert.ok(checkFile({ name: "foto.png", type: "image/png", bytes: pngBytes }).ok);
+    assert.ok(checkFile({ name: "foto.JPG", type: "", bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]) }).ok);
+  });
+  await check("se rechazan HTML disfrazado, tipo o extensión que no coinciden, vacío y más de 10 MB", () => {
+    const html = new TextEncoder().encode("<html><script>alert(1)</script></html>");
+    assert.ok(!checkFile({ name: "factura.pdf", type: "application/pdf", bytes: html }).ok);
+    assert.ok(!checkFile({ name: "pagina.html", type: "text/html", bytes: html }).ok);
+    assert.ok(!checkFile({ name: "foto.pdf", type: "application/pdf", bytes: pngBytes }).ok);
+    assert.ok(!checkFile({ name: "comprobante.pdf", type: "text/html", bytes: pdfBytes() }).ok);
+    assert.ok(!checkFile({ name: "vacio.pdf", type: "application/pdf", bytes: new Uint8Array() }).ok);
+    const big = new Uint8Array(MAX_FILE_BYTES + 1);
+    big.set(pdfBytes());
+    assert.ok(!checkFile({ name: "grande.pdf", type: "application/pdf", bytes: big }).ok);
+    assert.ok(!checkFiles([pdfFile(), pdfFile(), pdfFile(), pdfFile()]).ok);
+    assert.equal(cleanFileName("..\\..\\C:/temp/<x>.pdf"), "x.pdf");
+  });
+  await check("los archivos sobreviven a un reinicio (otra instancia lee lo mismo) y la clave no sale de la carpeta", async () => {
+    const checked = checkFile(pdfFile("x.pdf", "persistencia"));
+    assert.ok(checked.ok);
+    const [stored] = await storeFiles([checked.file]);
+    const again = new LocalFileStorage(storageDir);
+    const bytes = await again.get(stored.storageKey);
+    assert.ok(bytes && Buffer.from(bytes).equals(Buffer.from(pdfBytes("persistencia"))));
+    assert.equal(createHash("sha256").update(bytes!).digest("hex"), stored.sha256);
+    await assert.rejects(() => again.get("../../prisma/verify"));
+    await again.remove(stored.storageKey);
+    assert.equal(await again.get(stored.storageKey), null);
+  });
+
+  console.log("Solicitudes, notas internas y documentos");
+  const contadora = await asCurrentUser("contadora@contadorsmart.local");
+  const SECRET = "NOTA-INTERNA-NO-VISIBLE-123";
+  let requestId = "";
+  await check("crear solicitud: validaciones y solo para contribuyentes habilitados", async () => {
+    const bad = await createRequest(clienteB, { taxpayerId: bruno.id, topic: "PAGO", subject: "x", body: "" }, [], origin);
+    assert.ok(!bad.ok && bad.fieldErrors?.topic && bad.fieldErrors?.subject && bad.fieldErrors?.body);
+    const foreign = await createRequest(clienteB, { taxpayerId: ana.id, topic: "OTRO", subject: "Consulta", body: "Hola" }, [], origin);
+    assert.ok(!foreign.ok && foreign.fieldErrors?.taxpayerId);
+    const html = { name: "a.pdf", type: "application/pdf", bytes: new TextEncoder().encode("<html>") };
+    const badFile = await createRequest(clienteB, { taxpayerId: bruno.id, topic: "OTRO", subject: "Consulta", body: "Hola" }, [html], origin);
+    assert.ok(!badFile.ok && badFile.fieldErrors?.files);
+  });
+  await check("recorrido cliente → estudio → cliente", async () => {
+    const before = await prisma.document.count();
+    const created = await createRequest(
+      clienteB,
+      { taxpayerId: bruno.id, topic: "FACTURACION", subject: "Factura a un cliente del exterior", body: "¿Cómo la hago?" },
+      [pdfFile("presupuesto.pdf")],
+      origin,
+    );
+    assert.ok(created.ok, created.message);
+    requestId = created.requestId;
+    assert.equal(await prisma.document.count(), before + 1);
+    // Avisa al estudio.
+    assert.ok(await prisma.outboxEmail.findFirst({ where: { to: "admin@contadorsmart.local", subject: { contains: "Factura a un cliente del exterior" } } }));
+
+    // El estudio la ve en su bandeja, la asigna y deja una nota interna con un adjunto interno.
+    const inbox = await listInbox(admin, { assigned: "sin" });
+    assert.ok(inbox.rows.some((r) => r.id === requestId));
+    assert.ok((await updateRequest(admin, requestId, { status: "EN_CURSO", priority: "NORMAL", assignedToId: contadora.id }, origin)).ok);
+    assert.ok((await listInbox(contadora, { assigned: "mias" })).rows.some((r) => r.id === requestId));
+    const note = await addMessage(contadora, requestId, { body: `Revisar condición frente al IVA. ${SECRET}`, visibility: "INTERNA" }, [pdfFile("interno.pdf")], origin);
+    assert.ok(note.ok, note.message);
+    const reply = await addMessage(contadora, requestId, { body: "¿Me pasás el CUIT del cliente?", visibility: "PUBLICA", newStatus: "ESPERANDO_CLIENTE" }, [], origin);
+    assert.ok(reply.ok, reply.message);
+
+    // El cliente ve la respuesta y el estado, nunca la nota interna ni su adjunto.
+    const seen = await getRequestForUser(clienteB, requestId);
+    assert.ok(seen);
+    assert.equal(seen.status, "ESPERANDO_CLIENTE");
+    assert.equal(seen.messages.length, 2);
+    assert.ok(seen.messages.every((m) => m.visibility === "PUBLICA"));
+    assert.ok(!JSON.stringify(seen).includes(SECRET));
+    assert.ok(!JSON.stringify(seen).includes("interno.pdf"));
+    const staffView = await getRequestForUser(admin, requestId);
+    assert.equal(staffView!.messages.length, 3);
+
+    // El cliente responde: vuelve a "En curso" y avisa a la persona asignada.
+    assert.ok((await addMessage(clienteB, requestId, { body: "Es 30-00000007-4", visibility: "PUBLICA" }, [], origin)).ok);
+    assert.equal((await getRequestForUser(clienteB, requestId))!.status, "EN_CURSO");
+    assert.ok(await prisma.outboxEmail.findFirst({ where: { to: "contadora@contadorsmart.local", subject: { contains: "Nuevo mensaje del cliente" } } }));
+
+    // El estudio la resuelve y el cliente lo ve.
+    assert.ok((await updateRequest(contadora, requestId, { status: "RESUELTA", priority: "NORMAL", assignedToId: contadora.id }, origin)).ok);
+    assert.equal((await getRequestForUser(clienteB, requestId))!.status, "RESUELTA");
+  });
+  await check("los correos al cliente no incluyen notas internas ni el texto de los mensajes", async () => {
+    const toClient = await prisma.outboxEmail.findMany({ where: { to: "cliente.b@contadorsmart.local" } });
+    assert.ok(toClient.some((m) => m.subject.includes("Respuesta del estudio")));
+    assert.ok(toClient.every((m) => !m.body.includes(SECRET) && !m.body.includes("CUIT del cliente")));
+    assert.ok(!(await prisma.outboxEmail.findFirst({ where: { body: { contains: SECRET } } })));
+  });
+  await check("el cliente no puede escribir notas internas ni cambiar el estado", async () => {
+    const r = await addMessage(clienteB, requestId, { body: "hola", visibility: "INTERNA" }, [], origin);
+    assert.equal(r.ok, false);
+    await assert.rejects(() => updateRequest(clienteB, requestId, { status: "ABIERTA", priority: "NORMAL", assignedToId: "" }, origin));
+    await assert.rejects(() => listInbox(clienteB, {}));
+  });
+  await check("acceso cruzado a solicitudes: otro cliente y otro estudio son rechazados", async () => {
+    assert.equal(await getRequestForUser(clienteA, requestId), null);
+    assert.equal((await addMessage(clienteA, requestId, { body: "hola", visibility: "PUBLICA" }, [], origin)).ok, false);
+    assert.equal(await getRequestForUser(otherAdmin, requestId), null);
+    assert.equal((await updateRequest(otherAdmin, requestId, { status: "ABIERTA", priority: "NORMAL", assignedToId: "" }, origin)).ok, false);
+    assert.ok(!(await listRequestsForUser(clienteA, { view: "todas" })).some((r) => r.id === requestId));
+  });
+  await check("solo se asigna a personal activo del mismo estudio", async () => {
+    const bad1 = await updateRequest(admin, requestId, { status: "RESUELTA", priority: "NORMAL", assignedToId: clienteB.id }, origin);
+    const bad2 = await updateRequest(admin, requestId, { status: "RESUELTA", priority: "NORMAL", assignedToId: otherAdmin.id }, origin);
+    assert.ok(!bad1.ok && bad1.fieldErrors?.assignedToId);
+    assert.ok(!bad2.ok && bad2.fieldErrors?.assignedToId);
+  });
+  await check("documentos: el cliente no descarga internos ni ajenos; otro estudio tampoco", async () => {
+    const docs = await prisma.document.findMany({ where: { message: { requestId } }, include: { message: true } });
+    const publicDoc = docs.find((d) => d.message!.visibility === "PUBLICA")!;
+    const internalDoc = docs.find((d) => d.message!.visibility === "INTERNA")!;
+    assert.equal(internalDoc.visibility, "INTERNO");
+    assert.ok(await getAuthorizedDocument(clienteB, publicDoc.id));
+    assert.equal(await getAuthorizedDocument(clienteB, internalDoc.id), null);
+    assert.equal(await getAuthorizedDocument(clienteA, publicDoc.id), null);
+    assert.equal(await getAuthorizedDocument(otherAdmin, publicDoc.id), null);
+    assert.ok(await getAuthorizedDocument(admin, internalDoc.id));
+    const bytes = await readDocumentBytes((await getAuthorizedDocument(clienteB, publicDoc.id))!);
+    assert.equal(Buffer.from(bytes!).subarray(0, 5).toString(), "%PDF-");
+    // Un adjunto de una nota interna no se puede compartir.
+    assert.equal((await setDocumentVisibility(admin, internalDoc.id, "CLIENTE")).ok, false);
+    // Interno sembrado de Martín: cliente.a no lo ve ni en la lista ni por URL.
+    const martinInternal = await prisma.document.findFirstOrThrow({ where: { taxpayerId: martin.id, visibility: "INTERNO" } });
+    assert.equal(await getAuthorizedDocument(clienteA, martinInternal.id), null);
+    assert.ok(!(await listDocuments(clienteA, {})).some((d) => d.id === martinInternal.id));
+    assert.ok((await listDocuments(admin, {})).some((d) => d.id === martinInternal.id));
+  });
+  await check("al revocar el acceso, la descarga se rechaza aunque se conserve la URL", async () => {
+    const doc = await prisma.document.findFirstOrThrow({ where: { taxpayerId: bruno.id, visibility: "CLIENTE", messageId: null } });
+    assert.ok(await getAuthorizedDocument(clienteB, doc.id));
+    const access = await prisma.taxpayerAccess.findFirstOrThrow({ where: { userId: clienteB.id, taxpayerId: bruno.id } });
+    await revokeAccess(admin, access.id, "Prueba de revocación de documentos");
+    assert.equal(await getAuthorizedDocument(clienteB, doc.id), null);
+    assert.equal(await getRequestForUser(clienteB, requestId), null);
+    await prisma.taxpayerAccess.update({ where: { id: access.id }, data: { status: "APROBADO" } });
+  });
+  await check("carga del estudio: validaciones, visibilidad y auditoría", async () => {
+    const bad = await uploadTaxpayerDocuments(admin, ana.id, [], { category: "X", visibility: "TODOS", note: "" });
+    assert.ok(!bad.ok && bad.fieldErrors?.files && bad.fieldErrors?.category && bad.fieldErrors?.visibility);
+    assert.ok(!(await uploadTaxpayerDocuments(otherAdmin, ana.id, [pdfFile()], { category: "OTRO", visibility: "CLIENTE", note: "" })).ok);
+    await assert.rejects(() => uploadTaxpayerDocuments(clienteA, ana.id, [pdfFile()], { category: "OTRO", visibility: "CLIENTE", note: "" }));
+    const ok = await uploadTaxpayerDocuments(admin, ana.id, [pdfFile("interno-ana.pdf")], { category: "OTRO", visibility: "INTERNO", note: "" });
+    assert.ok(ok.ok, ok.message);
+    const doc = await prisma.document.findFirstOrThrow({ where: { taxpayerId: ana.id, fileName: "interno-ana.pdf" } });
+    assert.equal(await getAuthorizedDocument(clienteA, doc.id), null);
+    assert.ok((await setDocumentVisibility(admin, doc.id, "CLIENTE")).ok);
+    assert.ok(await getAuthorizedDocument(clienteA, doc.id));
+    assert.ok(await prisma.auditEvent.findFirst({ where: { action: "DOCUMENT_VISIBILITY", entityId: doc.id } }));
+  });
+  await check("si el archivo guardado cambia, la descarga se detiene (hash)", async () => {
+    const doc = await prisma.document.findFirstOrThrow({ where: { taxpayerId: ana.id, fileName: "interno-ana.pdf" } });
+    await assert.rejects(() => readDocumentBytes({ storageKey: doc.storageKey, sha256: "0".repeat(64) }));
+  });
+  await check("informar un pago: adjunto obligatorio, pasa a 'pago informado' y no se informa dos veces", async () => {
+    const target = (await getDebtSummary(bruno.id, today)).overdue[0];
+    assert.ok(!(await informPayment(clienteB, target.id, "", [], origin)).ok);
+    assert.ok(!(await informPayment(clienteA, target.id, "", [pdfFile()], origin)).ok);
+    const r = await informPayment(clienteB, target.id, "Pagué ayer", [pdfFile("pago.pdf")], origin);
+    assert.ok(r.ok, r.message);
+    const ob = await prisma.obligation.findUniqueOrThrow({ where: { id: target.id } });
+    assert.equal(ob.status, "PAGO_INFORMADO");
+    const req = await getRequestForUser(admin, r.requestId);
+    assert.equal(req!.topic, "PAGO");
+    assert.equal(req!.obligation!.id, target.id);
+    assert.equal(req!.messages[0].documents.length, 1);
+    assert.equal((await prisma.document.findFirstOrThrow({ where: { obligationId: target.id } })).category, "COMPROBANTE_PAGO");
+    assert.ok(!(await informPayment(clienteB, target.id, "", [pdfFile()], origin)).ok);
+    // Informado no es pagado: sale de la deuda vencida pero el estado queda pendiente de revisión hasta verificarlo.
+    const d = await getDebtSummary(bruno.id, today);
+    assert.ok(d.paymentInformed.some((o) => o.id === target.id));
+  });
+  await check("los avisos y servicios aceptan otro canal sin construirlo (campo channel)", async () => {
+    const r = await createRequest(clienteA, { taxpayerId: ana.id, topic: "OTRO", subject: "Prueba de canal", body: "Hola", channel: "PRUEBA" }, [], origin);
+    assert.ok(r.ok);
+    const stored = await prisma.serviceRequest.findUniqueOrThrow({ where: { id: r.requestId }, include: { messages: true } });
+    assert.equal(stored.channel, "PRUEBA");
+    assert.equal(stored.messages[0].channel, "PRUEBA");
+  });
+  await check("datos de demo: Bruno con deuda y solicitud nueva sin asignar; Ana con constancia compartida", async () => {
+    const brunoOpen = await prisma.serviceRequest.findFirst({ where: { taxpayerId: bruno.id, status: "ABIERTA", assignedToId: null } });
+    assert.ok(brunoOpen);
+    const constancia = await prisma.document.findFirstOrThrow({ where: { taxpayerId: ana.id, category: "CONSTANCIA" } });
+    assert.ok(await getAuthorizedDocument(clienteA, constancia.id));
+    const bytes = await readDocumentBytes(constancia);
+    assert.equal(Buffer.from(bytes!).subarray(0, 5).toString(), "%PDF-");
   });
 
   console.log(`\n${passed} verificaciones OK`);

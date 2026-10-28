@@ -9,7 +9,9 @@ import { getDashboardData, monthOptions, resolveCutDate } from "@/modules/dashbo
 import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { DebtCard, MarginCard, MonthlyChart, PeriodCard, UpcomingCard } from "@/components/dashboard/DashboardCards";
 import { getDebtSummary } from "@/modules/fiscal/obligations";
-import { Badge, EmptyState, Notice, PageHeader } from "@/components/ui";
+import { listRequestsForUser } from "@/modules/requests/service";
+import { RequestList } from "@/components/requests/RequestViews";
+import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Inicio · ContadorSmart" };
 
@@ -77,8 +79,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   const cutDate = resolveCutDate(first(sp.mes));
   const { year, month } = parseYmd(cutDate);
-  const [data, debt] = await Promise.all([getDashboardData(taxpayer, cutDate), getDebtSummary(taxpayer.id)]);
+  const [data, debt, requests] = await Promise.all([
+    getDashboardData(taxpayer, cutDate),
+    getDebtSummary(taxpayer.id),
+    listRequestsForUser(user, { taxpayerId: taxpayer.id, view: "todas" }, 3),
+  ]);
   const q = `c=${encodeURIComponent(taxpayer.id)}`;
+  const isAdmin = user.role === ROLES.ADMIN;
 
   return (
     <div className="space-y-6">
@@ -155,9 +162,30 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <DebtCard debt={debt} href={`/dashboard/deudas?${q}`} />
         <UpcomingCard debt={debt} href={`/dashboard/deudas?${q}`} />
+        <Card className="md:col-span-2 xl:col-span-1">
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-sm font-medium text-slate-600">Solicitudes recientes</h2>
+            <Link
+              href={isAdmin ? "/admin/solicitudes" : `/solicitudes/nueva?${q}`}
+              className="text-sm font-medium text-brand-700 hover:underline"
+            >
+              {isAdmin ? "Bandeja" : "Nueva"}
+            </Link>
+          </div>
+          <RequestList
+            rows={requests}
+            hrefBase={isAdmin ? "/admin/solicitudes" : "/solicitudes"}
+            empty="No hay solicitudes para este contribuyente."
+          />
+          {!isAdmin && requests.length > 0 && (
+            <Link href="/solicitudes?ver=todas" className="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">
+              Ver todas →
+            </Link>
+          )}
+        </Card>
       </div>
 
       <p className="text-xs text-slate-500">

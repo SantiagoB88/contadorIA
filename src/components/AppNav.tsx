@@ -13,9 +13,12 @@ export function AppNav({ isAdmin, orientation }: { isAdmin: boolean; orientation
     { href: "/dashboard/categoria", label: "Categoría" },
     { href: "/dashboard/deudas", label: "Deudas" },
     { href: "/facturas", label: "Facturación" },
+    ...(isAdmin ? [] : [{ href: "/solicitudes", label: "Solicitudes" }]),
+    { href: "/documentos", label: "Documentos" },
     ...(isAdmin
       ? [
           { href: "/admin", label: "Backoffice", exact: true },
+          { href: "/admin/solicitudes", label: "Bandeja" },
           { href: "/admin/escalas", label: "Escalas" },
           { href: "/admin/accesos", label: "Accesos" },
         ]

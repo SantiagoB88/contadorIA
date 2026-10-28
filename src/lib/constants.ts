@@ -82,3 +82,49 @@ export const OBLIGATION_STATUS_LABEL: Record<string, string> = {
 export const DEBT_REVIEW_STATUS = { REVISADA: "REVISADA", PENDIENTE_REVISION: "PENDIENTE_REVISION" } as const;
 
 export const STUDY_SOURCE = "Cargado por el estudio";
+
+// Solicitudes al estudio (entrega 5).
+export const SR_STATUS = {
+  ABIERTA: "ABIERTA",
+  EN_CURSO: "EN_CURSO",
+  ESPERANDO_CLIENTE: "ESPERANDO_CLIENTE",
+  RESUELTA: "RESUELTA",
+} as const;
+
+export const SR_STATUS_LABEL: Record<string, string> = {
+  ABIERTA: "Nueva",
+  EN_CURSO: "En curso",
+  ESPERANDO_CLIENTE: "Esperando respuesta del cliente",
+  RESUELTA: "Resuelta",
+};
+
+export const SR_TOPIC_LABEL: Record<string, string> = {
+  FACTURACION: "Facturación",
+  CATEGORIA: "Categoría y límites",
+  DEUDAS: "Deudas y vencimientos",
+  DOCUMENTACION: "Documentación",
+  PAGO: "Pago informado",
+  OTRO: "Otra consulta",
+};
+
+export const SR_PRIORITY_LABEL: Record<string, string> = { NORMAL: "Normal", ALTA: "Alta" };
+
+export const MESSAGE_VISIBILITY = { PUBLICA: "PUBLICA", INTERNA: "INTERNA" } as const;
+
+// Canal de origen. Por ahora solo existe la web; el campo queda para un canal futuro.
+export const CHANNEL = { WEB: "WEB" } as const;
+
+export const DOC_VISIBILITY = { CLIENTE: "CLIENTE", INTERNO: "INTERNO" } as const;
+
+export const DOC_CATEGORY_LABEL: Record<string, string> = {
+  CONSTANCIA: "Constancia",
+  COMPROBANTE_PAGO: "Comprobante de pago",
+  DECLARACION: "Declaración o formulario",
+  FACTURA: "Factura o comprobante",
+  ADJUNTO: "Adjunto de una solicitud",
+  OTRO: "Otro",
+};
+
+// Archivos: solo PDF, PNG y JPEG, hasta 10 MB cada uno y 3 por envío.
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_FILES_PER_UPLOAD = 3;
