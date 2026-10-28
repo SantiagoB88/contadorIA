@@ -11,3 +11,4 @@ prisma/verify.db-journal
 .next-verify/
 storage/
 storage-verify/
+prisma/respaldos/
