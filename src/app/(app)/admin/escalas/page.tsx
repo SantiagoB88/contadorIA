@@ -68,7 +68,7 @@ export default async function ScalesPage() {
                   return (
                     <tr key={s.id}>
                       <td className="px-4 py-3">
-                        <span className="font-medium text-slate-900">{s.name}</span>
+                        <span className="font-medium text-navy">{s.name}</span>
                         {current?.id === s.id && (
                           <span className="ml-2">
                             <Badge tone="brand">Vigente hoy</Badge>
@@ -98,7 +98,7 @@ export default async function ScalesPage() {
       )}
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Nueva versión</h2>
+        <h2 className="font-semibold text-navy">Nueva versión</h2>
         <p className="mt-1 mb-4 text-sm text-slate-600">
           Se precarga con los límites de la escala vigente. Si la versión vigente no tiene fecha de fin, se cierra sola el
           día anterior al inicio de la nueva. No cargues valores oficiales sin su fuente.

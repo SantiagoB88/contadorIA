@@ -33,7 +33,22 @@ function isActive(item: Item, pathname: string) {
     : pathname.startsWith(item.href);
 }
 
-function NavLinks({ items, pathname }: { items: Item[]; pathname: string }) {
+// "dark": barra lateral azul profundo (escritorio). "light": menú desplegable del celular.
+const LINK_STYLE = {
+  dark: {
+    active: "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-accent)]",
+    idle: "text-slate-300 hover:bg-white/5 hover:text-white",
+    focus: "focus-visible:outline-accent",
+  },
+  light: {
+    active: "bg-soft font-semibold text-navy shadow-[inset_3px_0_0_var(--color-accent)]",
+    idle: "text-slate-600 hover:bg-slate-100 hover:text-navy",
+    focus: "",
+  },
+} as const;
+
+function NavLinks({ items, pathname, tone }: { items: Item[]; pathname: string; tone: keyof typeof LINK_STYLE }) {
+  const style = LINK_STYLE[tone];
   return (
     <>
       {items.map((item) => {
@@ -43,9 +58,7 @@ function NavLinks({ items, pathname }: { items: Item[]; pathname: string }) {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              active ? "bg-brand-50 text-brand-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${style.focus} ${active ? style.active : style.idle}`}
           >
             {item.label}
           </Link>
@@ -60,7 +73,7 @@ export function AppNav({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Navegación principal" className="flex flex-col gap-1">
-      <NavLinks items={navItems(isAdmin)} pathname={pathname} />
+      <NavLinks items={navItems(isAdmin)} pathname={pathname} tone="dark" />
     </nav>
   );
 }
@@ -97,7 +110,7 @@ export function MobileNav({ isAdmin, account, logout }: { isAdmin: boolean; acco
       {open && (
         <div id="menu-movil" className="absolute inset-x-0 top-full z-20 border-b border-slate-200 bg-white px-4 pb-4 pt-2 shadow-lg">
           <nav aria-label="Navegación principal" className="grid grid-cols-2 gap-1">
-            <NavLinks items={items} pathname={pathname} />
+            <NavLinks items={items} pathname={pathname} tone="light" />
           </nav>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
             <div className="min-w-0">{account}</div>

@@ -76,7 +76,7 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
           {debt.overdue.length === 0 && debt.state !== "SIN_DEUDA_INFORMADA" ? (
             <p className="mt-2 text-lg font-semibold text-slate-700">{state.label}</p>
           ) : (
-            <p className="tabular mt-2 text-2xl font-semibold text-slate-900">{formatARS(debt.overdueTotalCents)}</p>
+            <p className="tabular mt-2 text-2xl font-semibold text-navy">{formatARS(debt.overdueTotalCents)}</p>
           )}
           <p className="mt-1 text-xs text-slate-500">
             {debt.overdueWithoutAmount > 0 &&
@@ -86,7 +86,7 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
         </Card>
         <Card>
           <h2 className="text-sm font-medium text-slate-600">Próximos vencimientos</h2>
-          <p className="tabular mt-2 text-2xl font-semibold text-slate-900">{debt.upcoming.length}</p>
+          <p className="tabular mt-2 text-2xl font-semibold text-navy">{debt.upcoming.length}</p>
           <p className="mt-1 text-xs text-slate-500">
             {debt.upcoming[0]
               ? `El próximo vence el ${formatDateAR(debt.upcoming[0].dueDate)}. No se suman como deuda vencida.`
@@ -108,7 +108,7 @@ export default async function DebtsPage({ searchParams }: { searchParams: Search
             {debt.all.map((o) => (
               <li key={o.id} className={`space-y-1.5 px-4 py-4 text-sm ${o.status === "ANULADA" ? "text-slate-500" : ""}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <p className="font-medium text-slate-900">{o.concept}</p>
+                  <p className="font-medium text-navy">{o.concept}</p>
                   <p className="tabular shrink-0 font-semibold">{amountText(o)}</p>
                 </div>
                 <p className="text-slate-600">

@@ -25,19 +25,20 @@ export default async function LoginPage() {
           </p>
           {APP_MODE === "DEMO" && (
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-              <p className="font-semibold text-slate-800">Usuarios de demo (contraseña: Demo1234!)</p>
-              <ul className="mt-2 space-y-1 break-all">
-                <li>
-                  <code className="text-brand-700">admin@contadorsmart.local</code> · estudio
-                </li>
-                <li>
-                  <code className="text-brand-700">cliente.a@contadorsmart.local</code> · 2 contribuyentes
-                </li>
-                <li>
-                  <code className="text-brand-700">cliente.b@contadorsmart.local</code> · 1 contribuyente
-                </li>
+              <p className="font-semibold text-navy">Usuarios de demo (contraseña: Demo1234!)</p>
+              <ul className="mt-2 space-y-2">
+                {[
+                  ["admin@contadorsmart.local", "Estudio (administrador)"],
+                  ["cliente.a@contadorsmart.local", "Cliente · 2 contribuyentes"],
+                  ["cliente.b@contadorsmart.local", "Cliente · 1 contribuyente"],
+                ].map(([email, who]) => (
+                  <li key={email}>
+                    <code className="break-all text-brand-700">{email}</code>
+                    <span className="block text-xs text-slate-500">{who}</span>
+                  </li>
+                ))}
               </ul>
-              <p className="mt-2 text-xs text-slate-500">Solo existen en esta base local de prueba.</p>
+              <p className="mt-2 text-xs text-slate-500">Son datos ficticios, solo para probar.</p>
             </div>
           )}
         </>

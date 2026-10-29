@@ -84,7 +84,7 @@ export function InvoiceForm({
       <Feedback state={state} />
 
       <fieldset className="space-y-4">
-        <legend className="text-base font-semibold text-slate-900">1. Receptor</legend>
+        <legend className="text-base font-semibold text-navy">1. Receptor</legend>
         {recipients.length > 0 && (
           <div className="flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2">
@@ -212,7 +212,7 @@ export function InvoiceForm({
       </fieldset>
 
       <fieldset className="space-y-4">
-        <legend className="text-base font-semibold text-slate-900">2. Detalle</legend>
+        <legend className="text-base font-semibold text-navy">2. Detalle</legend>
         <div className="max-w-xs">
           <label htmlFor="issueDate" className={labelClass}>
             Fecha del comprobante
@@ -314,7 +314,7 @@ export function InvoiceForm({
 
         <div className="flex items-baseline justify-end gap-3 border-t border-slate-200 pt-4">
           <span className="text-slate-600">Total estimado</span>
-          <span className="tabular text-2xl font-semibold text-slate-900">{formatARS(preview.total)}</span>
+          <span className="tabular text-2xl font-semibold text-navy">{formatARS(preview.total)}</span>
         </div>
       </fieldset>
 

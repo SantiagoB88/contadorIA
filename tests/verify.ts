@@ -31,6 +31,7 @@ import { createScaleVersion, findScaleForDate, listScales, type ScaleInput } fro
 import { getCategoryAt, setCategory } from "@/modules/fiscal/category";
 import { createObligation, getDebtSummary, updateObligationStatus } from "@/modules/fiscal/obligations";
 import { createHash } from "node:crypto";
+import { passwordVersion, readSession, signSession } from "@/lib/signed-session";
 import { MAX_FILE_BYTES } from "@/lib/constants";
 import { LocalFileStorage, storageDir } from "@/providers/storage";
 import {
@@ -836,6 +837,22 @@ async function main() {
     assert.ok(await getAuthorizedDocument(clienteA, constancia.id));
     const bytes = await readDocumentBytes(constancia);
     assert.equal(Buffer.from(bytes!).subarray(0, 5).toString(), "%PDF-");
+  });
+
+  console.log("Sesión firmada (demo en Vercel)");
+  await check("la firma valida, rechaza alteraciones, otro secreto y vencimientos", () => {
+    const claims = { uid: "u1", exp: Date.now() + 60_000, pwv: passwordVersion("hash-1") };
+    const token = signSession(claims, "secreto-a");
+    assert.deepEqual(readSession(token, "secreto-a"), claims);
+    assert.equal(readSession(token, "secreto-b"), null);
+    const [body, mac] = token.split(".");
+    const forged = Buffer.from(JSON.stringify({ ...claims, uid: "admin" })).toString("base64url");
+    assert.equal(readSession(`${forged}.${mac}`, "secreto-a"), null);
+    assert.equal(readSession(`${body}.${mac}x`, "secreto-a"), null);
+    assert.equal(readSession(token, "secreto-a", claims.exp + 1), null);
+    assert.equal(readSession("basura", "secreto-a"), null);
+    assert.equal(readSession(token, ""), null);
+    assert.notEqual(passwordVersion("hash-1"), passwordVersion("hash-2"));
   });
 
   console.log(`\n${passed} verificaciones OK`);

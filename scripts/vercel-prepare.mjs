@@ -18,3 +18,12 @@ rmSync(env.STORAGE_DIR, { recursive: true, force: true });
 console.log("[ContadorSmart] Armando la base de demo para Vercel...");
 run("npx prisma db push --skip-generate");
 run("npx tsx prisma/seed.ts");
+
+// Secreto para firmar las sesiones de la demo: nuevo en cada deploy y guardado dentro de la base de demo,
+// así todas las instancias de Vercel lo comparten (ver src/lib/auth.ts y src/lib/signed-session.ts).
+const { randomBytes } = await import("node:crypto");
+const { default: prismaPkg } = await import("@prisma/client");
+const prisma = new prismaPkg.PrismaClient({ datasourceUrl: `file:${path.join(root, "prisma", "demo.db").split("\\").join("/")}` });
+await prisma.appMeta.create({ data: { key: "demo-session-secret", value: randomBytes(32).toString("hex") } });
+await prisma.$disconnect();
+console.log("[ContadorSmart] Base de demo lista.");

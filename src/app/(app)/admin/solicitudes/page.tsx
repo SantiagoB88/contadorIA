@@ -81,7 +81,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
             {rows.map((r) => (
               <li key={r.id}>
                 <Link href={`/admin/solicitudes/${r.id}`} className="block space-y-1 px-4 py-3 text-sm hover:bg-slate-50">
-                  <p className="font-medium text-slate-900">{r.subject}</p>
+                  <p className="font-medium text-navy">{r.subject}</p>
                   <p className="text-slate-600">
                     {r.taxpayer.name} · {topicLabel(r.topic)}
                   </p>
@@ -111,7 +111,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                 {rows.map((r) => (
                   <tr key={r.id} className={r.status === "ABIERTA" ? "bg-sky-50/40" : ""}>
                     <td className="px-4 py-3">
-                      <Link href={`/admin/solicitudes/${r.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+                      <Link href={`/admin/solicitudes/${r.id}`} className="font-medium text-navy hover:text-brand-700 hover:underline">
                         {r.subject}
                       </Link>
                       <p className="text-xs text-slate-500">

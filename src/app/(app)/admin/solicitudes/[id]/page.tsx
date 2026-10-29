@@ -62,13 +62,13 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
         <div className="space-y-6 lg:col-span-2">
           <Conversation request={request} viewerIsStaff />
           <Card>
-            <h2 className="mb-4 font-semibold text-slate-900">Responder o agregar una nota interna</h2>
+            <h2 className="mb-4 font-semibold text-navy">Responder o agregar una nota interna</h2>
             <ReplyForm requestId={request.id} staff statuses={statusOptions} />
           </Card>
         </div>
         <div className="space-y-4">
           <Card>
-            <h2 className="mb-4 font-semibold text-slate-900">Gestión</h2>
+            <h2 className="mb-4 font-semibold text-navy">Gestión</h2>
             <RequestSettingsForm
               requestId={request.id}
               status={request.status}

@@ -56,12 +56,12 @@ export function Conversation({ request, viewerIsStaff }: { request: RequestView;
               internal
                 ? "border-amber-300 bg-amber-50"
                 : m.author.fromStudy
-                  ? "border-brand-200 bg-brand-50/60"
+                  ? "border-accent/40 bg-soft"
                   : "border-slate-200 bg-white"
             } ${mine ? "sm:ml-10" : "sm:mr-10"}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-navy">
                 {m.author.name}
                 <span className="ml-2 font-normal text-slate-500">{m.author.fromStudy ? "Estudio" : "Cliente"}</span>
               </p>
@@ -104,7 +104,7 @@ export function RequestList({ rows, hrefBase, empty }: { rows: RequestRow[]; hre
       {rows.map((r) => (
         <li key={r.id} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <Link href={`${hrefBase}/${r.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+            <Link href={`${hrefBase}/${r.id}`} className="font-medium text-navy hover:text-brand-700 hover:underline">
               {r.subject}
             </Link>
             <p className="text-xs text-slate-500">

@@ -52,7 +52,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
       {notice && <Notice title="Listo">{notice}</Notice>}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-navy">
           Solicitudes pendientes <span className="tabular text-slate-500">({pending.length})</span>
         </h2>
         {pending.length === 0 ? (
@@ -64,7 +64,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
               <Card key={r.id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-navy">
                       {r.declaredName} · CUIT {formatCuit(r.cuit)}
                     </p>
                     <p className="mt-1 text-sm text-slate-600">
@@ -96,7 +96,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
 
       <Card className="p-0">
         <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="font-semibold text-slate-900">Accesos vigentes</h2>
+          <h2 className="font-semibold text-navy">Accesos vigentes</h2>
           <p className="mt-1 text-sm text-slate-600">La revocación rige desde la próxima pantalla que abra el cliente.</p>
         </div>
         {accesses.length === 0 ? (
@@ -106,7 +106,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
             {accesses.map((a) => (
               <li key={a.id} className="grid gap-3 px-5 py-4 md:grid-cols-2 md:items-start">
                 <div className="text-sm">
-                  <p className="font-medium text-slate-900">
+                  <p className="font-medium text-navy">
                     {a.user.name} → {a.taxpayer.name}
                   </p>
                   <p className="text-slate-500">
@@ -123,14 +123,14 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
 
       <Card className="p-0">
         <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="font-semibold text-slate-900">Usuarios</h2>
+          <h2 className="font-semibold text-navy">Usuarios</h2>
           <p className="mt-1 text-sm text-slate-600">Suspender cierra las sesiones abiertas y bloquea el ingreso.</p>
         </div>
         <ul className="divide-y divide-slate-100">
           {users.map((u) => (
             <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
               <div>
-                <p className="font-medium text-slate-900">
+                <p className="font-medium text-navy">
                   {u.name} {u.id === admin.id && <span className="text-slate-500">(vos)</span>}
                 </p>
                 <p className="text-slate-500">{u.email}</p>

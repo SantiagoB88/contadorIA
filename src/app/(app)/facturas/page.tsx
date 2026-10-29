@@ -154,7 +154,7 @@ export default async function FacturasPage({ searchParams }: { searchParams: Sea
               <li key={inv.id}>
                 <Link href={`/facturas/${inv.id}`} className="block space-y-1 px-4 py-3 text-sm hover:bg-slate-50">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 font-medium text-slate-900">{inv.recipientName}</p>
+                    <p className="min-w-0 font-medium text-navy">{inv.recipientName}</p>
                     <p className="tabular shrink-0 font-semibold">{formatARS(inv.amountCents)}</p>
                   </div>
                   <p className="truncate text-slate-600">{inv.description}</p>

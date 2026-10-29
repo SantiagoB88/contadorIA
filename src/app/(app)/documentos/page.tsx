@@ -88,7 +88,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
           <ul className="divide-y divide-slate-100 sm:hidden">
             {docs.map((d) => (
               <li key={d.id} className="space-y-1 px-4 py-4 text-sm">
-                <p className="break-all font-medium text-slate-900">{d.fileName}</p>
+                <p className="break-all font-medium text-navy">{d.fileName}</p>
                 <p className="text-slate-600">
                   {d.taxpayer.name} · {docCategoryLabel(d.category)}
                   {isAdmin && d.visibility === "INTERNO" && (
@@ -139,7 +139,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                 {docs.map((d) => (
                   <tr key={d.id}>
                     <td className="max-w-[280px] px-4 py-3">
-                      <p className="truncate font-medium text-slate-900">{d.fileName}</p>
+                      <p className="truncate font-medium text-navy">{d.fileName}</p>
                       <p className="text-xs text-slate-500">
                         {formatBytes(d.sizeBytes)}
                         {d.note ? ` · ${d.note}` : ""}

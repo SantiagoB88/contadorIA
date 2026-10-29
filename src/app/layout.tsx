@@ -17,7 +17,7 @@ function OutdatedDb() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div role="alert" className="w-full max-w-lg rounded-xl border border-amber-300 bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">Falta reiniciar la aplicación</h1>
+        <h1 className="text-lg font-semibold text-navy">Falta reiniciar la aplicación</h1>
         <p className="mt-2 text-sm text-slate-700">
           El programa se actualizó, pero la base local todavía no. No se perdió ningún dato.
         </p>

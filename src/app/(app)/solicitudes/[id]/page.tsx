@@ -58,7 +58,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
       <Conversation request={request} viewerIsStaff={false} />
 
       <Card>
-        <h2 className="mb-4 font-semibold text-slate-900">{request.status === "RESUELTA" ? "¿Necesitás algo más?" : "Responder"}</h2>
+        <h2 className="mb-4 font-semibold text-navy">{request.status === "RESUELTA" ? "¿Necesitás algo más?" : "Responder"}</h2>
         {request.status === "RESUELTA" && (
           <p className="-mt-2 mb-4 text-sm text-slate-600">Si escribís, la solicitud vuelve a quedar en curso.</p>
         )}

@@ -92,7 +92,7 @@ export default async function AdminPage() {
       ) : (
         <Card className="p-0">
           <div className="border-b border-slate-200 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Contribuyentes</h2>
+            <h2 className="font-semibold text-navy">Contribuyentes</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
@@ -114,7 +114,7 @@ export default async function AdminPage() {
                   const rolling = data.periods.find((p) => p.key === "movil12")!;
                   return (
                     <tr key={taxpayer.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">{taxpayer.name}</td>
+                      <td className="px-4 py-3 font-medium text-navy">{taxpayer.name}</td>
                       <td className="tabular whitespace-nowrap px-4 py-3">{formatCuit(taxpayer.cuit)}</td>
                       <td className="px-4 py-3">{taxpayer.categoryCode ?? "—"}</td>
                       <td className="tabular whitespace-nowrap px-4 py-3 text-right">
@@ -155,7 +155,7 @@ export default async function AdminPage() {
       )}
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Actividad reciente</h2>
+        <h2 className="font-semibold text-navy">Actividad reciente</h2>
         {events.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">Todavía no hay eventos registrados.</p>
         ) : (

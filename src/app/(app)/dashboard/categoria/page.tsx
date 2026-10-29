@@ -72,8 +72,8 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="space-y-4 lg:col-span-2">
           <Card>
-            <h2 className="font-semibold text-slate-900">Categoría registrada</h2>
-            <p className="tabular mt-2 text-3xl font-semibold text-slate-900">{category.code ?? "Sin categoría"}</p>
+            <h2 className="font-semibold text-navy">Categoría registrada</h2>
+            <p className="tabular mt-2 text-3xl font-semibold text-navy">{category.code ?? "Sin categoría"}</p>
             <p className="mt-1 text-sm text-slate-600">
               {category.since ? `Rige desde el ${formatDateAR(category.since)}` : "Sin fecha de inicio registrada"} · Cargada
               por el estudio
@@ -85,12 +85,12 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
 
           <Card>
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 className="font-semibold text-slate-900">Categoría orientativa por ingresos</h2>
+              <h2 className="font-semibold text-navy">Categoría orientativa por ingresos</h2>
               <Badge tone="info">Orientativa</Badge>
             </div>
             {suggestion.available ? (
               <>
-                <p className="tabular mt-2 text-3xl font-semibold text-slate-900">
+                <p className="tabular mt-2 text-3xl font-semibold text-navy">
                   {suggestion.code ?? "Fuera de escala"}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
@@ -123,7 +123,7 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
       </div>
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Cómo se calcula</h2>
+        <h2 className="font-semibold text-navy">Cómo se calcula</h2>
         <dl className="mt-4 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-slate-500">Período de referencia</dt>
@@ -182,7 +182,7 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="font-semibold text-slate-900">Escala aplicada</h2>
+            <h2 className="font-semibold text-navy">Escala aplicada</h2>
             {category.scale && (
               <p className="mt-1 text-sm text-slate-600">
                 {category.scale.name} · vigencia {validityText(category.scale)} · fuente: {category.scale.source}
@@ -213,7 +213,7 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
                   const registered = l.code === category.code;
                   const suggested = suggestion.available && suggestion.code === l.code;
                   return (
-                    <tr key={l.code} className={registered ? "bg-brand-50" : ""}>
+                    <tr key={l.code} className={registered ? "bg-soft" : ""}>
                       <td className="py-2 pr-4 font-medium">{l.code}</td>
                       <td className="tabular py-2 pr-4 text-right">{formatARS(l.annualLimitCents)}</td>
                       <td className="flex flex-wrap gap-1 py-2">

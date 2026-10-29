@@ -3,6 +3,8 @@ import { hashToken, newRandomToken } from "./crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { ROLES, SESSION_COOKIE, SESSION_DAYS } from "./constants";
+import { passwordVersion, readSession, signSession } from "./signed-session";
+import { usesBundledDemo } from "./vercel-demo";
 
 export type CurrentUser = {
   id: string;
@@ -13,12 +15,30 @@ export type CurrentUser = {
   role: string;
 };
 
+// En la demo de Vercel la sesión va firmada en la cookie (ver signed-session.ts); en la compu, en la base.
+// El secreto de la firma lo genera scripts/vercel-prepare.mjs en cada deploy y queda en la base de demo.
+const DEMO_SECRET_KEY = "demo-session-secret";
+const secretCache = globalThis as unknown as { contadorSmartSessionSecret?: string };
 
-/** Crea una sesión en la base y deja el token en una cookie HttpOnly. Solo desde Server Actions. */
+async function demoSecret(): Promise<string> {
+  secretCache.contadorSmartSessionSecret ??=
+    (await prisma.appMeta.findUnique({ where: { key: DEMO_SECRET_KEY }, select: { value: true } }))?.value ?? "";
+  return secretCache.contadorSmartSessionSecret;
+}
+
+/** Crea la sesión y deja el token en una cookie HttpOnly. Solo desde Server Actions. */
 export async function createSession(userId: string) {
-  const token = newRandomToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await prisma.session.create({ data: { tokenHash: hashToken(token), userId, expiresAt } });
+  let token: string;
+  if (usesBundledDemo) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
+    const secret = await demoSecret();
+    if (!secret) throw new Error("Falta el secreto de sesión de la demo (scripts/vercel-prepare.mjs).");
+    token = signSession({ uid: userId, exp: expiresAt.getTime(), pwv: passwordVersion(user.passwordHash) }, secret);
+  } else {
+    token = newRandomToken();
+    await prisma.session.create({ data: { tokenHash: hashToken(token), userId, expiresAt } });
+  }
 
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
@@ -34,7 +54,7 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) {
+  if (token && !usesBundledDemo) {
     await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
   }
   store.delete(SESSION_COOKIE);
@@ -45,6 +65,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+
+  if (usesBundledDemo) {
+    // Se valida la firma y, en la base, que el usuario siga activo y no haya cambiado la contraseña.
+    const claims = readSession(token, await demoSecret());
+    if (!claims) return null;
+    const user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
+    if (!user || !user.active || passwordVersion(user.passwordHash) !== claims.pwv) return null;
+    return { id: user.id, studyId: user.studyId, studyName: user.study.name, email: user.email, name: user.name, role: user.role };
+  }
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },

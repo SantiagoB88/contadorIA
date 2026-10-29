@@ -3,7 +3,7 @@
 export default function AppError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <div role="alert" className="mx-auto max-w-md rounded-xl border border-red-200 bg-white p-6 text-center">
-      <h1 className="text-lg font-semibold text-slate-900">No pudimos cargar esta pantalla</h1>
+      <h1 className="text-lg font-semibold text-navy">No pudimos cargar esta pantalla</h1>
       <p className="mt-2 text-sm text-slate-600">
         Ocurrió un error inesperado. Probá de nuevo; si sigue pasando, avisale al estudio.
       </p>

@@ -65,23 +65,23 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <dt className="text-slate-500">Tipo</dt>
-            <dd className="font-medium text-slate-900">Factura C</dd>
+            <dd className="font-medium text-navy">Factura C</dd>
           </div>
           <div>
             <dt className="text-slate-500">Número</dt>
-            <dd className="tabular font-medium text-slate-900">{isDraft ? "Se asigna al emitir" : number}</dd>
+            <dd className="tabular font-medium text-navy">{isDraft ? "Se asigna al emitir" : number}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Fecha</dt>
-            <dd className="tabular font-medium text-slate-900">{formatDateAR(invoice.issueDate)}</dd>
+            <dd className="tabular font-medium text-navy">{formatDateAR(invoice.issueDate)}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Emitida</dt>
-            <dd className="font-medium text-slate-900">{invoice.issuedAt ? formatDateTimeAR(invoice.issuedAt) : "—"}</dd>
+            <dd className="font-medium text-navy">{invoice.issuedAt ? formatDateTimeAR(invoice.issuedAt) : "—"}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-slate-500">Receptor</dt>
-            <dd className="font-medium text-slate-900">{invoice.recipientName}</dd>
+            <dd className="font-medium text-navy">{invoice.recipientName}</dd>
             <dd className="text-slate-600">
               {docText} · {TAX_CONDITION_LABEL[invoice.recipientTaxCondition ?? ""] ?? "—"}
             </dd>
@@ -126,7 +126,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
 
       {isDraft && (
         <Card>
-          <h2 className="font-semibold text-slate-900">Confirmar</h2>
+          <h2 className="font-semibold text-navy">Confirmar</h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
             Modo de trabajo: <strong>{APP_MODE}</strong>. La emisión es simulada: se asigna un número interno y queda en el
             historial, pero no se envía nada a ARCA.

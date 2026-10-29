@@ -70,7 +70,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Sea
             {rows.map((r) => (
               <li key={r.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <Link href={`/solicitudes/${r.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+                  <Link href={`/solicitudes/${r.id}`} className="font-medium text-navy hover:text-brand-700 hover:underline">
                     {r.subject}
                   </Link>
                   <p className="mt-0.5 text-sm text-slate-600">

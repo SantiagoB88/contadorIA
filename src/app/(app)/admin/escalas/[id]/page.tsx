@@ -55,7 +55,7 @@ export default async function ScalePage({
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
-          <h2 className="font-semibold text-slate-900">Límites</h2>
+          <h2 className="font-semibold text-navy">Límites</h2>
           <p className="mt-1 text-sm text-slate-600">Fuente: {scale.source}</p>
           <table className="mt-4 w-full text-sm">
             <caption className="sr-only">Límite anual por categoría</caption>
@@ -77,7 +77,7 @@ export default async function ScalePage({
         </Card>
 
         <Card className="lg:col-span-2">
-          <h2 className="font-semibold text-slate-900">Editar versión</h2>
+          <h2 className="font-semibold text-navy">Editar versión</h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
             Si los valores cambian desde una fecha nueva, conviene crear otra versión en lugar de editar esta.
           </p>
@@ -102,7 +102,7 @@ export default async function ScalePage({
       </div>
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Historial de cambios</h2>
+        <h2 className="font-semibold text-navy">Historial de cambios</h2>
         {events.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">Sin cambios registrados.</p>
         ) : (

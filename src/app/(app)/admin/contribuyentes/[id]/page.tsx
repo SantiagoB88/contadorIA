@@ -72,7 +72,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="font-semibold text-slate-900">Cargar comprobante manual</h2>
+          <h2 className="font-semibold text-navy">Cargar comprobante manual</h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
             Queda como “Cargado por el estudio” y suma enseguida en el tablero.
           </p>
@@ -81,7 +81,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
         <div className="space-y-4">
           <Card>
-            <h2 className="font-semibold text-slate-900">Categoría</h2>
+            <h2 className="font-semibold text-navy">Categoría</h2>
             <p className="mt-1 text-sm text-slate-600">
               Actual: <strong>{taxpayer.categoryCode ?? "sin categoría"}</strong>
               {scale ? (
@@ -115,7 +115,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
           </Card>
 
           <Card>
-            <h2 className="font-semibold text-slate-900">Cobertura de datos</h2>
+            <h2 className="font-semibold text-navy">Cobertura de datos</h2>
             <p className="mt-1 mb-4 text-sm text-slate-600">
               Indica desde cuándo la facturación está completa. Así el tablero distingue un cero real de un dato faltante.
             </p>
@@ -132,7 +132,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
       <Card id="deudas" className="scroll-mt-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="font-semibold text-slate-900">Deudas y vencimientos</h2>
+            <h2 className="font-semibold text-navy">Deudas y vencimientos</h2>
             <p className="mt-1 text-sm text-slate-600">{debtStateText(debt)}</p>
           </div>
           <Badge tone={DEBT_STATE[debt.state].tone}>{DEBT_STATE[debt.state].label}</Badge>
@@ -151,7 +151,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
               <li key={o.id} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span>
-                    <strong className="font-medium text-slate-900">{o.concept}</strong>
+                    <strong className="font-medium text-navy">{o.concept}</strong>
                     <span className="text-slate-600"> · {formatPeriod(o.period)} · vence {formatDateAR(o.dueDate)}</span>
                   </span>
                   <span className="flex items-center gap-2">
@@ -170,12 +170,12 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
         <div className="mt-5 grid gap-6 border-t border-slate-100 pt-5 lg:grid-cols-2">
           <div>
-            <h3 className="font-medium text-slate-900">Cargar vencimiento</h3>
+            <h3 className="font-medium text-navy">Cargar vencimiento</h3>
             <p className="mt-1 mb-3 text-sm text-slate-600">Queda como “Cargado por el estudio”. El importe es opcional.</p>
             <ObligationForm taxpayerId={taxpayer.id} currentMonth={today.slice(0, 7)} />
           </div>
           <div>
-            <h3 className="font-medium text-slate-900">Registrar revisión</h3>
+            <h3 className="font-medium text-navy">Registrar revisión</h3>
             <p className="mt-1 mb-3 text-sm text-slate-600">
               Solo con una revisión “completa a esa fecha” el cliente ve “Sin deuda informada”. Sin revisión ve “No disponible”.
             </p>
@@ -186,7 +186,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card id="documentos" className="scroll-mt-6">
-          <h2 className="font-semibold text-slate-900">Documentos</h2>
+          <h2 className="font-semibold text-navy">Documentos</h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
             Se guardan en una carpeta privada. “Solo el estudio” no aparece nunca en el portal del cliente.
           </p>
@@ -201,7 +201,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
               {documents.map((d) => (
                 <li key={d.id} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                   <div className="min-w-0">
-                    <a href={`/documentos/${d.id}/descargar`} className="block truncate font-medium text-slate-900 hover:text-brand-700 hover:underline">
+                    <a href={`/documentos/${d.id}/descargar`} className="block truncate font-medium text-navy hover:text-brand-700 hover:underline">
                       {d.fileName}
                     </a>
                     <p className="text-xs text-slate-500">
@@ -227,7 +227,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
         <Card>
           <div className="flex items-start justify-between gap-2">
-            <h2 className="font-semibold text-slate-900">Solicitudes</h2>
+            <h2 className="font-semibold text-navy">Solicitudes</h2>
             <Link href="/admin/solicitudes" className="text-sm font-medium text-brand-700 hover:underline">
               Bandeja
             </Link>
@@ -237,7 +237,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
       </div>
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Usuarios con acceso</h2>
+        <h2 className="font-semibold text-navy">Usuarios con acceso</h2>
         {taxpayer.accesses.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">Ningún usuario tiene acceso a este contribuyente.</p>
         ) : (
@@ -265,7 +265,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
 
       <Card className="p-0">
         <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="font-semibold text-slate-900">Últimos comprobantes</h2>
+          <h2 className="font-semibold text-navy">Últimos comprobantes</h2>
         </div>
         {invoices.length === 0 ? (
           <p className="px-5 py-6 text-sm text-slate-600">Todavía no hay comprobantes.</p>

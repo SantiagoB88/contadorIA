@@ -33,19 +33,19 @@ export default async function InformPaymentPage({ params }: { params: Promise<{ 
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-slate-500">Concepto</dt>
-            <dd className="text-slate-900">{obligation.concept}</dd>
+            <dd className="text-navy">{obligation.concept}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Período</dt>
-            <dd className="text-slate-900">{formatPeriod(obligation.period)}</dd>
+            <dd className="text-navy">{formatPeriod(obligation.period)}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Vencimiento</dt>
-            <dd className="tabular text-slate-900">{formatDateAR(obligation.dueDate)}</dd>
+            <dd className="tabular text-navy">{formatDateAR(obligation.dueDate)}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Importe informado por el estudio</dt>
-            <dd className="tabular text-slate-900">{amountText(obligation)}</dd>
+            <dd className="tabular text-navy">{amountText(obligation)}</dd>
           </div>
         </dl>
       </Card>

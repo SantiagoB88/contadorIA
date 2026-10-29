@@ -3,15 +3,23 @@
 @theme {
   --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 
-  /* Acento azul petróleo */
-  --color-brand-50: #eef6f7;
-  --color-brand-100: #d4e9ec;
-  --color-brand-200: #a9d2d9;
-  --color-brand-500: #1f7a87;
-  --color-brand-600: #176674;
-  --color-brand-700: #12525e;
-  --color-brand-800: #0e414b;
-  --color-brand-900: #0b333b;
+  /* Paleta: azul profundo + turquesa (confianza, claridad, tecnología) */
+  --color-navy: #112d4e; /* marca y títulos */
+  --color-accent: #20c4b6; /* acento distintivo */
+  --color-accent-700: #13968b;
+  --color-soft: #e1f5f2; /* resaltados suaves */
+
+  /* Acciones principales (azul #2457D6) y sus tonos */
+  --color-brand-50: #eef3fd;
+  --color-brand-100: #dce6fb;
+  --color-brand-200: #b9ccf6;
+  --color-brand-300: #8fadef;
+  --color-brand-400: #5f88e4;
+  --color-brand-500: #3a6bdd;
+  --color-brand-600: #2457d6;
+  --color-brand-700: #1c46b3;
+  --color-brand-800: #173a92;
+  --color-brand-900: #112d4e;
 }
 
 html {
@@ -19,8 +27,8 @@ html {
 }
 
 body {
-  background: #f6f7f8;
-  color: #1c2328;
+  background: #f4f7fa;
+  color: #1c2a3a;
 }
 
 /* Foco visible y consistente para navegación por teclado */

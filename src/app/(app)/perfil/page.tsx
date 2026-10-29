@@ -35,7 +35,7 @@ export default async function PerfilPage() {
 
       {isClient && (
         <Card>
-          <h2 className="font-semibold text-slate-900">Mis contribuyentes</h2>
+          <h2 className="font-semibold text-navy">Mis contribuyentes</h2>
           {accesses.length === 0 ? (
             <p className="mt-2 text-sm text-slate-600">
               Todavía no tenés contribuyentes habilitados. Asociá tu CUIT abajo.
@@ -45,7 +45,7 @@ export default async function PerfilPage() {
               {accesses.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span>
-                    <span className="font-medium text-slate-900">{a.taxpayer.name}</span>{" "}
+                    <span className="font-medium text-navy">{a.taxpayer.name}</span>{" "}
                     <span className="text-slate-500">· CUIT {formatCuit(a.taxpayer.cuit)}</span>
                   </span>
                   <Link href={`/dashboard?c=${a.taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
@@ -85,7 +85,7 @@ export default async function PerfilPage() {
 
       {isClient && (
         <Card>
-          <h2 id="asociar" className="scroll-mt-6 font-semibold text-slate-900">
+          <h2 id="asociar" className="scroll-mt-6 font-semibold text-navy">
             Asociar un CUIT
           </h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
@@ -97,17 +97,17 @@ export default async function PerfilPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900">Datos personales</h2>
+          <h2 className="mb-4 font-semibold text-navy">Datos personales</h2>
           <ProfileForm name={row.name} phone={row.phone ?? ""} email={row.email} />
         </Card>
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900">Contraseña</h2>
+          <h2 className="mb-4 font-semibold text-navy">Contraseña</h2>
           <ChangePasswordForm />
         </Card>
       </div>
 
       <Card>
-        <h2 className="font-semibold text-slate-900">Vinculación fiscal</h2>
+        <h2 className="font-semibold text-navy">Vinculación fiscal</h2>
         <p className="mt-1 text-sm text-slate-600">
           <Badge tone="neutral">No conectada</Badge> En esta versión no hay conexión con ARCA y no se guarda ninguna clave
           fiscal. Los datos los carga el estudio.

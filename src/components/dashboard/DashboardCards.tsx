@@ -23,7 +23,7 @@ export function PeriodCard({ period, taxpayerId }: { period: PeriodMetric; taxpa
       {period.totalCents === null ? (
         <p className="mt-2 text-lg font-semibold text-amber-800">Información incompleta</p>
       ) : (
-        <p className="tabular mt-2 text-2xl font-semibold tracking-tight text-slate-900">{formatARS(period.totalCents)}</p>
+        <p className="tabular mt-2 text-2xl font-semibold tracking-tight text-navy">{formatARS(period.totalCents)}</p>
       )}
       <p className="mt-1 text-xs text-slate-500">
         {formatDateAR(period.from)} – {formatDateAR(period.to)}
@@ -63,7 +63,7 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
     return (
       <Card>
         <div className="flex items-start justify-between gap-2">
-          <h2 className="font-semibold text-slate-900">Margen de categoría</h2>
+          <h2 className="font-semibold text-navy">Margen de categoría</h2>
           <Badge tone="warning">No disponible</Badge>
         </div>
         <p className="mt-1 text-sm text-slate-600">
@@ -83,7 +83,7 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="font-semibold text-slate-900">Margen de categoría</h2>
+          <h2 className="font-semibold text-navy">Margen de categoría</h2>
           <p className="mt-1 text-sm text-slate-600">
             Categoría registrada <strong>{margin.categoryCode}</strong> · {formatDateAR(margin.referenceFrom)} al{" "}
             {formatDateAR(margin.referenceTo)}
@@ -94,7 +94,7 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
 
       <div className="mt-5">
         <p className="text-sm text-slate-600">{exceeded ? "Exceso sobre el límite" : "Margen disponible"}</p>
-        <p className={`tabular text-3xl font-semibold tracking-tight ${exceeded ? "text-red-700" : "text-slate-900"}`}>
+        <p className={`tabular text-3xl font-semibold tracking-tight ${exceeded ? "text-red-700" : "text-navy"}`}>
           {formatARS(exceeded ? -margin.marginCents : margin.marginCents)}
         </p>
       </div>
@@ -149,7 +149,7 @@ export function MonthlyChart({ bars }: { bars: MonthBar[] }) {
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="font-semibold text-slate-900">Facturación mensual</h2>
+        <h2 className="font-semibold text-navy">Facturación mensual</h2>
         <span className="text-sm text-slate-500">Últimos 12 meses</span>
       </div>
 
@@ -168,7 +168,7 @@ export function MonthlyChart({ bars }: { bars: MonthBar[] }) {
                   <div
                     title={`${bar.longLabel}: ${formatARS(bar.totalCents)}${missing ? " (datos incompletos)" : ""}`}
                     className={`w-full rounded-t-md ${
-                      missing ? "border border-dashed border-amber-400 bg-amber-100" : "bg-brand-500"
+                      missing ? "border border-dashed border-amber-400 bg-amber-100" : "bg-accent"
                     }`}
                     style={{ height: `${Math.max(height, missing ? 4 : bar.totalCents > 0n ? 2 : 0)}%` }}
                   />
@@ -218,7 +218,7 @@ export function DebtCard({ debt, href }: { debt: DebtSummary; href: string }) {
   return (
     <Card className="flex flex-col">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="font-semibold text-slate-900">Deudas</h2>
+        <h2 className="font-semibold text-navy">Deudas</h2>
         <Badge tone={state.tone}>{state.label}</Badge>
       </div>
       {debt.overdue.length > 0 && (
@@ -242,7 +242,7 @@ export function UpcomingCard({ debt, href }: { debt: DebtSummary; href: string }
   const next = debt.upcoming.slice(0, 3);
   return (
     <Card className="flex flex-col">
-      <h2 className="font-semibold text-slate-900">Próximos vencimientos</h2>
+      <h2 className="font-semibold text-navy">Próximos vencimientos</h2>
       {next.length === 0 ? (
         <p className="mt-3 text-sm text-slate-600">
           {debt.state === "SIN_DATOS" ? "El estudio todavía no cargó vencimientos." : "No hay vencimientos pendientes cargados."}
@@ -252,7 +252,7 @@ export function UpcomingCard({ debt, href }: { debt: DebtSummary; href: string }
           {next.map((o) => (
             <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>
-                <span className="tabular font-medium text-slate-900">{formatDateAR(o.dueDate)}</span>
+                <span className="tabular font-medium text-navy">{formatDateAR(o.dueDate)}</span>
                 <span className="text-slate-600"> · {o.concept}</span>
               </span>
               <span className="tabular text-slate-800">{o.amountCents === null ? "Importe no informado" : formatARS(o.amountCents)}</span>

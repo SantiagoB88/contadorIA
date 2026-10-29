@@ -59,7 +59,7 @@ export default async function CorreosPage() {
                   <span className="font-medium text-slate-800">Para: {m.to}</span>
                   <span className="tabular text-slate-500">{formatDateTimeAR(m.createdAt)}</span>
                 </div>
-                <p className="mt-1 font-semibold text-slate-900">{m.subject}</p>
+                <p className="mt-1 font-semibold text-navy">{m.subject}</p>
                 <p className="mt-3 whitespace-pre-line text-sm text-slate-700">
                   <Linkified text={m.body} />
                 </p>

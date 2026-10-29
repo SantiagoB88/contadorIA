@@ -171,6 +171,23 @@
   - Si alguien tocaba "Ingresar" antes de que cargara la página, el navegador mandaba los datos en la URL (contraseña incluida). Ahora los formularios siempre van por POST y no ejecutan nada hasta que la página cargó.
 - No probado: un deploy real en Vercel (lo hace el usuario).
 
+## Sesión en Vercel y paleta nueva ✅
+
+- **Sesión en Vercel**: cada parte de la app puede correr en una instancia distinta con su propia copia de la base, y la sesión guardada en una no existía en la otra: al cambiar de módulo pedía ingresar de nuevo.
+  - Ahora, solo en la demo de Vercel, la sesión va firmada en la cookie (`src/lib/signed-session.ts`) y cualquier instancia la valida.
+  - El secreto de la firma se genera en cada deploy y queda dentro de la base de demo. Dura 7 días.
+  - Si el usuario se suspende o cambia la contraseña, deja de valer.
+  - Probado reiniciando el servidor de la simulación con una copia nueva de la base: la sesión sigue.
+  - En la compu no cambia nada: las sesiones siguen en la base.
+- **Paleta "azul profundo + turquesa"**:
+  - azul profundo `#112D4E` para marca, títulos y barra lateral;
+  - azul `#2457D6` para acciones;
+  - turquesa `#20C4B6` para acento, logo y gráfico;
+  - menta `#E1F5F2` para resaltados.
+  - Logo nuevo "CS" con la S turquesa.
+- **Login**: los usuarios de demo se ven en lista, sin cortes de palabras en el celular.
+- **Pendiente en Vercel**: lo que se guarda en una instancia no se ve en otra. Si Vercel atiende con más de una instancia, un cambio hecho en un módulo puede no aparecer en otro. Para que los datos sean compartidos hace falta una base real (entrega 6).
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK

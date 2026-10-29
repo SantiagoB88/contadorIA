@@ -1,5 +1,15 @@
 // Piezas visuales simples y reutilizables (sin lógica de negocio).
 
+/** Marca de ContadorSmart: cuadrado azul profundo con la "S" en turquesa. */
+export function BrandMark({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const box = size === "lg" ? "h-12 w-12 rounded-xl text-xl" : "h-8 w-8 rounded-lg text-sm";
+  return (
+    <span aria-hidden="true" className={`flex ${box} shrink-0 items-center justify-center bg-navy font-bold text-white`}>
+      C<span className="text-accent">S</span>
+    </span>
+  );
+}
+
 export function Card({ children, className = "", id }: { children: React.ReactNode; className?: string; id?: string }) {
   return <section id={id} className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
 }
@@ -68,7 +78,7 @@ export function PageHeader({
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-navy">{title}</h1>
         {subtitle && <div className="mt-1 text-sm text-slate-600">{subtitle}</div>}
       </div>
       {children}
@@ -77,6 +87,6 @@ export function PageHeader({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-navy placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200";
 
 export const labelClass = "mb-1 block text-sm font-medium text-slate-700";

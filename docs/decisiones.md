@@ -52,6 +52,8 @@
 | Demo en Vercel | Base SQLite de demo armada al compilar y copiada a la carpeta temporal al arrancar; archivos igual. Se activa solo con `VERCEL` y sin `DATABASE_URL` | El usuario no quiere una base online por ahora. Es una demo: los datos vuelven a los de ejemplo cuando Vercel recicla la instancia. Para datos persistentes hará falta una base real (entrega 6). |
 | Pantalla de carga (`loading.tsx`) | Quitada | En la versión compilada (Next 15.5) dejaba los formularios trabados en "Guardando…" después de guardar. |
 | Formularios antes de cargar la página | `method="post"` sin ejecutar nada; el envío real lo hace `onSubmit` | Una contraseña nunca va en la URL. Ejecutar la acción también sin JavaScript generaba errores en modo desarrollo. |
+| Sesión en la demo de Vercel | Cookie firmada (HMAC) con usuario, vencimiento y huella de la contraseña; secreto nuevo por deploy guardado en la base de demo | Cada instancia de Vercel tiene su copia de la base: una sesión guardada en la base no sirve entre instancias. En la compu siguen las sesiones en la base. |
+| Paleta | Azul profundo #112D4E, azul #2457D6, turquesa #20C4B6, menta #E1F5F2 | Pedido del usuario: confianza, claridad, tecnología. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos
