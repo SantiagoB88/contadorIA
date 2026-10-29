@@ -16,7 +16,7 @@ export async function login(page: Page, email: string, password = PASSWORD) {
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await page.waitForURL(/\/dashboard/);
+  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
 }
 
 /** Junta errores de consola y de página (excepto los que genera Next en desarrollo y no son de la app). */

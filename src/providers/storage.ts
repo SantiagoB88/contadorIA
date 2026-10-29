@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
+import { prepareBundledDemo, usesBundledDemo } from "@/lib/vercel-demo";
 
 // Almacenamiento de archivos privados. En la V1 local es una carpeta fuera de `public/`
 // (por defecto `storage/`, configurable con STORAGE_DIR). Los archivos se guardan con un nombre aleatorio
@@ -61,5 +62,8 @@ export class LocalFileStorage implements FileStorage {
   }
 }
 
-export const storageDir = path.resolve(process.env.STORAGE_DIR ?? path.join(process.cwd(), "storage"));
+// En la demo de Vercel, los archivos van a la copia temporal (ver src/lib/vercel-demo.ts).
+export const storageDir = path.resolve(
+  process.env.STORAGE_DIR ?? (usesBundledDemo ? prepareBundledDemo().storage : path.join(process.cwd(), "storage")),
+);
 export const storage = new LocalFileStorage(storageDir);

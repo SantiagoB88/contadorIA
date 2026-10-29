@@ -22,6 +22,23 @@ Antes de levantar, `npm run dev` prepara la base:
 
 > Después de actualizar el código (por ejemplo, con `git pull`), cortá `npm run dev` con Ctrl+C y volvé a levantarlo, así se aplican los cambios de la base. Si te olvidás, la app no tira un error técnico: muestra la pantalla "Falta reiniciar la aplicación" con los pasos.
 
+## Demo online en Vercel
+
+La app se puede publicar en Vercel como demo, sin bases de datos ni servicios externos.
+
+1. En Vercel: **Add New → Project**, elegí el repositorio y tocá **Create Project**. No hace falta configurar variables ni cambiar nada.
+2. Listo. Cada vez que se sube un cambio a `main`, Vercel vuelve a publicar solo.
+
+Cómo funciona:
+- Al compilar, Vercel arma una base de demo con los datos de ejemplo (`scripts/vercel-prepare.mjs`) que viaja dentro de la web.
+- Al arrancar, la app la copia a una carpeta temporal y trabaja sobre esa copia.
+
+Qué tener en cuenta:
+- **Es una demo**: los cambios que haga alguien duran mientras la demo está activa. Cuando Vercel la "duerme" (después de un rato sin uso) o se publica de nuevo, todo vuelve a los datos de ejemplo. El aviso amarillo de arriba lo dice.
+- Todos los que entran comparten los mismos datos y los usuarios de demo están a la vista en el login: no cargues datos reales.
+- Los adjuntos pueden pesar hasta 4 MB en total por envío, que es el límite de Vercel.
+- `/dev/correos` muestra los correos de la demo, igual que en la compu.
+
 ## Usuarios de demo
 
 Contraseña de todos: `Demo1234!` (solo existen en esta base local).

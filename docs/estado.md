@@ -159,11 +159,23 @@
 - Tarjeta propia de "Con deuda informada".
 - "Pago informado" muestra el mes como "octubre 2026".
 
+## Demo en Vercel ✅
+
+- Sin servicios externos: al compilar en Vercel se arma `prisma/demo.db` con los datos de ejemplo y `demo-storage/` con sus PDF (`scripts/vercel-prepare.mjs`). Al arrancar se copian a la carpeta temporal (`src/lib/vercel-demo.ts`). En la compu no cambia nada.
+- Límite de adjuntos en Vercel: 4 MB en total por envío. En la compu sigue en 10 MB por archivo.
+- Aviso en la franja DEMO: "Los cambios se borran cada tanto y vuelven los datos de ejemplo".
+- Probado con una simulación de Vercel en la compu: compilación con `VERCEL=1`, sin `DATABASE_URL` y servidor de producción. Pasan **18/18** pruebas de navegador.
+- **Errores encontrados al probar la versión compilada** (no aparecían en modo desarrollo):
+  - Con `loading.tsx`, después de guardar un formulario la pantalla quedaba en "Guardando…" para siempre. Se quitó `loading.tsx`: al cambiar de pantalla queda visible la anterior hasta que carga la nueva.
+  - Distintas partes del servidor podían usar distinta carpeta de archivos. Ahora la decisión se comparte y hay una sola conexión a la base.
+  - Si alguien tocaba "Ingresar" antes de que cargara la página, el navegador mandaba los datos en la URL (contraseña incluida). Ahora los formularios siempre van por POST y no ejecutan nada hasta que la página cargó.
+- No probado: un deploy real en Vercel (lo hace el usuario).
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK
 - `npm run build` → OK (compilado en carpeta aparte para no pisar un `npm run dev` abierto)
-- `npm run test:e2e` → **17/17 OK** (recorridos y revisión visual en 3 tamaños, sobre base nueva).
+- `npm run test:e2e` → **18/18 OK** en desarrollo y **18/18 OK** contra la simulación de Vercel (producción). Antes: **17/17 OK** (recorridos y revisión visual en 3 tamaños, sobre base nueva).
 - `npm run verify` → **86/86 OK** (se sumó el caso de escala con fecha de fin). Antes: **85/85 OK** en base aparte (y carpeta de archivos aparte, `storage-verify/`). La entrega 5 suma:
   - validación de archivos (HTML disfrazado, tipo y extensión que no coinciden, vacío, más de 10 MB, más de 3);
   - persistencia al reiniciar y clave que no sale de la carpeta;

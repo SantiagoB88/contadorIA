@@ -27,9 +27,24 @@ test.describe("acceso y sesión", () => {
     await login(page, USERS.clienteA);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Ana Gómez");
     await page.getByRole("button", { name: "Cerrar sesión" }).first().click();
-    await page.waitForURL(/\/login/);
+    await page.waitForURL(/\/login/, { waitUntil: "commit" });
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("si se envía antes de que cargue la página, la contraseña nunca va en la URL", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    const urls: string[] = [];
+    page.on("request", (r) => urls.push(r.url()));
+    await page.goto("/login");
+    await page.getByLabel("Correo electrónico").fill(USERS.clienteA);
+    await page.getByLabel("Contraseña").fill("Demo1234!");
+    await page.getByRole("button", { name: "Ingresar" }).click();
+    await page.waitForLoadState("load");
+    expect(page.url()).not.toContain("password");
+    expect(urls.some((u) => u.includes("Demo1234") || u.includes("password="))).toBe(false);
+    await context.close();
   });
 
   test("un cliente no ve datos ajenos aunque cambie la URL", async ({ page }) => {
@@ -58,7 +73,7 @@ test.describe("acceso y sesión", () => {
     await login(page, USERS.clienteA);
     await page.getByRole("button", { name: "Menú" }).click();
     await page.locator("#menu-movil").getByRole("link", { name: "Deudas" }).click();
-    await page.waitForURL(/\/dashboard\/deudas/);
+    await page.waitForURL(/\/dashboard\/deudas/, { waitUntil: "commit" });
     await expect(page.locator("#menu-movil")).toHaveCount(0);
     await page.getByRole("button", { name: "Menú" }).click();
     await expect(page.locator("#menu-movil").getByRole("button", { name: "Cerrar sesión" })).toBeVisible();
@@ -112,7 +127,7 @@ test.describe("facturador", () => {
     await expect(page.getByText("$ 3.001,00").first()).toBeVisible();
     await page.getByRole("button", { name: "Guardar borrador y revisar" }).click();
 
-    await page.waitForURL(/\/facturas\/c/);
+    await page.waitForURL(/\/facturas\/c/, { waitUntil: "commit" });
     await page.getByRole("button", { name: "Confirmar emisión simulada" }).click();
     await expect(page.getByText(/C 00001-\d{8}/).first()).toBeVisible();
     const pdfHref = await page.getByRole("link", { name: /PDF/ }).first().getAttribute("href");
@@ -142,7 +157,7 @@ test.describe("solicitudes, notas internas y documentos", () => {
     await page.locator("#newFiles").setInputFiles(pdf(`presupuesto-${id}.pdf`));
     await expect(page.getByText(`presupuesto-${id}.pdf`)).toBeVisible();
     await page.getByRole("button", { name: "Enviar solicitud" }).click();
-    await page.waitForURL(/\/solicitudes\/c.*enviada=1/);
+    await page.waitForURL(/\/solicitudes\/c.*enviada=1/, { waitUntil: "commit" });
     await expect(page.getByText("Solicitud enviada")).toBeVisible();
     await expect(page.getByRole("link", { name: new RegExp(`presupuesto-${id}`) })).toBeVisible();
     const requestUrl = page.url().split("?")[0];
@@ -152,7 +167,7 @@ test.describe("solicitudes, notas internas y documentos", () => {
     await login(page, USERS.admin);
     await page.goto("/admin/solicitudes?estado=activas&asignado=sin");
     await page.getByRole("link", { name: subject }).first().click();
-    await page.waitForURL(new RegExp(`/admin/solicitudes/${requestId}`));
+    await page.waitForURL(new RegExp(`/admin/solicitudes/${requestId}`), { waitUntil: "commit" });
     await page.getByLabel("Asignada a").selectOption({ label: "Laura Méndez (Contadora demo)" });
     await page.getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(page.getByText(/asignada a Laura/)).toBeVisible();
@@ -212,14 +227,14 @@ test.describe("solicitudes, notas internas y documentos", () => {
     await page.goto("/dashboard/deudas");
     const informar = page.getByRole("link", { name: "Informar pago" }).first();
     await informar.click();
-    await page.waitForURL(/\/informar\//);
+    await page.waitForURL(/\/informar\//, { waitUntil: "commit" });
     // Sin comprobante no se puede.
     await page.getByRole("button", { name: "Informar pago" }).click();
     await expect(page.getByText(/Adjuntá el comprobante/)).toBeVisible();
     await page.locator("#payFiles").setInputFiles(pdf("comprobante-pago.pdf"));
     await page.getByLabel("Comentario (opcional)").fill("Pagué por home banking");
     await page.getByRole("button", { name: "Informar pago" }).click();
-    await page.waitForURL(/\/solicitudes\/c.*pago=1/);
+    await page.waitForURL(/\/solicitudes\/c.*pago=1/, { waitUntil: "commit" });
     await expect(page.getByText("Pago informado").first()).toBeVisible();
     await page.goto("/dashboard/deudas");
     await expect(page.getByText("Pago informado (sin verificar)").first()).toBeAttached();
@@ -232,7 +247,7 @@ test.describe("solicitudes, notas internas y documentos", () => {
     await login(page, USERS.admin);
     await page.goto("/admin");
     await page.getByRole("row", { name: /Ana Gómez/ }).getByRole("link", { name: "Administrar" }).click();
-    await page.waitForURL(/\/admin\/contribuyentes\//);
+    await page.waitForURL(/\/admin\/contribuyentes\//, { waitUntil: "commit" });
 
     // HTML disfrazado de PDF: se rechaza.
     await page.locator("#docFiles").setInputFiles({ name: "factura.pdf", mimeType: "application/pdf", buffer: Buffer.from("<html><script>alert(1)</script></html>") });
@@ -280,7 +295,7 @@ test.describe("datos fiscales del estudio", () => {
     await login(page, USERS.admin);
     await page.goto("/admin");
     await page.getByRole("row", { name: /Martín Gómez/ }).getByRole("link", { name: "Administrar" }).click();
-    await page.waitForURL(/\/admin\/contribuyentes\//);
+    await page.waitForURL(/\/admin\/contribuyentes\//, { waitUntil: "commit" });
 
     await page.locator("#concept").fill(concept);
     await page.locator("#dueDate").fill("2026-01-10");

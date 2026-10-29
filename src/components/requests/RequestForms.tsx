@@ -8,9 +8,10 @@ import { documentVisibilityAction, uploadDocumentsAction } from "@/modules/docum
 import { SubmitButton } from "@/components/SubmitButton";
 import { Feedback, FieldError } from "@/components/forms";
 import { inputClass, labelClass } from "@/components/ui";
+import { MAX_FILE_MB, MAX_FILES_PER_UPLOAD, MAX_UPLOAD_MB } from "@/lib/constants";
 
-const MAX_MB = 10;
-const MAX_FILES = 3;
+const MAX_MB = MAX_FILE_MB;
+const MAX_FILES = MAX_FILES_PER_UPLOAD;
 
 function useForm(action: (prev: FormState, formData: FormData) => Promise<FormState>) {
   const [state, formAction] = useActionForm<FormState>(action, {});
@@ -66,6 +67,8 @@ function FileField({ id, label, error, required }: { id: string; label: string; 
             setNames(files.map((f) => f.name));
             if (files.length > MAX_FILES) setWarning(`Elegiste ${files.length} archivos: el máximo es ${MAX_FILES}.`);
             else if (files.some((f) => f.size > MAX_MB * 1024 * 1024)) setWarning(`Hay un archivo de más de ${MAX_MB} MB.`);
+            else if (files.reduce((acc, f) => acc + f.size, 0) > MAX_UPLOAD_MB * 1024 * 1024)
+              setWarning(`Entre todos superan los ${MAX_UPLOAD_MB} MB por envío.`);
             else setWarning(null);
           }}
           className="peer sr-only"
@@ -90,7 +93,7 @@ function FileField({ id, label, error, required }: { id: string; label: string; 
         </ul>
       )}
       <p id={`${id}-help`} className="mt-1 text-xs text-slate-500">
-        PDF, PNG o JPG · hasta {MAX_MB} MB cada uno · máximo {MAX_FILES} archivos.
+        PDF, PNG o JPG · hasta {MAX_MB} MB cada uno · máximo {MAX_FILES} archivos{MAX_UPLOAD_MB < MAX_MB * MAX_FILES ? ` y ${MAX_UPLOAD_MB} MB en total` : ""}.
       </p>
       {warning && <p className="mt-1 text-sm text-amber-800">{warning}</p>}
       <FieldError id={`${id}-error`} message={error} />

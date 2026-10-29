@@ -103,7 +103,8 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
   await page.goto("/recuperar");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByRole("button", { name: /Enviar/ }).click();
-  await expect(page.getByText(/te enviamos un enlace/i)).toBeVisible();
+  // El subtítulo de la pantalla ya dice "Te enviamos un enlace": se espera el mensaje de confirmación.
+  await expect(page.getByText(/Si el correo tiene una cuenta/)).toBeVisible();
   await page.goto("/dev/correos");
   const href = await page.locator(`a[href*="/restablecer?token="]`).first().getAttribute("href");
   await page.goto(href!);
@@ -156,7 +157,7 @@ test("escalas: no se superponen y una nueva cierra la vigente", async ({ page })
   await page.locator("#validFrom").fill(`${future}-01-01`);
   await page.locator("#validTo").fill("");
   await page.getByRole("button", { name: "Crear versión" }).click();
-  await page.waitForURL(/\/admin\/escalas\/c.*creada=1/);
+  await page.waitForURL(/\/admin\/escalas\/c.*creada=1/, { waitUntil: "commit" });
   await page.goto("/admin/escalas");
   await expect(page.getByText(`31/12/${future - 1}`).first()).toBeVisible();
   await expectHealthyPage(page, "escalas");
@@ -173,21 +174,21 @@ test("facturador: rechazo simulado, borrador a partir de otra y eliminar borrado
   await page.locator("#d-1").fill(concept);
   await page.getByLabel("Precio unitario").fill("1000");
   await page.getByRole("button", { name: "Guardar borrador y revisar" }).click();
-  await page.waitForURL(/\/facturas\/c/);
+  await page.waitForURL(/\/facturas\/c/, { waitUntil: "commit" });
 
   await page.getByLabel(/Simular un rechazo/).check();
   await page.getByRole("button", { name: "Confirmar emisión simulada" }).click();
   await expect(page.getByText("Rechazada").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Crear borrador a partir de esta" }).click();
-  await page.waitForURL(/\/facturas\/c.*\/editar|\/facturas\/c/);
+  await page.waitForURL(/\/facturas\/c.*\/editar|\/facturas\/c/, { waitUntil: "commit" });
   await expect(page.locator("#d-1")).toHaveValue(concept);
   await page.getByRole("button", { name: "Guardar borrador y revisar" }).click();
-  await page.waitForURL(/\/facturas\/c[^/]*$/);
+  await page.waitForURL(/\/facturas\/c[^/]*$/, { waitUntil: "commit" });
 
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Eliminar borrador" }).click();
-  await page.waitForURL(/\/facturas(\?|$)/);
+  await page.waitForURL(/\/facturas(\?|$)/, { waitUntil: "commit" });
   await expectHealthyPage(page, "facturador");
   expect(errors).toEqual([]);
 });
@@ -199,7 +200,7 @@ test("cada total del tablero coincide con sus movimientos", async ({ page }) => 
     const card = page.locator("section", { has: page.getByRole("heading", { name: label, exact: true }) });
     const total = (await card.locator("p.text-2xl, p.text-3xl").first().innerText()).trim();
     await card.getByRole("link", { name: /Ver \d+ comprobantes?/ }).click();
-    await page.waitForURL(/\/dashboard\/movimientos/);
+    await page.waitForURL(/\/dashboard\/movimientos/, { waitUntil: "commit" });
     await expect(page.locator("tfoot").getByText(total)).toBeVisible();
   }
 });

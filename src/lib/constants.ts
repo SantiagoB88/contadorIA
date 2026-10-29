@@ -125,8 +125,11 @@ export const DOC_CATEGORY_LABEL: Record<string, string> = {
   OTRO: "Otro",
 };
 
-// Archivos: solo PDF, PNG y JPEG, hasta 10 MB cada uno y 3 por envío.
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// Archivos: solo PDF, PNG y JPEG, hasta 3 por envío. En la compu, 10 MB cada uno y 30 MB en total;
+// en Vercel, 4 MB en total (límite de la plataforma). Los valores salen de next.config.ts.
+export const MAX_FILE_MB = Number(process.env.NEXT_PUBLIC_MAX_FILE_MB ?? 10);
+export const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? 30);
+export const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD = 3;
 
 // Texto visible de cada evento de la auditoría (el código queda en la base).

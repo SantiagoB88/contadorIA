@@ -49,6 +49,9 @@
 | Base desactualizada | `AppMeta` guarda `schema-version`; si no coincide con `SCHEMA_VERSION`, se muestra "Falta reiniciar la aplicación" | Pasa si el servidor queda abierto mientras se actualiza el código. Es mejor que un error técnico. |
 | Menú en celular y tablet | Botón "Menú" hasta 1024 px; barra lateral fija desde ahí | Con 11 secciones, una fila desplazable no se entendía y en tablet la barra lateral comía un tercio del ancho. |
 | Tablas en celular | Tarjetas por fila debajo de 640 px; tabla desde ahí | Las acciones (descargar, informar pago) no deben quedar escondidas detrás de un scroll lateral. |
+| Demo en Vercel | Base SQLite de demo armada al compilar y copiada a la carpeta temporal al arrancar; archivos igual. Se activa solo con `VERCEL` y sin `DATABASE_URL` | El usuario no quiere una base online por ahora. Es una demo: los datos vuelven a los de ejemplo cuando Vercel recicla la instancia. Para datos persistentes hará falta una base real (entrega 6). |
+| Pantalla de carga (`loading.tsx`) | Quitada | En la versión compilada (Next 15.5) dejaba los formularios trabados en "Guardando…" después de guardar. |
+| Formularios antes de cargar la página | `method="post"` sin ejecutar nada; el envío real lo hace `onSubmit` | Una contraseña nunca va en la URL. Ejecutar la acción también sin JavaScript generaba errores en modo desarrollo. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

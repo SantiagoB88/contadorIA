@@ -19,3 +19,7 @@ storage-e2e/
 test-results/
 playwright-report/
 capturas-e2e/
+prisma/demo.db
+prisma/demo.db-journal
+demo-storage/
+.next-*/

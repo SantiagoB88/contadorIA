@@ -37,6 +37,9 @@ export function ActionForm<S>({ form, resetOnSuccess, confirmMessage, children, 
       <form
         ref={ref}
         {...rest}
+        // Si se envía antes de que cargue el JavaScript, va por POST (nunca por GET: una contraseña no puede
+        // terminar en la URL) y solo recarga la página; no ejecuta nada. Ya cargado, lo maneja onSubmit.
+        method="post"
         onSubmit={(event) => {
           event.preventDefault();
           if (form.pending) return; // evita el doble envío

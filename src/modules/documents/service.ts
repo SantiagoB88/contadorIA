@@ -4,7 +4,9 @@ import {
   DOC_CATEGORY_LABEL,
   DOC_VISIBILITY,
   MAX_FILE_BYTES,
+  MAX_FILE_MB,
   MAX_FILES_PER_UPLOAD,
+  MAX_UPLOAD_MB,
   ROLES,
 } from "@/lib/constants";
 import type { CurrentUser } from "@/lib/auth";
@@ -58,7 +60,7 @@ export function checkFile(file: UploadFile): { ok: true; file: CheckedFile } | {
   const fileName = cleanFileName(file.name);
   if (!fileName) return { ok: false, message: "El archivo no tiene nombre." };
   if (file.bytes.length === 0) return { ok: false, message: `"${fileName}" está vacío.` };
-  if (file.bytes.length > MAX_FILE_BYTES) return { ok: false, message: `"${fileName}" supera los 10 MB.` };
+  if (file.bytes.length > MAX_FILE_BYTES) return { ok: false, message: `"${fileName}" supera los ${MAX_FILE_MB} MB.` };
 
   const ext = fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
   const byExtension = KINDS.find((k) => k.extensions.includes(ext));
@@ -76,6 +78,8 @@ export function checkFile(file: UploadFile): { ok: true; file: CheckedFile } | {
 /** Valida un grupo de archivos de un mismo envío. */
 export function checkFiles(files: UploadFile[]): { ok: true; files: CheckedFile[] } | { ok: false; message: string } {
   if (files.length > MAX_FILES_PER_UPLOAD) return { ok: false, message: `Podés adjuntar hasta ${MAX_FILES_PER_UPLOAD} archivos por vez.` };
+  const total = files.reduce((acc, f) => acc + f.bytes.length, 0);
+  if (total > MAX_UPLOAD_MB * 1024 * 1024) return { ok: false, message: `Entre todos los archivos superan los ${MAX_UPLOAD_MB} MB por envío.` };
   const checked: CheckedFile[] = [];
   for (const f of files) {
     const r = checkFile(f);
