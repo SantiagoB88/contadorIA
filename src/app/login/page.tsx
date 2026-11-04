@@ -7,9 +7,11 @@ import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "Ingresar · ContadorSmart" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
-  if (user) redirect("/dashboard");
+  const next = (await searchParams).next;
+  const target = typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  if (user) redirect(target);
 
   return (
     <AuthShell
@@ -44,7 +46,7 @@ export default async function LoginPage() {
         </>
       }
     >
-      <LoginForm />
+      <LoginForm next={target === "/dashboard" ? undefined : target} />
       <p className="mt-4 text-center text-sm">
         <Link href="/recuperar" className="font-medium text-brand-700 hover:underline">
           ¿Olvidaste tu contraseña?

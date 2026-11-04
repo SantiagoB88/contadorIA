@@ -6,6 +6,8 @@ import { formatCuit } from "@/lib/cuit";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 import { ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
+import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
+import { listStudyLinks } from "@/modules/bot/links";
 
 export const metadata = { title: "Accesos · ContadorSmart" };
 
@@ -40,6 +42,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
     select: { cuit: true, name: true },
   });
   const existingByCuit = new Map(existing.map((t) => [t.cuit, t.name]));
+  const whatsappByUser = await listStudyLinks(admin);
 
   return (
     <div className="space-y-6">
@@ -141,6 +144,8 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
                 </Badge>
                 {!u.emailVerifiedAt && <Badge tone="warning">Correo sin confirmar</Badge>}
                 <Badge tone={u.active ? "success" : "danger"}>{u.active ? "Activo" : "Suspendido"}</Badge>
+                {whatsappByUser.get(u.id) && <Badge tone="info">WhatsApp {whatsappByUser.get(u.id)!.masked}</Badge>}
+                {whatsappByUser.get(u.id) && <AdminUnlinkForm linkId={whatsappByUser.get(u.id)!.id} />}
                 {u.id !== admin.id && <UserStatusForm userId={u.id} active={u.active} />}
               </div>
             </li>

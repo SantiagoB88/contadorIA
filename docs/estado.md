@@ -188,6 +188,44 @@
 - **Login**: los usuarios de demo se ven en lista, sin cortes de palabras en el celular.
 - **Pendiente en Vercel**: lo que se guarda en una instancia no se ve en otra. Si Vercel atiende con más de una instancia, un cambio hecho en un módulo puede no aparecer en otro. Para que los datos sean compartidos hace falta una base real (entrega 6).
 
+## Bot de WhatsApp integrado a la web ✅ (rama `feat/whatsapp-bot`)
+
+- **Origen**: se revisó el bot de `Mateobonacalza/ContadorSmart` (copia en `externo/`, fuera de Git). No estaba conectado a nada y su "backend" inventaba los datos. Se reutilizaron la validación de firma y la experiencia del menú. Se descartaron el pedido de clave fiscal, los datos simulados y el archivo `clients.json`.
+- **Arquitectura**: el bot vive en `src/modules/bot/`, separado en tres capas:
+  - transporte: `providers/messaging.ts`, con Meta, simulador y "sin proveedor";
+  - recepción: `inbound.ts`;
+  - conversación: `engine.ts`.
+  Usa los servicios de la web: tablero, deudas, solicitudes y accesos.
+- **Tablas nuevas**:
+  - `ChannelLink`: vínculo verificado;
+  - `LinkCode`: códigos de un solo uso;
+  - `BotConversation`: estado persistente;
+  - `InboundEvent`: deduplicación y reintentos;
+  - `OutboundMessage`: estado real de cada envío.
+  Además, `IdempotencyKey` para idempotencia (una tabla nueva: la actualización de una base existente no pide confirmación; probado sobre una copia de `dev.db`, conserva las 201 facturas). `SCHEMA_VERSION = "whatsapp-1"`.
+- **Alta y vinculación**:
+  - enlace seguro a la web para crear la cuenta;
+  - código de 6 dígitos desde Mi perfil, o enlace del bot confirmado en la web con la sesión iniciada;
+  - vencimiento, un solo uso y bloqueo por intentos;
+  - nunca se transfiere un número vinculado a otra cuenta.
+- **Webhook** `/api/whatsapp/webhook`: verificación GET, firma `X-Hub-Signature-256` obligatoria, deduplicación por id de mensaje y estados de envío.
+- **Simulador visual** `/dev/whatsapp`: solo local, con números ficticios, duplicados, envíos simultáneos, fallas y reintentos.
+- **Web**:
+  - Mi perfil → WhatsApp;
+  - `/whatsapp/vincular`;
+  - WhatsApp vinculado y desvincular en Accesos;
+  - canal "WhatsApp" en la Bandeja;
+  - "Avisos por WhatsApp" con el estado real de cada envío;
+  - el login vuelve a la página de origen (solo rutas internas).
+- **Pruebas ejecutadas**:
+  - `npm run verify`: **102/102 OK**, con los 15 casos del bot;
+  - `npm run test:e2e` contra la versión compilada: **22/22 OK**, con el recorrido completo en el simulador y el webhook firmado;
+  - `npm run typecheck` OK y `npm run build` OK.
+- **Validado solo con simulación**: la entrega real a un celular. El webhook se probó con pedidos firmados con el formato de Meta, no con Meta.
+- **Bloqueado por credenciales**: la prueba con el número de prueba de Meta (ver `docs/whatsapp-prueba-real.md`).
+- **No aplica todavía**: el caso "operador no asignado", porque no existe el rol operador (backlog). Se probó que otro estudio o un cliente no pueden desvincular ni ver vínculos ajenos.
+- **Borrador de factura que aparecía, daba 404 y desaparecía**: no se reprodujo en la compu; el recorrido del facturador pasa en desarrollo y en la versión compilada. La explicación más probable es la demo de Vercel, donde el listado y el detalle pueden atenderlos instancias con bases distintas.
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK

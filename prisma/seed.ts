@@ -79,6 +79,12 @@ async function demoPdf(title: string): Promise<Uint8Array> {
 
 async function wipe() {
   await prisma.auditEvent.deleteMany();
+  await prisma.outboundMessage.deleteMany();
+  await prisma.idempotencyKey.deleteMany();
+  await prisma.inboundEvent.deleteMany();
+  await prisma.botConversation.deleteMany();
+  await prisma.linkCode.deleteMany();
+  await prisma.channelLink.deleteMany();
   await prisma.document.deleteMany();
   await prisma.requestMessage.deleteMany();
   await prisma.serviceRequest.deleteMany();
@@ -393,6 +399,19 @@ async function main() {
   });
   await message(brunoReq.id, clienteB.id, "Veo que tengo cuotas vencidas. ¿Puedo entrar en un plan de pagos?", "PUBLICA", hoursAgo(5));
   await saveDoc({ taxpayerId: taxpayers.bruno, title: "Detalle de deuda", fileName: "detalle-de-deuda-bruno-diaz.pdf", category: "DECLARACION", visibility: "CLIENTE", uploadedById: admin.id, note: "Estado de cuenta revisado por el estudio", createdAt: hoursAgo(40) });
+
+  // WhatsApp de Ana vinculado (número ficticio del simulador), para probar el bot sin pasar por la vinculación.
+  await prisma.channelLink.create({
+    data: {
+      studyId: study.id,
+      userId: clienteA.id,
+      channel: "WHATSAPP",
+      address: "+5491155550001",
+      status: "ACTIVO",
+      activeKey: "WHATSAPP:+5491155550001",
+      method: "CODIGO_WEB",
+    },
+  });
 
   // Este seed ya incluye los datos de las entregas 2 y 4: no hace falta la actualización de prisma/upgrade.ts.
   await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }, { key: SCHEMA_META_KEY, value: SCHEMA_VERSION }] });

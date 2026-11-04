@@ -46,6 +46,8 @@ model User {
   requestsAssigned ServiceRequest[] @relation("RequestAssignee")
   requestMessages  RequestMessage[]
   documents        Document[]
+  channelLinks     ChannelLink[]
+  linkCodes        LinkCode[]
 
   @@index([studyId])
 }
@@ -415,4 +417,110 @@ model Document {
 
   @@index([taxpayerId, createdAt])
   @@index([messageId])
+}
+
+// ───────────── Bot de WhatsApp ─────────────
+// Tres conceptos separados: la cuenta (User), el acceso a contribuyentes (TaxpayerAccess)
+// y la vinculación de la cuenta con un número de WhatsApp (ChannelLink). Informar un teléfono o un CUIT
+// no vincula nada: la vinculación exige un código de un solo uso que prueba ambas puntas.
+
+// Número de WhatsApp vinculado a una cuenta. Un número tiene a lo sumo un vínculo ACTIVO (activeKey único).
+model ChannelLink {
+  id           String    @id @default(cuid())
+  studyId      String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  channel      String // WHATSAPP
+  address      String // número normalizado E.164, p. ej. +5491155550001
+  status       String // ACTIVO | DESVINCULADO
+  activeKey    String?   @unique // "WHATSAPP:+549..." mientras está activo; null al desvincular
+  method       String // CODIGO_WEB | ENLACE_BOT
+  linkedAt     DateTime  @default(now())
+  unlinkedAt   DateTime?
+  unlinkedBy   String?
+  unlinkReason String?
+
+  @@index([userId, status])
+  @@index([address])
+}
+
+// Código de vinculación de un solo uso, guardado como hash. Vence, tiene intentos limitados y no se reutiliza.
+// CODIGO_WEB: lo genera el usuario logueado y lo manda por WhatsApp.
+// ENLACE_BOT: lo genera el bot para un número y el usuario lo abre en la web estando logueado.
+model LinkCode {
+  id        String    @id @default(cuid())
+  studyId   String
+  kind      String // CODIGO_WEB | ENLACE_BOT
+  codeHash  String    @unique
+  userId    String? // CODIGO_WEB: dueño del código
+  user      User?     @relation(fields: [userId], references: [id])
+  address   String? // ENLACE_BOT: número que lo pidió
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, kind])
+  @@index([address, kind])
+}
+
+// Estado de la conversación por número. Persistente: sobrevive a reinicios.
+model BotConversation {
+  id         String   @id @default(cuid())
+  channel    String
+  address    String
+  state      String // JSON con el paso actual y datos parciales
+  taxpayerId String? // contribuyente elegido para consultar
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([channel, address])
+}
+
+// Evento entrante del canal. Se guarda ANTES de procesarlo; el id del proveedor es único (deduplicación).
+model InboundEvent {
+  id          String    @id @default(cuid())
+  provider    String // META | SIMULADOR
+  providerId  String // id del mensaje en el proveedor
+  channel     String
+  address     String
+  body        String // texto recibido (no se registra en logs)
+  status      String // RECIBIDO | PROCESADO | FALLIDO
+  attempts    Int       @default(0)
+  lastError   String?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, providerId])
+  @@index([status, receivedAt])
+}
+
+// Mensaje saliente. PENDIENTE (sin proveedor o reintento), ENVIADO, FALLIDO o SIMULADO.
+// No se promete entrega exactamente una vez: se registra lo que informa el proveedor.
+model OutboundMessage {
+  id         String    @id @default(cuid())
+  channel    String
+  address    String
+  body       String
+  kind       String // RESPUESTA | AVISO
+  inboundId  String? // evento que la originó
+  requestId  String? // solicitud relacionada (aviso de respuesta del estudio)
+  status     String // PENDIENTE | ENVIADO | FALLIDO | SIMULADO
+  providerId String?
+  error      String?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  sentAt     DateTime?
+
+  @@index([address, createdAt])
+  @@index([status])
+  @@index([requestId])
+}
+
+// Idempotencia de acciones originadas en un canal externo: la misma clave (p. ej. "WA:<id del evento>")
+// nunca crea dos solicitudes, aunque el evento se reintente o llegue dos veces a la vez.
+model IdempotencyKey {
+  key       String   @id
+  requestId String
+  userId    String
+  createdAt DateTime @default(now())
 }

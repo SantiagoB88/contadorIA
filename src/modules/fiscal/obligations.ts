@@ -219,3 +219,19 @@ export async function recordDebtReview(
   });
   return { ok: true, message: "Revisión de deuda registrada." };
 }
+
+/** Explicación en una línea del estado de deuda (nunca "sin deuda" sin una revisión con fecha). */
+export function debtStateText(summary: DebtSummary): string {
+  switch (summary.state) {
+    case "SIN_DATOS":
+      return "El estudio todavía no cargó información de deudas. Que no haya datos no significa que no haya deuda.";
+    case "PENDIENTE_REVISION":
+      return summary.paymentInformed.length > 0 && summary.review?.status === "REVISADA"
+        ? "Hay pagos informados que el estudio todavía no verificó."
+        : "La información de deudas está pendiente de revisión por el estudio.";
+    case "DEUDA_INFORMADA":
+      return `Hay ${summary.overdue.length} ${summary.overdue.length === 1 ? "vencimiento impago" : "vencimientos impagos"} según la última revisión.`;
+    case "SIN_DEUDA_INFORMADA":
+      return `Sin deuda informada al ${formatDateAR(summary.review!.asOfDate)}, según la revisión del estudio.`;
+  }
+}

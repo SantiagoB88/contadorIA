@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { OBLIGATION_STATUS_LABEL } from "@/lib/constants";
+import { CHANNEL_LABEL, OBLIGATION_STATUS_LABEL } from "@/lib/constants";
+import { prisma } from "@/lib/db";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 import { getRequestForUser, listStaff } from "@/modules/requests/service";
 import { ReplyForm, RequestSettingsForm } from "@/components/requests/RequestForms";
@@ -16,6 +17,11 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const [request, staff] = await Promise.all([getRequestForUser(admin, id), listStaff(admin)]);
   if (!request) notFound();
+  // Avisos al cliente por WhatsApp (solo si la solicitud llegó por ahí): estado real de cada envío.
+  const notices =
+    request.channel === "WHATSAPP"
+      ? await prisma.outboundMessage.findMany({ where: { requestId: request.id }, orderBy: { createdAt: "desc" }, take: 5 })
+      : [];
 
   return (
     <div className="space-y-6">
@@ -32,7 +38,7 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
               {request.taxpayer.name}
             </Link>{" "}
             · {topicLabel(request.topic)} · creada por {request.createdBy.name} el {formatDateTimeAR(request.createdAt)} · canal{" "}
-            {request.channel === "WEB" ? "web" : request.channel}
+            {CHANNEL_LABEL[request.channel] ?? request.channel}
           </>
         }
       >
@@ -78,6 +84,26 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
               statuses={statusOptions}
             />
           </Card>
+          {request.channel === "WHATSAPP" && (
+            <Card>
+              <h2 className="font-semibold text-navy">Avisos por WhatsApp</h2>
+              {notices.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">Todavía no se mandó ningún aviso. Al responder al cliente, se le avisa por WhatsApp.</p>
+              ) : (
+                <ul className="mt-2 space-y-2 text-sm">
+                  {notices.map((n) => (
+                    <li key={n.id}>
+                      <span className="font-medium text-navy">
+                        {n.status === "ENVIADO" ? "Enviado" : n.status === "SIMULADO" ? "Entregado en el simulador" : n.status === "FALLIDO" ? "Falló" : "Pendiente"}
+                      </span>{" "}
+                      <span className="text-slate-500">· {formatDateTimeAR(n.createdAt)}</span>
+                      {n.error && <span className="block text-xs text-slate-500">{n.error}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
           <p className="text-xs text-slate-500">
             Las notas internas y sus adjuntos solo los ve el estudio: nunca se envían al cliente ni aparecen en su portal. Cada
             cambio queda en la auditoría.

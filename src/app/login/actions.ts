@@ -49,5 +49,10 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   await createSession(user.id);
   await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
-  redirect("/dashboard");
+  redirect(safeNext(String(formData.get("next") ?? "")));
+}
+
+/** Vuelve a la página que pidió el ingreso, solo si es una ruta interna (nunca a otro sitio). */
+function safeNext(next: string): string {
+  return /^\/(?!\/)[\w\-./?=&%]*$/.test(next) && !next.startsWith("/login") ? next : "/dashboard";
 }

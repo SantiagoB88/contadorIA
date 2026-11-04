@@ -32,6 +32,9 @@ import { getCategoryAt, setCategory } from "@/modules/fiscal/category";
 import { createObligation, getDebtSummary, updateObligationStatus } from "@/modules/fiscal/obligations";
 import { createHash } from "node:crypto";
 import { passwordVersion, readSession, signSession } from "@/lib/signed-session";
+import { receiveInbound, retryPendingInbound } from "@/modules/bot/inbound";
+import { consumeBotInvite, createWebLinkCode, getActiveLink, listStudyLinks, unlinkChannel } from "@/modules/bot/links";
+import { simulatorTransport } from "@/providers/messaging";
 import { MAX_FILE_BYTES } from "@/lib/constants";
 import { LocalFileStorage, storageDir } from "@/providers/storage";
 import {
@@ -853,6 +856,218 @@ async function main() {
     assert.equal(readSession("basura", "secreto-a"), null);
     assert.equal(readSession(token, ""), null);
     assert.notEqual(passwordVersion("hash-1"), passwordVersion("hash-2"));
+  });
+
+  console.log("Bot de WhatsApp (mismos servicios que la web)");
+  const botOrigin = "http://localhost:3000";
+  const NUEVO = "+5491155550003";
+  const ANA_WA = "+5491155550001"; // vinculado en el seed (cliente.a)
+  const BRUNO_WA = "+5491155550002"; // cliente.b, sin vincular
+  let botSeq = 0;
+  const say = async (address: string, text: string, opts: { id?: string; fault?: "antes" | "despues" } = {}) => {
+    const outcome = await receiveInbound(
+      { provider: "SIMULADOR", providerId: opts.id ?? `verify-${Date.now()}-${botSeq++}`, rawAddress: address.replace("+", ""), text },
+      { transport: simulatorTransport, origin: botOrigin, fault: opts.fault },
+    );
+    return { outcome, text: outcome.status === "procesado" ? outcome.replies.join("\n") : "" };
+  };
+  const botUser = async (email: string) => asCurrentUser(email);
+  const newWaEmail = "wa.nuevo@ejemplo.com";
+
+  await check("1. alta iniciada en el bot: enlace seguro, sin datos fiscales; la solicitud queda pendiente en el backoffice", async () => {
+    const hello = await say(NUEVO, "hola");
+    assert.match(hello.text, /no está vinculado/);
+    const alta = await say(NUEVO, "1");
+    assert.match(alta.text, /\/registro/);
+    assert.ok(!/clave fiscal:/i.test(alta.text) && /Nunca te vamos a pedir tu clave fiscal/.test(alta.text));
+    const token = alta.text.match(/vincular\?t=([\w-]+)/)![1];
+    // La persona crea la cuenta en la web, confirma el correo y pide asociarse a un CUIT nuevo.
+    assert.ok((await registerUser({ name: "Persona WhatsApp", email: newWaEmail, phone: "+54 11 5555-0003", password: "Clave1234" }, botOrigin)).ok);
+    assert.equal(await verifyEmail(await lastLink(newWaEmail, "/verificar")), true);
+    const persona = await botUser(newWaEmail);
+    assert.ok((await requestAssociation(persona, { cuit: "20-33445566-2", name: "Persona WhatsApp", activity: "Servicios", category: "", startDate: "2024-01-01" })).ok);
+    assert.ok(await prisma.accessRequest.findFirst({ where: { userId: persona.id, status: "PENDIENTE", studyId: admin.studyId } }));
+    // Vincula el número con el enlace que le dio el bot.
+    const linked = await consumeBotInvite(persona, token);
+    assert.ok(linked.ok, linked.message);
+    assert.equal((await consumeBotInvite(persona, token)).ok, false); // un solo uso
+    // Pendiente: no hay información fiscal.
+    const blocked = await say(NUEVO, "2");
+    assert.match(blocked.text, /Todavía no podés consultar/);
+    assert.match((await say(NUEVO, "1")).text, /pendiente de aprobación/);
+  });
+  await check("2. aprobación en el backoffice → acceso; un usuario aprobado pero sin vincular no ve nada por WhatsApp", async () => {
+    const persona = await botUser(newWaEmail);
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: persona.id, status: "PENDIENTE" } });
+    assert.ok((await approveRequest(admin, req.id, "B", "")).ok);
+    assert.match((await say(NUEVO, "2")).text, /Facturación de Persona WhatsApp[\s\S]*no cargó la facturación/);
+    // cliente.b está aprobado para Bruno pero su WhatsApp no está vinculado.
+    const guest = await say(BRUNO_WA, "2");
+    assert.match(guest.text, /no está vinculado|vincular/i);
+    assert.ok(!guest.text.includes("Bruno Díaz"));
+  });
+  await check("3. usuario web existente: vincula con código de un solo uso, sin duplicar la cuenta", async () => {
+    const users = await prisma.user.count();
+    const { code } = await createWebLinkCode(clienteB);
+    const r = await say(BRUNO_WA, code);
+    assert.match(r.text, /vinculamos este WhatsApp/);
+    assert.equal(await prisma.user.count(), users);
+    assert.equal((await getActiveLink(BRUNO_WA))!.userId, clienteB.id);
+    assert.match((await say(BRUNO_WA, "2")).text, /Facturación de Bruno Díaz/);
+  });
+  await check("4. CUIT conocido sin autorización: ni acceso ni revelación", async () => {
+    const persona = await botUser(newWaEmail);
+    const r = await requestAssociation(persona, { cuit: "27-00000001-4", name: "Ana", activity: "Diseño", category: "", startDate: "2024-01-01" });
+    assert.ok(r.ok);
+    assert.ok(!r.message.includes("Ana Gómez"));
+    const menu = await say(NUEVO, "menu");
+    assert.ok(!menu.text.includes("Ana Gómez"));
+    assert.ok(!(await say(NUEVO, "2")).text.includes("Ana Gómez"));
+  });
+  await check("5. cliente A no puede consultar a B aunque se fuerce el contribuyente guardado", async () => {
+    await prisma.botConversation.update({
+      where: { channel_address: { channel: "WHATSAPP", address: ANA_WA } },
+      data: { taxpayerId: bruno.id },
+    }).catch(async () => {
+      await say(ANA_WA, "hola");
+      await prisma.botConversation.update({ where: { channel_address: { channel: "WHATSAPP", address: ANA_WA } }, data: { taxpayerId: bruno.id } });
+    });
+    const r = await say(ANA_WA, "2");
+    assert.ok(!r.text.includes("Bruno Díaz"), r.text);
+  });
+  await check("6. otro estudio o un cliente no pueden desvincular ni listar vínculos ajenos (no hay rol operador todavía)", async () => {
+    const link = await getActiveLink(BRUNO_WA);
+    assert.equal((await unlinkChannel(otherAdmin, link!.id, "x")).ok, false);
+    assert.equal((await unlinkChannel(clienteA, link!.id, "x")).ok, false);
+    await assert.rejects(() => listStudyLinks(clienteA));
+  });
+  await check("7. código incorrecto, vencido o reutilizado: rechazo; muchos intentos bloquean", async () => {
+    const OTRO = "+5491155550004";
+    assert.match((await say(OTRO, "000000")).text, /no es válido/);
+    const { code } = await createWebLinkCode(await botUser(newWaEmail));
+    await prisma.linkCode.updateMany({ where: { userId: (await botUser(newWaEmail)).id, usedAt: null }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    assert.match((await say(OTRO, code)).text, /venció/);
+    // Reutilizado: el código de Bruno ya se usó.
+    const used = await prisma.linkCode.findFirstOrThrow({ where: { userId: clienteB.id, kind: "CODIGO_WEB", usedAt: { not: null } } });
+    assert.ok(used);
+    for (let i = 0; i < 4; i++) await say(OTRO, "123456");
+    assert.match((await say(OTRO, "654321")).text, /demasiados intentos/);
+    assert.equal(await getActiveLink(OTRO), null);
+  });
+  await check("8. evento duplicado y simultáneo: una sola acción de negocio", async () => {
+    // Ana tiene dos contribuyentes: se elige Ana Gómez desde el menú (como haría la persona).
+    await say(ANA_WA, "menu");
+    const choose = await say(ANA_WA, "8");
+    await say(ANA_WA, choose.text.split("\n").find((l) => l.includes("Ana Gómez"))!.split(".")[0].trim());
+    await say(ANA_WA, "5");
+    await say(ANA_WA, "1");
+    await say(ANA_WA, "Consulta por WhatsApp duplicada");
+    const before = await prisma.serviceRequest.count();
+    const id = "verify-duplicado-1";
+    const input = { provider: "SIMULADOR" as const, providerId: id, rawAddress: ANA_WA.replace("+", ""), text: "Detalle de la consulta" };
+    const opts = { transport: simulatorTransport, origin: botOrigin };
+    const results = await Promise.all([receiveInbound(input, opts), receiveInbound(input, opts), receiveInbound(input, opts)]);
+    assert.equal(results.filter((r) => r.status === "procesado").length, 1);
+    assert.equal(results.filter((r) => r.status === "duplicado").length, 2);
+    assert.equal(await prisma.serviceRequest.count(), before + 1);
+    assert.equal((await say(ANA_WA, "x", { id })).outcome.status, "duplicado");
+    const created = await prisma.serviceRequest.findFirstOrThrow({ where: { subject: "Consulta por WhatsApp duplicada" } });
+    assert.equal(created.channel, "WHATSAPP");
+  });
+  await check("9. la conversación y los datos sobreviven a un reinicio (estado en la base)", async () => {
+    await say(ANA_WA, "menu");
+    await say(ANA_WA, "5");
+    const row = await prisma.botConversation.findUniqueOrThrow({ where: { channel_address: { channel: "WHATSAPP", address: ANA_WA } } });
+    assert.equal(JSON.parse(row.state).step, "solicitud_tema");
+    // Un proceso nuevo solo tiene la base: el paso sigue donde estaba.
+    assert.match((await say(ANA_WA, "2")).text, /asunto/);
+    await say(ANA_WA, "cancelar");
+  });
+  await check("10. revocar, suspender o desvincular corta el acceso en la operación siguiente", async () => {
+    const access = await prisma.taxpayerAccess.findFirstOrThrow({ where: { userId: clienteB.id, taxpayerId: bruno.id } });
+    await revokeAccess(admin, access.id, "Prueba de revocación por WhatsApp");
+    assert.match((await say(BRUNO_WA, "2")).text, /Todavía no podés consultar/);
+    await prisma.taxpayerAccess.update({ where: { id: access.id }, data: { status: "APROBADO" } });
+    await setUserActive(admin, clienteB.id, false);
+    assert.match((await say(BRUNO_WA, "2")).text, /suspendida/);
+    await setUserActive(admin, clienteB.id, true);
+    const link = await getActiveLink(BRUNO_WA);
+    assert.ok((await unlinkChannel(admin, link!.id, "Prueba")).ok);
+    assert.ok(!(await say(BRUNO_WA, "2")).text.includes("Bruno Díaz"));
+  });
+  await check("11. el bot muestra los mismos números que el tablero", async () => {
+    await say(ANA_WA, "menu");
+    const r = await say(ANA_WA, "2");
+    const data = await getDashboardData(ana, todayAR());
+    for (const period of data.periods) {
+      if (period.totalCents !== null) assert.ok(r.text.includes(formatARS(period.totalCents)), period.key);
+    }
+    const m = await say(ANA_WA, "3");
+    if (data.margin.available) assert.ok(m.text.includes(formatARS(data.margin.limitCents)));
+    assert.match(m.text, /orientativo/);
+  });
+  const SECRET_WA = "NOTA-INTERNA-WHATSAPP-77";
+  await check("12. solicitud desde el bot → respuesta en el backoffice → el cliente la consulta por el bot", async () => {
+    await say(ANA_WA, "menu");
+    await say(ANA_WA, "5");
+    await say(ANA_WA, "4");
+    await say(ANA_WA, "Pedido de constancia por WhatsApp");
+    await say(ANA_WA, "Necesito la constancia actualizada");
+    const req = await prisma.serviceRequest.findFirstOrThrow({ where: { subject: "Pedido de constancia por WhatsApp" } });
+    assert.equal(req.channel, "WHATSAPP");
+    assert.ok((await listInbox(admin, { assigned: "sin" })).rows.some((r) => r.id === req.id));
+    assert.ok((await addMessage(admin, req.id, { body: `Revisar padrón. ${SECRET_WA}`, visibility: "INTERNA" }, [], botOrigin)).ok);
+    assert.ok((await addMessage(admin, req.id, { body: "Te la mandamos hoy por la web.", visibility: "PUBLICA" }, [], botOrigin)).ok);
+    const notice = await prisma.outboundMessage.findFirstOrThrow({ where: { requestId: req.id, kind: "AVISO" } });
+    assert.equal(notice.status, "SIMULADO");
+    await say(ANA_WA, "menu");
+    const list = await say(ANA_WA, "6");
+    const n = list.text.split("\n").find((l) => l.includes("Pedido de constancia por WhatsApp"))!.split(".")[0];
+    const detail = await say(ANA_WA, n.trim());
+    assert.match(detail.text, /Te la mandamos hoy por la web/);
+  });
+  await check("13. una nota interna nunca llega al bot ni a un mensaje saliente", async () => {
+    assert.ok(!(await prisma.outboundMessage.findFirst({ where: { body: { contains: SECRET_WA } } })));
+    await say(ANA_WA, "menu");
+    await say(ANA_WA, "6");
+    const all = await prisma.outboundMessage.findMany({ where: { address: ANA_WA } });
+    assert.ok(all.every((m) => !m.body.includes(SECRET_WA)));
+  });
+  await check("14. servidor caído: mensaje entendible y reintento sin duplicar la acción", async () => {
+    await say(ANA_WA, "menu");
+    const down = await say(ANA_WA, "2", { fault: "antes" });
+    assert.equal(down.outcome.status, "fallido");
+    const failNotice = await prisma.outboundMessage.findFirstOrThrow({ where: { address: ANA_WA }, orderBy: { createdAt: "desc" } });
+    assert.match(failNotice.body, /Tuvimos un problema/);
+    assert.ok((await retryPendingInbound({ transport: simulatorTransport, origin: botOrigin }, 20, "SIMULADOR")) >= 1);
+    // Falla DESPUÉS de crear la solicitud: el reintento no la duplica.
+    await say(ANA_WA, "5");
+    await say(ANA_WA, "5");
+    await say(ANA_WA, "Solicitud con caída");
+    const before = await prisma.serviceRequest.count();
+    const r = await say(ANA_WA, "Detalle de la solicitud con caída", { fault: "despues" });
+    assert.equal(r.outcome.status, "fallido");
+    assert.equal(await prisma.serviceRequest.count(), before + 1);
+    await retryPendingInbound({ transport: simulatorTransport, origin: botOrigin }, 20, "SIMULADOR");
+    assert.equal(await prisma.serviceRequest.count(), before + 1);
+    assert.equal(await prisma.inboundEvent.count({ where: { status: "FALLIDO", provider: "SIMULADOR" } }), 0);
+  });
+  await check("15. datos incompletos: el bot lo dice, sin cifras inventadas ni 'sin deuda'", async () => {
+    const diego = await byName("Diego Fernández");
+    await prisma.taxpayerAccess.create({ data: { userId: clienteA.id, taxpayerId: diego.id, status: "APROBADO" } });
+    await say(ANA_WA, "menu");
+    const list = await say(ANA_WA, "8");
+    const n = list.text.split("\n").find((l) => l.includes("Diego Fernández"))!.split(".")[0];
+    await say(ANA_WA, n.trim());
+    // El estudio marcó los datos de Diego como no completos: el bot lo dice igual que el tablero y no calcula el margen.
+    const billing = await say(ANA_WA, "2");
+    assert.match(billing.text, /datos parciales/);
+    assert.match(billing.text, /Datos parciales/);
+    assert.match((await say(ANA_WA, "3")).text, /No se puede calcular/);
+    const debts = await say(ANA_WA, "4");
+    assert.match(debts.text, /no cargó información/);
+    assert.ok(!/Sin deuda/i.test(debts.text));
+    await prisma.taxpayerAccess.deleteMany({ where: { userId: clienteA.id, taxpayerId: diego.id } });
   });
 
   console.log(`\n${passed} verificaciones OK`);

@@ -54,6 +54,14 @@
 | Formularios antes de cargar la página | `method="post"` sin ejecutar nada; el envío real lo hace `onSubmit` | Una contraseña nunca va en la URL. Ejecutar la acción también sin JavaScript generaba errores en modo desarrollo. |
 | Sesión en la demo de Vercel | Cookie firmada (HMAC) con usuario, vencimiento y huella de la contraseña; secreto nuevo por deploy guardado en la base de demo | Cada instancia de Vercel tiene su copia de la base: una sesión guardada en la base no sirve entre instancias. En la compu siguen las sesiones en la base. |
 | Paleta | Azul profundo #112D4E, azul #2457D6, turquesa #20C4B6, menta #E1F5F2 | Pedido del usuario: confianza, claridad, tecnología. |
+| Bot de WhatsApp | Adentro de la web (mismo proyecto y base), no como servidor aparte | Una sola lógica de negocio sin API interna ni credenciales entre servicios. El motor está separado del transporte por si después se quiere separar. |
+| Identidad en el bot | Solo por `ChannelLink` verificado con código o enlace de un solo uso | Un teléfono, correo o CUIT no prueban titularidad. Nunca se transfiere un número vinculado a otra cuenta. |
+| Clave fiscal | El bot no la pide ni la guarda | El plan del proyecto lo prohíbe. El bot de origen la pedía por chat. |
+| Teléfonos | `libphonenumber-js` 1.13.15, formato E.164 | Los números argentinos con 9 o con 15 se normalizan igual, sin reglas a mano. |
+| Mensajes entrantes | Se guardan antes de procesar, se deduplican por (proveedor, id), se procesan de a uno por número y se reintentan hasta 3 veces | Meta reintenta hasta 7 días y puede duplicar. |
+| Envíos | Estado real: ENVIADO (Meta lo aceptó), FALLIDO, PENDIENTE (sin proveedor) o SIMULADO | No se promete entrega. Fuera de la ventana de 24 h haría falta una plantilla (no implementado). |
+| Simulador | `/dev/whatsapp` solo en DEMO, fuera de producción y de Vercel, con números del rango +54 9 11 5555-0xxx | Probar todo sin WhatsApp sin poder hacerse pasar por números reales. |
+| Bot en Vercel | No se configura | La copia de la base por instancia perdería vínculos y conversaciones. Requiere una base compartida. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

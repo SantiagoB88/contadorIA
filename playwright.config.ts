@@ -20,6 +20,8 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev:test",
+    // Valores ficticios solo para probar el webhook (firma y verificación). Sin token de envío: nada sale a Meta.
+    env: { WHATSAPP_APP_SECRET: "secreto-de-prueba-no-real", WHATSAPP_VERIFY_TOKEN: "verify-de-prueba" },
     url: "http://localhost:3100/login",
     reuseExistingServer: true,
     timeout: 240_000,

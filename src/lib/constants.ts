@@ -112,7 +112,8 @@ export const SR_PRIORITY_LABEL: Record<string, string> = { NORMAL: "Normal", ALT
 export const MESSAGE_VISIBILITY = { PUBLICA: "PUBLICA", INTERNA: "INTERNA" } as const;
 
 // Canal de origen. Por ahora solo existe la web; el campo queda para un canal futuro.
-export const CHANNEL = { WEB: "WEB" } as const;
+export const CHANNEL = { WEB: "WEB", WHATSAPP: "WHATSAPP" } as const;
+export const CHANNEL_LABEL: Record<string, string> = { WEB: "web", WHATSAPP: "WhatsApp" };
 
 export const DOC_VISIBILITY = { CLIENTE: "CLIENTE", INTERNO: "INTERNO" } as const;
 
@@ -169,4 +170,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   REQUEST_UPDATE: "Actualizó una solicitud",
   DOCUMENT_UPLOAD: "Subió un documento",
   DOCUMENT_VISIBILITY: "Cambió quién ve un documento",
+  CHANNEL_LINK_CODE: "Generó un código para vincular WhatsApp",
+  CHANNEL_LINK: "Vinculó su WhatsApp",
+  CHANNEL_UNLINK: "Desvinculó un WhatsApp",
+  CHANNEL_LINK_FAILED: "Intento fallido de vincular WhatsApp",
 };

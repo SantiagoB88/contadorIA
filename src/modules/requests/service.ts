@@ -17,6 +17,7 @@ import type { ServiceResult } from "@/modules/access/service";
 import { getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
 import { checkFiles, discardStored, storeFiles, type StoredFile, type UploadFile } from "@/modules/documents/service";
 import { mail } from "@/providers/mail";
+import { notifyRequestReply } from "@/modules/bot/notify";
 import type { Prisma } from "@prisma/client";
 
 // Solicitudes al estudio: conversación con mensajes públicos y notas internas.
@@ -109,7 +110,17 @@ async function withStoredFiles<T>(files: StoredFile[], fn: () => Promise<T>): Pr
   }
 }
 
-export type NewRequestInput = { taxpayerId: string; topic: string; subject: string; body: string; channel?: string };
+export type NewRequestInput = {
+  taxpayerId: string;
+  topic: string;
+  subject: string;
+  body: string;
+  channel?: string;
+  priority?: "NORMAL" | "ALTA";
+  // Idempotencia para canales externos: el mismo evento (p. ej. un mensaje de WhatsApp reintentado)
+  // nunca crea dos solicitudes. Si ya existe, se devuelve la misma.
+  externalRef?: string;
+};
 
 /** El cliente (o el estudio en su nombre) crea una solicitud con su primer mensaje y adjuntos opcionales. */
 export async function createRequest(user: CurrentUser, input: NewRequestInput, files: UploadFile[], origin: string): Promise<RequestResult> {
@@ -125,6 +136,14 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
   const checked = checkFiles(files);
   if (!checked.ok) fieldErrors.files = checked.message;
   if (Object.keys(fieldErrors).length > 0 || !taxpayer || !checked.ok) return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
+
+  if (input.externalRef) {
+    const existing = await prisma.idempotencyKey.findUnique({ where: { key: input.externalRef } });
+    if (existing) {
+      if (existing.userId !== user.id) return { ok: false, message: "No se pudo crear la solicitud." };
+      return { ok: true, message: "Solicitud enviada.", requestId: existing.requestId };
+    }
+  }
 
   const active = await prisma.serviceRequest.count({
     where: { createdById: user.id, status: { not: SR_STATUS.RESUELTA } },
@@ -146,8 +165,11 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
           subject,
           status: SR_STATUS.ABIERTA,
           channel,
+          priority: input.priority ?? "NORMAL",
         },
       });
+      // La clave es única: si el mismo evento llega dos veces a la vez, una de las transacciones falla y no crea nada.
+      if (input.externalRef) await tx.idempotencyKey.create({ data: { key: input.externalRef, requestId: request.id, userId: user.id } });
       await createMessage(tx, {
         request,
         authorId: user.id,
@@ -321,8 +343,10 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
     }),
   );
 
-  // Una nota interna no avisa al cliente. Una respuesta del estudio avisa a quien creó la solicitud.
+  // Una nota interna no avisa al cliente. Una respuesta del estudio avisa a quien creó la solicitud
+  // (por correo y, si la solicitud llegó por WhatsApp, también por ahí).
   if (staff && isPublic) {
+    await notifyRequestReply(request).catch((err) => console.error("[bot] No se pudo registrar el aviso por WhatsApp:", err instanceof Error ? err.message : err));
     await notify(
       [request.createdBy.email],
       `Respuesta del estudio: ${request.subject}`,

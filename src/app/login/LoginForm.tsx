@@ -5,11 +5,12 @@ import { loginAction, type LoginState } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { inputClass, labelClass } from "@/components/ui";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction] = useActionForm<LoginState>(loginAction, {});
 
   return (
     <ActionForm form={formAction} className="space-y-4" noValidate>
+      {next && <input type="hidden" name="next" value={next} />}
       {state.error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {state.error}

@@ -15,7 +15,12 @@
 - [ ] Documentos: borrar o reemplazar un archivo subido por error (hoy se puede dejar de compartir)
 - [ ] Análisis antimalware de archivos antes de un piloto con archivos reales
 - [ ] Solicitudes: búsqueda por texto y paginación en la bandeja (hoy muestra hasta 200)
-- [ ] Canal WhatsApp sobre los servicios de solicitudes (fuera de alcance por ahora)
+- [x] Bot de WhatsApp integrado: alta, vinculación, consultas, solicitudes, simulador y webhook
+- [ ] WhatsApp: probar con el número de prueba de Meta (necesita cuenta de Meta for Developers y túnel)
+- [ ] WhatsApp: plantillas aprobadas para avisos fuera de la ventana de 24 h
+- [ ] WhatsApp: confirmar el formato del número argentino al responder (la documentación de Meta no lo aclara)
+- [ ] WhatsApp en un link público: requiere base compartida (PostgreSQL)
+- [ ] WhatsApp: reintento automático periódico de eventos fallidos (hoy se reintenta al llegar el siguiente mensaje o desde el simulador)
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración (base **y** carpeta `storage/`)
 - [x] Tests E2E (Playwright) y revisión visual a 390 / 768 / 1440 px
 - [ ] Probar en Safari / iPhone real y en Firefox

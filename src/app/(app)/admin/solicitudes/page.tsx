@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { SR_STATUS_LABEL } from "@/lib/constants";
+import { CHANNEL_LABEL, SR_STATUS_LABEL } from "@/lib/constants";
 import { formatDateTimeAR } from "@/lib/dates";
 import { listInbox } from "@/modules/requests/service";
 import { PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
@@ -115,7 +115,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                         {r.subject}
                       </Link>
                       <p className="text-xs text-slate-500">
-                        {topicLabel(r.topic)} · de {r.createdBy.name} · canal {r.channel === "WEB" ? "web" : r.channel}
+                        {topicLabel(r.topic)} · de {r.createdBy.name} · canal {CHANNEL_LABEL[r.channel] ?? r.channel}
                       </p>
                     </td>
                     <td className="px-4 py-3">{r.taxpayer.name}</td>

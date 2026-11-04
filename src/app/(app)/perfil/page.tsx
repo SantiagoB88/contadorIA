@@ -6,6 +6,9 @@ import { formatCuit } from "@/lib/cuit";
 import { formatDateTimeAR, todayAR } from "@/lib/dates";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { AssociationForm, ChangePasswordForm, ProfileForm } from "@/components/access/AccessForms";
+import { LinkCodeForm, UnlinkMyWhatsAppForm } from "@/components/bot/WhatsAppForms";
+import { getUserLink } from "@/modules/bot/links";
+import { maskPhone } from "@/lib/phone";
 
 export const metadata = { title: "Mi perfil · ContadorSmart" };
 
@@ -15,8 +18,10 @@ const REQUEST_BADGE = {
   RECHAZADO: { label: "Rechazada", tone: "danger" },
 } as const;
 
-export default async function PerfilPage() {
+export default async function PerfilPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requireUser();
+  const justLinked = (await searchParams).whatsapp === "vinculado";
+  const whatsapp = await getUserLink(user.id);
   const isClient = user.role === ROLES.CLIENTE;
 
   const [row, accesses, requests] = await Promise.all([
@@ -105,6 +110,37 @@ export default async function PerfilPage() {
           <ChangePasswordForm />
         </Card>
       </div>
+
+      {isClient && (
+        <Card id="whatsapp" className="scroll-mt-6">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h2 className="font-semibold text-navy">WhatsApp</h2>
+            <Badge tone={whatsapp ? "success" : "neutral"}>{whatsapp ? "Vinculado" : "Sin vincular"}</Badge>
+          </div>
+          {justLinked && (
+            <p role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Listo: tu WhatsApp quedó vinculado. Escribile “menú” al bot.
+            </p>
+          )}
+          {whatsapp ? (
+            <div className="mt-2 space-y-3 text-sm text-slate-700">
+              <p>
+                Número <strong className="tabular">{maskPhone(whatsapp.address)}</strong>, vinculado el {formatDateTimeAR(whatsapp.linkedAt)}.
+                Desde ahí podés consultar tu facturación, deudas y solicitudes.
+              </p>
+              <UnlinkMyWhatsAppForm />
+            </div>
+          ) : (
+            <div className="mt-2 space-y-3 text-sm text-slate-700">
+              <p>
+                Para consultar por WhatsApp, generá un código y mandáselo al bot desde tu celular. El código vence en 10 minutos y
+                sirve una sola vez. Nunca te vamos a pedir tu contraseña ni tu clave fiscal por WhatsApp.
+              </p>
+              <LinkCodeForm />
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h2 className="font-semibold text-navy">Vinculación fiscal</h2>

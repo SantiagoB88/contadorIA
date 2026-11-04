@@ -26,4 +26,5 @@ Leé `docs/estado.md`, `docs/decisiones.md` y `docs/backlog.md`. Mantenelos actu
 - Archivos: solo PDF/PNG/JPEG validados por contenido, guardados en `storage/` con nombre aleatorio (`src/providers/storage.ts`); la descarga siempre pasa por `getAuthorizedDocument`. Las notas internas (`INTERNA`) y documentos `INTERNO` nunca se devuelven a un cliente: filtrarlos en la consulta.
 - Formularios con Server Actions: usar `ActionForm` + `useActionForm` (`src/components/ActionForm.tsx`), no `<form action>`, para que React no vacíe ni desarme el formulario después de enviar.
 - Interfaz en español de Argentina. Todo lo simulado se marca como DEMO.
-- Fuera de alcance por ahora: WhatsApp, IA, ARCA real, cobros.
+- Bot de WhatsApp: vive en `src/modules/bot/` y usa los mismos servicios que la web (ver `docs/whatsapp-contratos.md`). La identidad sale solo del vínculo verificado (`ChannelLink`); nunca pedir clave fiscal ni contraseña por chat. El simulador (`/dev/whatsapp`) solo existe en local.
+- Fuera de alcance por ahora: IA, ARCA real, cobros, plantillas de WhatsApp.
