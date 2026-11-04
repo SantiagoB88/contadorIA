@@ -7,10 +7,8 @@ import { SimulatorClient } from "./SimulatorClient";
 
 export const metadata = { title: "Simulador de WhatsApp · ContadorSmart" };
 export const dynamic = "force-dynamic";
-// Restablecer la demo sobre la base compartida (Turso) puede tardar más que una página común.
-export const maxDuration = 120;
 
-/** Simulador del bot. Solo existe en modo DEMO (en la compu o en la demo de Vercel con Turso); si no, da 404. */
+/** Simulador local del bot. Solo existe en modo DEMO y en la compu: en cualquier otro caso da 404. */
 export default async function WhatsAppSimulatorPage() {
   if (!simulatorEnabled()) notFound();
   const user = await getCurrentUser();

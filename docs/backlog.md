@@ -23,8 +23,8 @@
 - [ ] WhatsApp: probar con el número de prueba de Meta (necesita cuenta de Meta for Developers y túnel)
 - [ ] WhatsApp: plantillas aprobadas para avisos fuera de la ventana de 24 h
 - [ ] WhatsApp: confirmar el formato del número argentino al responder (la documentación de Meta no lo aclara)
-- [x] WhatsApp en la demo de Vercel: base compartida en Turso y simulador desde la dashboard
-- [ ] Turso: probar con la base real en Vercel (necesita la cuenta; ver docs/vercel-turso.md)
+- [x] Simulador del bot desde el menú de la dashboard (solo en la compu)
+- [ ] WhatsApp en la demo de Vercel: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)
 - [ ] WhatsApp: reintento automático periódico de eventos fallidos (hoy se reintenta al llegar el siguiente mensaje o desde el simulador)
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración (base **y** carpeta `storage/`)

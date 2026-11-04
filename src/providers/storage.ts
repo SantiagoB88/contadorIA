@@ -1,8 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import { prepareBundledDemo, usesBundledDemo, usesTursoDb } from "@/lib/vercel-demo";
-import { prisma } from "@/lib/db";
+import { prepareBundledDemo, usesBundledDemo } from "@/lib/vercel-demo";
 
 // Almacenamiento de archivos privados. En la V1 local es una carpeta fuera de `public/`
 // (por defecto `storage/`, configurable con STORAGE_DIR). Los archivos se guardan con un nombre aleatorio
@@ -13,7 +12,6 @@ export interface FileStorage {
   put(key: string, bytes: Uint8Array): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   remove(key: string): Promise<void>;
-  clear(): Promise<void>;
 }
 
 const KEY_PATTERN = /^[a-f0-9]{40}$/;
@@ -68,39 +66,4 @@ export class LocalFileStorage implements FileStorage {
 export const storageDir = path.resolve(
   process.env.STORAGE_DIR ?? (usesBundledDemo ? prepareBundledDemo().storage : path.join(process.cwd(), "storage")),
 );
-/**
- * Archivos dentro de la base (tabla StoredFile). Se usa con la base compartida de Turso: en Vercel cada instancia
- * tiene su propio disco temporal, así que los archivos tienen que vivir donde todas los vean. Mismas reglas de clave.
- */
-export class DatabaseFileStorage implements FileStorage {
-  newKey() {
-    return randomBytes(20).toString("hex");
-  }
-
-  private check(key: string) {
-    if (!KEY_PATTERN.test(key)) throw new Error("Clave de archivo inválida.");
-  }
-
-  async put(key: string, bytes: Uint8Array) {
-    this.check(key);
-    await prisma.storedFile.create({ data: { key, bytes: Buffer.from(bytes) } });
-  }
-
-  async get(key: string) {
-    this.check(key);
-    const row = await prisma.storedFile.findUnique({ where: { key } });
-    return row ? Buffer.from(row.bytes) : null;
-  }
-
-  async remove(key: string) {
-    this.check(key);
-    await prisma.storedFile.deleteMany({ where: { key } });
-  }
-
-  /** Borra todos los archivos guardados (solo al restablecer la demo). */
-  async clear() {
-    await prisma.storedFile.deleteMany();
-  }
-}
-
-export const storage: FileStorage = usesTursoDb ? new DatabaseFileStorage() : new LocalFileStorage(storageDir);
+export const storage = new LocalFileStorage(storageDir);

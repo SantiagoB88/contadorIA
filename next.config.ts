@@ -14,8 +14,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_MAX_UPLOAD_MB: process.env.VERCEL ? "4" : "30",
   },
   // Demo en Vercel: la base y los archivos de ejemplo viajan dentro del deploy (ver scripts/vercel-prepare.mjs).
-  // Conexión a Turso (base compartida de la demo): librerías de Node con partes nativas, no se empaquetan.
-  serverExternalPackages: ["@libsql/client", "libsql", "@prisma/adapter-libsql"],
   outputFileTracingIncludes: { "/**": ["./prisma/demo.db", "./demo-storage/**/*"] },
 };
 

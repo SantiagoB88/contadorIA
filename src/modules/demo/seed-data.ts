@@ -1,6 +1,6 @@
 // Datos ficticios de demo. Sin personas ni CUIT reales; escala de categorías inventada.
-// Los usa `npm run db:setup` / `npm run db:reset` (prisma/seed.ts), la preparación de Turso en Vercel y el botón
-// "Restablecer demo" del simulador. Trabaja sobre la base configurada (archivo local o Turso).
+// Los usan `npm run db:setup` / `npm run db:reset` (prisma/seed.ts), la base de demo de Vercel y el botón
+// "Restablecer demo" del simulador.
 import { prisma } from "@/lib/db";
 import { hash } from "bcryptjs";
 import { createHash } from "node:crypto";
