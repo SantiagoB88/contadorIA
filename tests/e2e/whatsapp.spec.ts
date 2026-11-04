@@ -57,10 +57,11 @@ async function pick(page: Page, row: string, expectReply: RegExp) {
   await act(
     page,
     async () => {
-      // La lista se abre con ☰; si un refresco del chat la cerró antes de ver la fila, se vuelve a abrir.
-      const option = conversation(page).getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last();
+      // La fila tiene que ser de la última lista (no un botón con el mismo título de un mensaje anterior).
+      const lastList = conversation(page).locator('[data-dir="out"]').filter({ has: page.getByRole("button", { name: /^☰/ }) }).last();
+      const option = lastList.getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last();
       await expect(async () => {
-        if (!(await option.isVisible())) await conversation(page).getByRole("button", { name: /^☰/ }).last().click();
+        if (!(await option.isVisible())) await lastList.getByRole("button", { name: /^☰/ }).click();
         await expect(option).toBeVisible({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       await option.click();
@@ -71,67 +72,65 @@ async function pick(page: Page, row: string, expectReply: RegExp) {
 
 const pdf = { name: "constancia.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% prueba\n%%EOF\n") };
 
-test("alta por WhatsApp → aprobación → vinculación → consulta → solicitud con adjunto → respuesta del estudio", async ({ page, browser }) => {
+test("alta por chat → aprobación con aviso → ingreso con contraseña temporal → consulta → solicitud con adjunto → respuesta del estudio", async ({ page, browser }) => {
   const id = uid();
   const email = `wa.${id}@ejemplo.com`;
-  const name = `Monotributista WA ${id}`;
+  const name = `Monotributista ${id}`;
 
-  // 1. Una persona nueva le escribe al bot (número ficticio del simulador) y elige con botones.
+  // 1. Con su propio número de prueba (nuevo), la persona se da de alta por el chat.
   await login(page, USERS.admin); // el simulador pide una sesión iniciada
   await page.goto("/dev/whatsapp");
-  await page.getByLabel("Quién escribe").selectOption("+5491155550004");
-  // Se puede repetir sobre la misma base: el número ficticio arranca desvinculado y sin conversación.
-  page.once("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Reiniciar este número" }).click();
-  await expect(page.getByText(/Número reiniciado/)).toBeVisible();
+  await page.getByRole("button", { name: "Usar un número nuevo" }).click();
   await expect(conversation(page).getByText(/Todavía no hay mensajes/)).toBeVisible();
+  await expect(page.getByLabel("Quién escribe")).toHaveValue(/^\+5491155550[1-9]\d\d$/);
+  // Solo se ofrece una clienta de ejemplo, no la lista de clientes.
+  await expect(page.getByLabel("Quién escribe").locator("option")).toHaveCount(2);
   await chat(page, "hola", /¿Cómo querés empezar\?/);
-  await tap(page, "Quiero registrarme", /Creá tu cuenta/);
-  const inviteText = await conversation(page).getByText(/vincular\?t=/).last().innerText();
-  const invite = inviteText.match(/(\/whatsapp\/vincular\?t=[\w-]+)/)![1];
-
-  // 2. Crea la cuenta en la web, confirma el correo y pide asociarse a un CUIT.
-  const web = await browser.newPage();
-  await web.goto("/registro");
-  await web.getByLabel("Nombre y apellido").fill(`Persona ${id}`);
-  await web.getByLabel("Correo electrónico").fill(email);
-  await web.getByLabel("Teléfono").fill("+54 11 5555-0004");
-  await web.getByLabel("Contraseña", { exact: true }).fill("Prueba1234!");
-  await web.getByLabel("Repetí la contraseña").fill("Prueba1234!");
-  await web.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(web.getByText(/Te enviamos un correo/)).toBeVisible();
-  await web.goto("/dev/correos");
-  await web.goto((await web.locator('a[href*="/verificar?token="]').first().getAttribute("href"))!);
-  await web.getByRole("button", { name: "Confirmar mi correo" }).click();
-  await expect(web.getByText("Tu correo quedó confirmado")).toBeVisible();
-
-  // 3. Abre el enlace del bot: le pide ingresar y vuelve solo a confirmar la vinculación.
-  await web.goto(invite);
-  await web.getByRole("link", { name: "Ingresar y vincular" }).click();
-  await web.getByLabel("Correo electrónico").fill(email);
-  await web.getByLabel("Contraseña").fill("Prueba1234!");
-  await web.getByRole("button", { name: "Ingresar" }).click();
-  await web.waitForURL(/\/whatsapp\/vincular/, { waitUntil: "commit" });
-  await web.getByRole("button", { name: "Vincular este WhatsApp a mi cuenta" }).click();
-  await web.waitForURL(/\/perfil\?whatsapp=vinculado/, { waitUntil: "commit" });
-  await expect(web.getByText("Listo: tu WhatsApp quedó vinculado")).toBeVisible();
-
-  // Pide asociarse a un CUIT nuevo. Hasta que el estudio apruebe, el bot no muestra datos fiscales.
-  await web.locator("#as-cuit").fill(fakeCuit());
-  await web.locator("#as-name").fill(name);
-  await web.locator("#as-activity").fill("Servicios de prueba");
-  await web.locator("#as-startDate").fill("2023-05-01");
-  await web.getByRole("button", { name: "Enviar solicitud" }).click();
-  await expect(web.getByText(/Solicitud enviada/)).toBeVisible();
+  await tap(page, "Quiero registrarme", /Te creo la cuenta acá mismo/);
+  await tap(page, "Empezar", /nombre y apellido/);
+  await chat(page, name, /correo electrónico/);
+  await chat(page, email, /CUIT/);
+  await chat(page, "20-12345678-0", /no es válido/);
+  await chat(page, fakeCuit(), /A qué te dedicás/);
+  await chat(page, "Servicios de prueba", /mes y año/);
+  await chat(page, "05/2023", /Revisá tus datos/);
+  await tap(page, "Crear mi cuenta", /Creamos tu cuenta y vinculamos este WhatsApp/);
+  const credentials = await page.locator('[data-dir="out"]').filter({ hasText: "Contraseña temporal" }).last().innerText();
+  const temp = credentials.match(/Contraseña temporal: (\S+)/)![1];
   await chat(page, "hola", /pendiente de revisión por el estudio/);
-  await tap(page, "Ver estado", /pendiente de revisión del estudio/);
+  await pick(page, "Ver estado", /pendiente de revisión del estudio/);
 
-  // 4. El estudio aprueba en Accesos y ve el WhatsApp vinculado.
+  // 2. El estudio aprueba en Accesos (otra ventana) y ve el WhatsApp vinculado; al chat llega el aviso.
+  const web = await browser.newPage();
   await login(web, USERS.admin);
   await web.goto("/admin/accesos");
-  await web.locator("section", { hasText: name }).last().getByRole("button", { name: "Aprobar acceso" }).click();
+  await web.locator("section", { hasText: `${name} · CUIT` }).last().getByRole("button", { name: "Aprobar acceso" }).click();
   await expect(web.getByText(/Solicitud aprobada/)).toBeVisible();
   await expect(web.locator("li", { hasText: email }).getByText(/WhatsApp \+54 9 11/)).toBeVisible();
+  await expect(conversation(page).getByText(/El estudio aprobó tu acceso/).last()).toBeVisible({ timeout: 15_000 });
+
+  // 3. Entra a la web con la contraseña temporal (ventana aparte) y tiene que elegir una propia.
+  const client = await browser.newPage();
+  await client.goto("/login");
+  await client.getByLabel("Correo electrónico").fill(email);
+  await client.getByLabel("Contraseña").fill(temp);
+  await client.getByRole("button", { name: "Ingresar" }).click();
+  await client.waitForURL(/\/perfil\?clave=temporal/, { waitUntil: "commit" });
+  await expect(client.getByText(/Estás usando una contraseña temporal/)).toBeVisible();
+  await client.getByLabel("Contraseña actual").fill(temp);
+  await client.getByLabel("Contraseña nueva", { exact: true }).fill("MiClave2026");
+  await client.getByLabel("Repetí la contraseña nueva").fill("MiClave2026");
+  await client.getByRole("button", { name: "Cambiar contraseña" }).click();
+  await expect(client.getByText("Contraseña actualizada.")).toBeVisible();
+  await client.goto("/dashboard");
+  await expect(client.getByText(/Estás usando una contraseña temporal/)).toHaveCount(0);
+  await expect(client.getByText(name).first()).toBeVisible();
+  await client.close();
+
+  // 4. Con la sesión de otra cuenta abierta, Ingresar ofrece cambiar de cuenta (antes redirigía sin avisar).
+  await web.goto("/login");
+  await expect(web.getByText(/Ya ingresaste como/)).toBeVisible();
+  await expect(web.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ })).toBeVisible();
 
   // 5. Ahora el bot muestra el menú y datos reales del contribuyente (sin facturación cargada: lo dice).
   await chat(page, "menu", new RegExp(`Estás consultando ${esc(name)}`));
@@ -180,8 +179,8 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   await expect(conversation(page).getByText(`SECRETO-${id}`)).toHaveCount(0);
 
   // 9. Reiniciar (recargar) conserva la conversación: está en la base.
+  // El número de prueba queda guardado en el navegador: al recargar sigue siendo el mismo.
   await page.reload();
-  await page.getByLabel("Quién escribe").selectOption("+5491155550004");
   await lastReply(page, new RegExp(`Te la mandamos hoy ${id}`));
   await web.close();
 });
@@ -214,6 +213,7 @@ test("opción vencida, evento duplicado, falla del servidor y modo sin botones",
     /ya no está vigente/,
   );
 
+  await page.getByText("Herramientas de prueba técnicas").click();
   await page.getByRole("button", { name: "Reenviar el último mensaje (duplicado)" }).click();
   await expect(page.getByText(/Evento duplicado: se descartó/)).toBeVisible();
 
@@ -245,6 +245,7 @@ test("restablecer la demo: solo el administrador; vuelve a los datos de ejemplo"
   // El administrador lo usa: se borra lo creado y se cierran las sesiones.
   await login(page, USERS.admin);
   await page.goto("/dev/whatsapp");
+  await page.getByText("Herramientas de prueba técnicas").click();
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Restablecer demo (todos los datos)" }).click();
   await page.waitForURL(/\/login/, { timeout: 120_000, waitUntil: "commit" });

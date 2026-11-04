@@ -54,7 +54,7 @@ Código en `src/modules/bot/`:
 ## Mapa de recorridos
 
 ```
-Sin vincular ─► [Ya tengo cuenta] [Quiero registrarme] [Conocer el servicio]
+Sin vincular ─► [Ya tengo cuenta] [Quiero registrarme → alta por chat: nombre → correo → CUIT → actividad → inicio → resumen → Crear mi cuenta] [Conocer el servicio]
                (código de 6 dígitos escrito → vincula)
 Suspendido   ─► mensaje fijo, sin opciones de datos
 Pendiente    ─► [Ver estado] [Corregir datos (web)] [Consultar al estudio → solicitud "Alta o acceso"]

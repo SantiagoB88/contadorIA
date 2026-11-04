@@ -193,7 +193,7 @@ on(
     } else {
       const limits = scale.limits.map((l) => `${l.code === data.category.code ? "▶ " : ""}${l.code}: ${formatARS(l.annualLimitCents)}`).join("\n");
       ctx.say(
-        `Escala ${scale.name}${scale.status === "DEMO" ? " (ficticia)" : ""}, fuente: ${scale.source}\n${limits}\n\nCategoría orientativa por ingresos: ${
+        `Escala aplicada: ${scale.name}${scale.status === "DEMO" ? " (ficticia)" : ""}\nFuente: ${scale.source}\n${limits}\n\nCategoría orientativa por ingresos: ${
           s.available ? (s.code ?? "por encima de la escala") : `no disponible (${s.reason})`
         }. Solo mira los ingresos; no es una determinación oficial.\nDetalle en la web: ${ctx.origin}/dashboard/categoria?c=${tp.id}`,
       );
@@ -290,7 +290,7 @@ on(
           ? `${tp.name}: sin registros de próximos vencimientos.`
           : `Próximos vencimientos de ${tp.name}:\n${d.upcoming
               .slice(0, 8)
-              .map((o) => `• ${o.concept} (${o.period}): ${formatDateAR(o.dueDate)} — ${o.amountCents === null ? "importe no informado" : formatARS(o.amountCents)} · ${o.source}`)
+              .map((o) => `• ${o.concept} (${monthName(o.period)}): ${formatDateAR(o.dueDate)} — ${o.amountCents === null ? "importe no informado" : formatARS(o.amountCents)} · ${o.source}`)
               .join("\n")}`,
     );
     ctx.buttons("¿Algo más?", [
@@ -310,10 +310,10 @@ on(
     const d = await getDebtSummary(tp.id);
     const lines = [`Deudas de ${tp.name}`, debtStateText(d)];
     for (const o of d.overdue.slice(0, 8)) {
-      lines.push(`• ${o.concept} (${o.period}): venció ${formatDateAR(o.dueDate)} — ${o.amountCents === null ? "importe no informado" : formatARS(o.amountCents)} · pendiente`);
+      lines.push(`• ${o.concept} (${monthName(o.period)}): venció ${formatDateAR(o.dueDate)} — ${o.amountCents === null ? "importe no informado" : formatARS(o.amountCents)} · pendiente`);
     }
     if (d.overdue.length) lines.push(`Total vencido con importe informado: ${formatARS(d.overdueTotalCents)}. No incluye intereses.`);
-    for (const o of d.paymentInformed.slice(0, 5)) lines.push(`• ${o.concept} (${o.period}): pago informado, pendiente de verificación del estudio`);
+    for (const o of d.paymentInformed.slice(0, 5)) lines.push(`• ${o.concept} (${monthName(o.period)}): pago informado, pendiente de verificación del estudio`);
     if (d.review) lines.push(`Información al ${formatDateAR(d.review.asOfDate)} · ${d.review.source}`);
     ctx.say(lines.join("\n"));
     ctx.buttons("¿Algo más?", [

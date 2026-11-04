@@ -38,7 +38,16 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   clearAttempts(email);
 
-  if (!user.emailVerifiedAt) {
+  if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
+    return {
+      error: "La contraseña temporal venció. Pedí una nueva al asistente de WhatsApp (Mi cuenta → Entrar a la web) o usá ¿Olvidaste tu contraseña?.",
+      email,
+    };
+  }
+
+  // Una cuenta creada desde WhatsApp puede entrar antes de confirmar el correo: el número vinculado prueba que es suya.
+  const phoneVerified = !user.emailVerifiedAt && (await prisma.channelLink.count({ where: { userId: user.id, status: "ACTIVO" } })) > 0;
+  if (!user.emailVerifiedAt && !phoneVerified) {
     // La contraseña es correcta pero falta confirmar el correo: se reenvía el enlace.
     await sendVerificationEmail(user, await getOrigin());
     return {
@@ -49,7 +58,8 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   await createSession(user.id);
   await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
-  redirect(safeNext(String(formData.get("next") ?? "")));
+  // Con contraseña temporal, lo primero es elegir una propia.
+  redirect(user.mustChangePassword ? "/perfil?clave=temporal#clave" : safeNext(String(formData.get("next") ?? "")));
 }
 
 /** Vuelve a la página que pidió el ingreso, solo si es una ruta interna (nunca a otro sitio). */

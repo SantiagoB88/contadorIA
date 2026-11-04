@@ -82,6 +82,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           </header>
 
+          {user.mustChangePassword && (
+            <div role="alert" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+              Estás usando una contraseña temporal.{" "}
+              <Link href="/perfil#clave" className="font-medium underline">
+                Elegí tu contraseña
+              </Link>{" "}
+              para seguir usando la web.
+            </div>
+          )}
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         </div>
       </div>

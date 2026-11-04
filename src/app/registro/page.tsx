@@ -1,13 +1,20 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AuthShell } from "@/components/AuthShell";
+import { SignedInNotice } from "@/components/SignedInNotice";
 import { RegisterForm } from "@/components/auth/AuthForms";
 
 export const metadata = { title: "Crear cuenta · ContadorSmart" };
 
 export default async function RegistroPage() {
-  if (await getCurrentUser()) redirect("/dashboard");
+  const user = await getCurrentUser();
+  if (user) {
+    return (
+      <AuthShell title="Crear cuenta" subtitle="Ya tenés una sesión abierta.">
+        <SignedInNotice name={user.name} email={user.email} continueHref="/dashboard" action="crear otra cuenta" after="/registro" />
+      </AuthShell>
+    );
+  }
   return (
     <AuthShell
       title="Crear cuenta"

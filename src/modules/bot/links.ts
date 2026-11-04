@@ -71,7 +71,7 @@ export type LinkResult = { ok: true; message: string; userName: string } | { ok:
  * - si la cuenta tenía otro número, ese vínculo se cierra (el código nuevo prueba el número nuevo).
  * Todo en una transacción; `activeKey` único impide dos vínculos activos para el mismo número.
  */
-async function link(userId: string, address: string, method: "CODIGO_WEB" | "ENLACE_BOT"): Promise<LinkResult> {
+async function link(userId: string, address: string, method: "CODIGO_WEB" | "ENLACE_BOT" | "ALTA_BOT"): Promise<LinkResult> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.active) return { ok: false, message: "La cuenta no está activa." };
   // El bot es para clientes: una cuenta del estudio no se vincula (vería todos los contribuyentes).
@@ -106,7 +106,7 @@ async function link(userId: string, address: string, method: "CODIGO_WEB" | "ENL
           action: "CHANNEL_LINK",
           entity: "User",
           entityId: userId,
-          detail: `${maskPhone(address)}${previous ? ` (reemplaza a ${maskPhone(previous.address)})` : ""} · ${method === "CODIGO_WEB" ? "código desde la web" : "enlace del bot"}`,
+          detail: `${maskPhone(address)}${previous ? ` (reemplaza a ${maskPhone(previous.address)})` : ""} · ${method === "CODIGO_WEB" ? "código desde la web" : method === "ALTA_BOT" ? "cuenta creada desde WhatsApp" : "enlace del bot"}`,
         },
       });
       return { ok: true as const, message: "Listo, vinculamos este WhatsApp con tu cuenta.", userName: user.name };
@@ -116,6 +116,11 @@ async function link(userId: string, address: string, method: "CODIGO_WEB" | "ENL
     if ((err as { code?: string }).code === "P2002") return { ok: false, message: "Este número se acaba de vincular. Escribí *menú*." };
     throw err;
   }
+}
+
+/** Cuenta recién creada desde el asistente: queda vinculada al número desde el que se registró. */
+export async function linkNewAccount(userId: string, address: string): Promise<LinkResult> {
+  return link(userId, address, "ALTA_BOT");
 }
 
 /** Intentos fallidos recientes de un número (para limitar la adivinación de códigos). */

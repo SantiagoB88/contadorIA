@@ -15,13 +15,15 @@ Si tu base viene de antes, no tiene a Ana con el WhatsApp ya vinculado. Podés v
 
 En el simulador se tocan los botones de cada mensaje y, en las listas, el botón ☰ y una fila, igual que en WhatsApp. Lo que dice "escribí" se manda con el cuadro de texto.
 
-**1. Persona nueva** (Quién escribe: "Persona nueva · sin cuenta")
+**1. Persona nueva que se da de alta por el chat** (Quién escribe: "Tu WhatsApp de prueba")
 
-1. Escribí `hola` → saludo con los botones **Ya tengo cuenta**, **Quiero registrarme** y **Conocer el servicio**.
-2. **Conocer el servicio** → qué se puede hacer, sin conexión con ARCA.
-3. **Quiero registrarme** → enlace a `/registro` y enlace para vincular este WhatsApp (vence en 24 h). Aclara que nunca pide clave fiscal.
+1. Escribí `hola` → saludo con **Ya tengo cuenta**, **Quiero registrarme** y **Conocer el servicio**.
+2. **Quiero registrarme → Empezar** → nombre y apellido, correo, CUIT, actividad y mes/año de inicio. Probá un CUIT con el último número mal: lo rechaza.
+3. En el resumen escribí `sí`: no confirma. Tocá **Crear mi cuenta** → cuenta creada, WhatsApp vinculado y contraseña temporal para la web.
+4. En la web (admin), **Accesos** → aprobá el pedido. Al chat llega "El estudio aprobó tu acceso" y `menú` muestra el menú completo.
+5. En una ventana privada, ingresá con el correo y la contraseña temporal: la web pide elegir una propia.
 
-**2. Cliente existente que vincula** (Quién escribe: "Bruno Díaz (cliente.b) · cuenta sin vincular")
+**2. Cliente existente que vincula** (tocá **Usar un número nuevo** para tener otro número sin cuenta)
 
 1. En la web, ingresá como `cliente.b@contadorsmart.local` / `Demo1234!` y entrá a **Mi perfil → WhatsApp → Generar código**.
 2. Escribí el código de 6 números → "Listo: vinculamos este WhatsApp…". Escribirlo otra vez → "no es válido o ya se usó".

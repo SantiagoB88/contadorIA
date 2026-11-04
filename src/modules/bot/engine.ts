@@ -12,6 +12,7 @@ import { handoffMessage } from "./flows-requests";
 import "./flows-info";
 import "./flows-billing";
 import "./flows-ops";
+import { SIGNUP_STEPS } from "./flows-signup";
 
 // Motor de conversación del bot. No sabe nada de WhatsApp: recibe lo que mandó un número ya validado por el
 // transporte (un texto, una opción tocada o un archivo ya guardado) y devuelve los mensajes a responder.
@@ -76,9 +77,29 @@ async function runAction(ctx: Ctx, action: Action) {
   }
 }
 
+const SIGNUP_WORDS = /\b(alta|registr\w*|crear (una |mi )?cuenta|soy nuev[oa]|quiero empezar)\b/i;
+
 async function guestTurn(ctx: Ctx, action: Action | null | "stale", text: string) {
   if (action && action !== "stale" && action.a.startsWith("g.") && actions[action.a]) return actions[action.a](ctx, action.v);
+  const norm = text.toLowerCase().replace(/[.!¡¿?]/g, "").trim();
+  if (MENU_WORDS.includes(norm) || CANCEL_WORDS.includes(norm)) return showWelcome(ctx);
+  // Alta en curso: el dato que pidió el paso (nombre, correo, CUIT...).
+  const step = ctx.conv.step;
+  if (step && SIGNUP_STEPS.has(step) && textSteps[step]) {
+    if (!text) {
+      ctx.say(T.notUnderstood);
+      ctx.repeatPrompt();
+      return;
+    }
+    return textSteps[step](ctx, text);
+  }
   if (/^\d{6}$/.test(text)) return tryLinkCode(ctx, text);
+  if (SIGNUP_WORDS.test(text)) return actions["g.registro"](ctx);
+  if (ctx.conv.flow === "alta" && ctx.conv.prompt.length) {
+    ctx.say(YES_WORDS.includes(norm) ? T.noYes : T.notUnderstood);
+    ctx.repeatPrompt();
+    return;
+  }
   return showWelcome(ctx);
 }
 

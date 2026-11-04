@@ -37,6 +37,9 @@ model User {
   role             String // ADMIN | CLIENTE
   active           Boolean          @default(true)
   emailVerifiedAt  DateTime?
+  // Contraseña temporal (cuenta creada desde WhatsApp): hay que cambiarla al entrar y vence sola.
+  mustChangePassword    Boolean   @default(false)
+  tempPasswordExpiresAt DateTime?
   createdAt        DateTime         @default(now())
   sessions         Session[]
   accesses         TaxpayerAccess[]

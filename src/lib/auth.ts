@@ -13,6 +13,7 @@ export type CurrentUser = {
   email: string;
   name: string;
   role: string;
+  mustChangePassword?: boolean;
 };
 
 // En la demo de Vercel la sesión va firmada en la cookie (ver signed-session.ts); en la compu, en la base.
@@ -72,7 +73,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     if (!claims) return null;
     const user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
     if (!user || !user.active || passwordVersion(user.passwordHash) !== claims.pwv) return null;
-    return { id: user.id, studyId: user.studyId, studyName: user.study.name, email: user.email, name: user.name, role: user.role };
+    return {
+      id: user.id,
+      studyId: user.studyId,
+      studyName: user.study.name,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   const session = await prisma.session.findUnique({
@@ -89,6 +98,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: user.email,
     name: user.name,
     role: user.role,
+    mustChangePassword: user.mustChangePassword,
   };
 }
 

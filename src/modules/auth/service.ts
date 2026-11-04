@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { ROLES, TOKEN_TYPE } from "@/lib/constants";
+import { randomInt } from "node:crypto";
 import { hashPassword, hashToken, newRandomToken } from "@/lib/crypto";
 import { mail } from "@/providers/mail";
 
@@ -120,11 +121,82 @@ export async function resetPassword(token: string, newPassword: string): Promise
     const u = await tx.user.update({
       where: { id: userId },
       // Recibir el correo de recuperación también prueba que el correo es suyo.
-      data: { passwordHash, emailVerifiedAt: new Date() },
+      data: { passwordHash, emailVerifiedAt: new Date(), mustChangePassword: false, tempPasswordExpiresAt: null },
     });
     await tx.session.deleteMany({ where: { userId } });
     return u;
   });
   await audit({ studyId: user.studyId, actorId: user.id, action: "PASSWORD_RESET", entity: "User", entityId: user.id });
   return true;
+}
+
+/** La contraseña temporal que da el asistente de WhatsApp vence a las 72 horas y hay que cambiarla al entrar. */
+export const TEMP_PASSWORD_HOURS = 72;
+// Sin letras ni números que se confundan al copiarla (0/O, 1/l/I).
+const TEMP_LETTERS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
+const TEMP_DIGITS = "23456789";
+
+/** Contraseña temporal legible, por ejemplo "Kx7m-Pq4t-Zr9w" (siempre con letras y números). */
+export function newTempPassword(): string {
+  const group = () =>
+    [TEMP_LETTERS, TEMP_LETTERS, TEMP_DIGITS, TEMP_LETTERS].map((set) => set[randomInt(set.length)]).join("");
+  return [group(), group(), group()].join("-");
+}
+
+/** Genera una contraseña temporal nueva para la cuenta (reemplaza la anterior) y cierra sus sesiones. */
+export async function issueTempPassword(userId: string): Promise<string> {
+  const password = newTempPassword();
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await hashPassword(password),
+      mustChangePassword: true,
+      tempPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_HOURS * 60 * 60 * 1000),
+    },
+  });
+  await prisma.session.deleteMany({ where: { userId } });
+  await audit({ studyId: user.studyId, actorId: user.id, action: "TEMP_PASSWORD_ISSUED", entity: "User", entityId: user.id });
+  return password;
+}
+
+export type ChannelSignupResult =
+  | { ok: true; userId: string; tempPassword: string }
+  | { ok: false; reason: "EMAIL_EN_USO" | "CERRADO"; message: string };
+
+/**
+ * Alta de un cliente desde el asistente de WhatsApp. La persona no elige contraseña por chat: se le da una temporal
+ * (vence y hay que cambiarla al entrar). El correo se confirma igual que en la web; mientras tanto puede entrar porque
+ * el número de WhatsApp desde el que se registró queda vinculado (prueba que el teléfono es suyo).
+ * Si el correo ya tiene cuenta no se crea otra: se le avisa al dueño del correo, igual que en el registro web.
+ */
+export async function registerFromChannel(input: { name: string; email: string; phone: string }, origin: string): Promise<ChannelSignupResult> {
+  const email = input.email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    await mail.send({
+      to: email,
+      subject: "Ya tenés una cuenta en ContadorSmart",
+      body: `Hola:\n\nAlguien intentó crear una cuenta con este correo desde WhatsApp, pero ya tenés una.\nSi fuiste vos, vinculá tu WhatsApp desde la web (Mi perfil → WhatsApp). Si no recordás la contraseña: ${origin}/recuperar\n\nSi no fuiste vos, ignorá este correo.`,
+    });
+    return { ok: false, reason: "EMAIL_EN_USO", message: "No pudimos crear la cuenta con ese correo." };
+  }
+  const study = await prisma.study.findFirst({ where: { acceptsSignups: true }, orderBy: { createdAt: "asc" } });
+  if (!study) return { ok: false, reason: "CERRADO", message: "El registro no está habilitado en este momento." };
+
+  const tempPassword = newTempPassword();
+  const user = await prisma.user.create({
+    data: {
+      studyId: study.id,
+      email,
+      name: input.name.trim(),
+      phone: input.phone,
+      passwordHash: await hashPassword(tempPassword),
+      role: ROLES.CLIENTE,
+      mustChangePassword: true,
+      tempPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_HOURS * 60 * 60 * 1000),
+    },
+  });
+  await audit({ studyId: study.id, actorId: user.id, action: "USER_REGISTER", entity: "User", entityId: user.id, detail: "Alta desde WhatsApp" });
+  await sendVerificationEmail(user, origin);
+  return { ok: true, userId: user.id, tempPassword };
 }

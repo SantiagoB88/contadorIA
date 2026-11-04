@@ -36,6 +36,14 @@ const TOPICS = [
   "DOCUMENTACION",
   "OTRO",
 ] as const;
+const EXAMPLES: Record<string, string> = {
+  ALTA: "¿Cuándo van a revisar mi pedido de acceso?",
+  FACTURACION: "¿Cómo le facturo a un cliente del exterior?",
+  CATEGORIA: "¿Me conviene cambiar de categoría?",
+  DEUDAS: "Me figura una cuota que ya pagué",
+  DOCUMENTACION: "Necesito la constancia de inscripción actualizada",
+  OTRO: "Quiero hacer una consulta",
+};
 const clip = (s: string, n: number) =>
   s.length > n ? `${s.slice(0, n - 1)}…` : s;
 const subjectFrom = (topic: string, body: string) => {
@@ -370,7 +378,7 @@ on("s.nueva", async (ctx, v) => {
     `${mode === "hablar" ? "Hablar con el estudio" : "Nueva solicitud"} para ${tp.name}. ¿Sobre qué es?`,
     "Elegir motivo",
     [
-      ...TOPICS.map((t) => ({ title: SR_TOPIC_LABEL[t], a: "s.tema", v: t })),
+      ...TOPICS.filter((t) => t !== "ALTA").map((t) => ({ title: SR_TOPIC_LABEL[t], a: "s.tema", v: t })),
       { title: T.cancel, a: "cancel" },
     ],
   );
@@ -416,7 +424,7 @@ on("s.tema", async (ctx, v) => {
 async function askBody(ctx: Ctx) {
   ctx.conv.data.lastPrompt = "s.cuerpo";
   ctx.buttons(
-    `Contame en un mensaje qué necesitás (${SR_TOPIC_LABEL[draft(ctx).topic].toLowerCase()}). Por ejemplo: "Necesito la constancia de inscripción actualizada". No incluyas contraseñas ni tu clave fiscal.`,
+    `Contame en un mensaje qué necesitás (${SR_TOPIC_LABEL[draft(ctx).topic].toLowerCase()}). Por ejemplo: "${EXAMPLES[draft(ctx).topic] ?? EXAMPLES.OTRO}". No incluyas contraseñas ni tu clave fiscal.`,
     [{ title: T.cancel, a: "cancel" }],
   );
   ctx.expect("s.cuerpo");

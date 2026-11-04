@@ -69,6 +69,8 @@
 | Solicitud de alta sin contribuyente | `ServiceRequest.taxpayerId` opcional solo para el motivo "Alta o acceso", sin adjuntos | Una persona pendiente necesita poder consultar al estudio. Solo la ve quien la creó y el estudio. |
 | Número de solicitud | `S-` + últimos 6 caracteres del id, igual en web, avisos y bot | Cliente y estudio hablan del mismo número sin agregar otra columna. |
 | Simulador en la web | Solo en DEMO, con sesión iniciada, en la compu y en la demo de Vercel; se abre desde el menú | Probar el bot al lado de la dashboard sin poder escribir como un número real. |
+| Alta desde WhatsApp | Se completa en el chat; se da una contraseña temporal (vence a las 72 h, cambio obligatorio al entrar) | Pedirle a la persona que vaya a la web a registrarse cortaba el recorrido. Nunca se le pide una contraseña por chat: se le da una temporal y se la obliga a cambiarla. Solo se dan temporales a cuentas que todavía no eligieron la suya. |
+| Ingreso sin correo confirmado | Permitido si la cuenta tiene un WhatsApp vinculado | El número vinculado ya prueba la identidad; el correo se sigue confirmando por mail. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { CHANNEL, SR_STATUS_LABEL } from "@/lib/constants";
 import { simulatorTransport, whatsappTransport, type MessagingTransport } from "@/providers/messaging";
 import { requestCode } from "@/lib/request-code";
+import { formatCuit } from "@/lib/cuit";
 import { textMessage, type BotMessage } from "./ui";
 import { isSimulatorAddress, simulatorEnabled } from "./simulator-config";
 
@@ -89,6 +90,33 @@ export async function notifyRequestStatus(request: RequestRef, status: string, t
     textMessage(`Tu solicitud ${requestCode(request.id)} (${request.subject}) cambió a: ${SR_STATUS_LABEL[status] ?? status}.`),
     transport,
   );
+}
+
+/** El estudio aprobó o rechazó una solicitud de acceso: se avisa por WhatsApp si la persona tiene el número vinculado. */
+export async function notifyAccessReviewed(
+  userId: string,
+  review: { approved: boolean; taxpayerName: string; cuit: string; note?: string | null },
+  transport?: MessagingTransport,
+): Promise<void> {
+  const link = await prisma.channelLink.findFirst({ where: { userId, channel: CHANNEL.WHATSAPP, status: "ACTIVO" } });
+  if (!link) return;
+  const body = review.approved
+    ? `¡Buenas noticias! El estudio aprobó tu acceso a ${review.taxpayerName} (CUIT ${formatCuit(review.cuit)}). Escribí *menú* para ver tu información.`
+    : `El estudio no aprobó tu solicitud para el CUIT ${formatCuit(review.cuit)}.${review.note ? ` Motivo: ${review.note}.` : ""} Escribí *menú* para consultar al estudio.`;
+  const row = await prisma.outboundMessage.create({
+    data: { channel: CHANNEL.WHATSAPP, address: link.address, body, kind: "AVISO", status: "PENDIENTE" },
+  });
+  const result = await (transport ?? noticeTransport(link.address)).send(link.address, textMessage(body));
+  await prisma.outboundMessage.update({
+    where: { id: row.id },
+    data: {
+      status: result.status,
+      providerId: result.providerId ?? null,
+      error: result.error ?? null,
+      attempts: 1,
+      sentAt: result.status === "ENVIADO" || result.status === "SIMULADO" ? new Date() : null,
+    },
+  });
 }
 
 export { requestCode };

@@ -1,3 +1,4 @@
+import { notifyAccessReviewed } from "@/modules/bot/notify";
 import { prisma } from "@/lib/db";
 import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { isValidCuit, normalizeCuit } from "@/lib/cuit";
@@ -157,6 +158,10 @@ export async function approveRequest(
     return { taxpayer, created };
   });
 
+  // Aviso por WhatsApp (si tiene el número vinculado). Si falla el envío, la aprobación igual queda hecha.
+  await notifyAccessReviewed(request.userId, { approved: true, taxpayerName: result.taxpayer.name, cuit: request.cuit }).catch((err) =>
+    console.error("[accesos] No se pudo avisar por WhatsApp:", err instanceof Error ? err.message : err),
+  );
   return {
     ok: true,
     message: result.created
@@ -176,6 +181,10 @@ export async function rejectRequest(admin: CurrentUser, requestId: string, note:
     data: { status: REQUEST_STATUS.RECHAZADO, reviewedById: admin.id, reviewedAt: new Date(), reviewNote: reason.slice(0, 300) },
   });
   if (count !== 1) return { ok: false, message: "La solicitud no existe o ya fue revisada." };
+  const rejected = await prisma.accessRequest.findUniqueOrThrow({ where: { id: requestId } });
+  await notifyAccessReviewed(rejected.userId, { approved: false, taxpayerName: rejected.declaredName, cuit: rejected.cuit, note: reason.slice(0, 300) }).catch(
+    (err) => console.error("[accesos] No se pudo avisar por WhatsApp:", err instanceof Error ? err.message : err),
+  );
   await prisma.auditEvent.create({
     data: {
       studyId: admin.studyId,

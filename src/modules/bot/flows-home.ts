@@ -52,16 +52,6 @@ async function invite(ctx: Ctx) {
   return `${ctx.origin}/whatsapp/vincular?t=${token}`;
 }
 
-on("g.registro", async (ctx) => {
-  ctx.say(T.registerSteps(ctx.origin, await invite(ctx)));
-  ctx.buttons(
-    "Cuando termines y el estudio apruebe tu acceso, escribime. ¿Algo más?",
-    [
-      { title: T.guestHaveAccount, a: "g.tengo" },
-      { title: T.guestAbout, a: "g.conocer" },
-    ],
-  );
-});
 on("g.tengo", async (ctx) => {
   ctx.say(T.haveAccountSteps(await invite(ctx)));
   ctx.buttons("Si todavía no tenés cuenta, podés crearla.", [
@@ -113,10 +103,12 @@ export async function showPending(ctx: Ctx) {
   const pending = await prisma.accessRequest.count({
     where: { userId: ctx.user.id, status: REQUEST_STATUS.PENDIENTE },
   });
-  ctx.buttons(pending ? T.pending : T.noTaxpayers, [
-    { title: T.pendingStatus, a: "p.estado" },
+  ctx.list(pending ? T.pending : T.noTaxpayers, T.menuButton, [
+    { title: T.pendingStatus, desc: "Cómo va tu pedido de acceso", a: "p.estado" },
+    { title: T.pendingAsk, desc: "Mandale un mensaje al estudio", a: "p.consultar" },
+    { title: "Entrar a la web", desc: "Correo y contraseña", a: "c.clave" },
     { title: T.pendingFix, a: "p.corregir" },
-    { title: T.pendingAsk, a: "p.consultar" },
+    { title: T.help, a: "help" },
   ]);
 }
 
@@ -310,6 +302,7 @@ on(
   async (ctx) => {
     ctx.list("Mi cuenta. ¿Qué querés hacer?", "Ver opciones", [
       { title: "Ver mis datos", a: "c.datos" },
+      { title: "Entrar a la web", desc: "Correo y contraseña", a: "c.clave" },
       { title: "Cambiar contribuyente", a: "m.cambiar" },
       {
         title: "Gestionar avisos",
@@ -365,7 +358,7 @@ on(
   async (ctx) => {
     const prefs = await getPreferences(ctx.user.id);
     const lines = NOTICE_TYPES.map(
-      (t) => `• ${t.label}: ${prefs[t.type] ? "activados" : "desactivados"}`,
+      (t) => `• ${t.label}: ${prefs[t.type] ? "activado" : "desactivado"}`,
     );
     ctx.say(
       `Avisos por WhatsApp:\n${lines.join("\n")}\n• Recordatorios de vencimientos: todavía no disponibles (no hay un envío automático implementado).\n\nWhatsApp solo permite avisos libres dentro de las 24 horas de tu último mensaje.`,
@@ -389,7 +382,7 @@ on(
     if (!NOTICE_TYPES.some((t) => t.type === type)) return showMenu(ctx);
     await setPreference(ctx.user.id, type, value === "1");
     ctx.say(
-      `Guardado: ${NOTICE_TYPES.find((t) => t.type === type)!.label.toLowerCase()} ${value === "1" ? "activados" : "desactivados"}.`,
+      `Guardado: ${NOTICE_TYPES.find((t) => t.type === type)!.label}: ${value === "1" ? "activado" : "desactivado"}.`,
     );
     return actions["c.avisos"](ctx);
   },

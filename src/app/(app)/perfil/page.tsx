@@ -105,8 +105,14 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
           <h2 className="mb-4 font-semibold text-navy">Datos personales</h2>
           <ProfileForm name={row.name} phone={row.phone ?? ""} email={row.email} />
         </Card>
-        <Card>
+        <Card id="clave" className="scroll-mt-6">
           <h2 className="mb-4 font-semibold text-navy">Contraseña</h2>
+          {user.mustChangePassword && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Entraste con la contraseña temporal que te dio el asistente de WhatsApp. En "Contraseña actual" escribí esa
+              temporal y elegí una nueva.
+            </p>
+          )}
           <ChangePasswordForm />
         </Card>
       </div>

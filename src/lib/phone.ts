@@ -34,3 +34,12 @@ export function maskPhone(e164: string): string {
     return "número no válido";
   }
 }
+
+/** "+5491155550001" → "+54 9 11 5555-0001" (formato internacional legible). Si no se puede leer, queda igual. */
+export function formatPhone(e164: string): string {
+  try {
+    return parsePhoneNumberWithError(e164).formatInternational();
+  } catch {
+    return e164;
+  }
+}

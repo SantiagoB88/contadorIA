@@ -14,6 +14,7 @@ import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
 import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
+import { verifyPassword } from "@/lib/crypto";
 import { addDaysYmd } from "@/lib/dates";
 import { lineSubtotalCents, parseQuantityMilli } from "@/lib/money";
 import {
@@ -941,7 +942,9 @@ async function main() {
     assert.match(hello.text, /¿Cómo querés empezar\?/);
     for (const t of ["Ya tengo cuenta", "Quiero registrarme", "Conocer el servicio"]) assert.ok(hasChoice(NUEVO, t), t);
     assert.match((await tap(NUEVO, "Conocer el servicio")).text, /No hay conexión con ARCA/);
-    const alta = await tap(NUEVO, "Quiero registrarme");
+    // "Quiero registrarme" ofrece el alta por chat; acá se prueba la alternativa por la web.
+    assert.match((await tap(NUEVO, "Quiero registrarme")).text, /Te creo la cuenta acá mismo/);
+    const alta = await tap(NUEVO, "Prefiero la web");
     assert.match(alta.text, /\/registro/);
     assert.match(alta.text, /Nunca te vamos a pedir tu clave fiscal/);
     const token = alta.text.match(/vincular\?t=([\w-]+)/)![1];
@@ -1356,6 +1359,93 @@ async function main() {
     await tap(ANA_WA, "Sin adjunto");
     assert.match((await tap(ANA_WA, "Enviar al estudio")).text, /quedó enviada al estudio/);
     assert.equal(await prisma.serviceRequest.count(), before + 1);
+  });
+  await check("28. alta completa por el chat: valida los datos, crea la cuenta con contraseña temporal, vincula el número y pide el acceso", async () => {
+    const LUCIA = "+5491155550105";
+    const email = "lucia.alta@ejemplo.com";
+    const users = await prisma.user.count();
+    assert.match((await say(LUCIA, "hola, quiero darme de alta")).text, /Te creo la cuenta acá mismo/);
+    await tap(LUCIA, "Empezar");
+    assert.match((await say(LUCIA, "Lucía")).text, /nombre y apellido/);
+    assert.match((await say(LUCIA, "Lucía Fernández")).text, /correo electrónico/);
+    assert.match((await say(LUCIA, "lucia@")).text, /no parece válido/);
+    assert.match((await say(LUCIA, email)).text, /CUIT/);
+    assert.match((await say(LUCIA, "20-12345678-0")).text, /no es válido/);
+    assert.match((await say(LUCIA, "27-28456123-1")).text, /A qué te dedicás/);
+    await say(LUCIA, "Clases de inglés");
+    assert.match((await say(LUCIA, "13/2023")).text, /No pude interpretar la fecha/);
+    const summary = await say(LUCIA, "03/2023");
+    assert.match(summary.text, /Revisá tus datos[\s\S]*27-28456123-1[\s\S]*marzo 2023/);
+    // Un "sí" escrito no crea nada.
+    assert.match((await say(LUCIA, "sí")).text, /No tomo un "sí" escrito/);
+    assert.equal(await prisma.user.count(), users);
+    // Corregir un dato vuelve al resumen con el resto igual.
+    await tap(LUCIA, "Corregir");
+    await tap(LUCIA, "Actividad");
+    assert.match((await say(LUCIA, "Clases particulares de inglés")).text, /Lucía Fernández[\s\S]*Actividad: Clases particulares de inglés/);
+    const done = await tap(LUCIA, "Crear mi cuenta");
+    assert.match(done.text, /Creamos tu cuenta y vinculamos este WhatsApp/);
+    assert.ok(!/clave fiscal:/i.test(done.text));
+    const temp = done.text.match(/Contraseña temporal: (\S+)/)![1];
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    assert.equal(await prisma.user.count(), users + 1);
+    assert.equal(user.role, "CLIENTE");
+    assert.ok(user.mustChangePassword);
+    assert.ok(user.tempPasswordExpiresAt! > new Date(Date.now() + 71 * 60 * 60 * 1000));
+    assert.ok(await verifyPassword(temp, user.passwordHash));
+    assert.equal(user.phone, "+54 9 11 5555 0105");
+    assert.equal((await getActiveLink(LUCIA))!.userId, user.id);
+    assert.equal((await getActiveLink(LUCIA))!.method, "ALTA_BOT");
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: user.id, status: "PENDIENTE" } });
+    assert.equal(req.cuit, "27284561231");
+    assert.equal(req.declaredActivity, "Clases particulares de inglés");
+    assert.equal(req.declaredStartDate, "2023-03-01");
+    assert.ok(await prisma.outboxEmail.findFirst({ where: { to: email, subject: { contains: "Confirmá tu correo" } } }));
+    // Pendiente: sin datos fiscales; puede pedir otra contraseña temporal (la anterior deja de valer).
+    const pending = await say(LUCIA, "menu");
+    assert.match(pending.text, /pendiente de revisión/);
+    await tap(LUCIA, "Entrar a la web");
+    const again = await tap(LUCIA, "Sí, generar");
+    const temp2 = again.text.match(/Contraseña temporal: (\S+)/)![1];
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.ok(await verifyPassword(temp2, after.passwordHash));
+    assert.ok(!(await verifyPassword(temp, after.passwordHash)));
+    // El estudio aprueba: llega el aviso al chat y se habilita el menú.
+    assert.ok((await approveRequest(admin, req.id, "A", "")).ok);
+    const notice = await prisma.outboundMessage.findFirstOrThrow({ where: { address: LUCIA, kind: "AVISO" }, orderBy: { createdAt: "desc" } });
+    assert.match(notice.body, /aprobó tu acceso a Lucía Fernández \(CUIT 27-28456123-1\)/);
+    assert.equal(notice.status, "SIMULADO");
+    assert.match((await say(LUCIA, "menu")).text, /Estás consultando Lucía Fernández/);
+    // Ya con su contraseña, el asistente no da contraseñas nuevas.
+    const lucia = await asCurrentUser(email);
+    assert.ok((await changePassword(lucia, temp2, "MiClave2026", "MiClave2026")).ok);
+    const changed = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(changed.mustChangePassword, false);
+    assert.equal(changed.tempPasswordExpiresAt, null);
+    await say(LUCIA, "menu");
+    await tap(LUCIA, "Mi cuenta");
+    assert.match((await tap(LUCIA, "Entrar a la web")).text, /no doy contraseñas nuevas por acá/);
+  });
+  await check("29. alta por chat con un correo que ya tiene cuenta: no la crea ni la revela; se puede usar otro correo", async () => {
+    const OTRO = "+5491155550106";
+    const users = await prisma.user.count();
+    await say(OTRO, "hola");
+    await tap(OTRO, "Quiero registrarme");
+    await tap(OTRO, "Empezar");
+    await say(OTRO, "Ana Copia");
+    await say(OTRO, "cliente.a@contadorsmart.local");
+    await say(OTRO, "27-33445599-3");
+    await say(OTRO, "Diseño");
+    await say(OTRO, "01/2024");
+    const r = await tap(OTRO, "Crear mi cuenta");
+    assert.match(r.text, /No pudimos crear la cuenta con ese correo/);
+    assert.ok(!r.text.includes("Ana Gómez"));
+    assert.equal(await prisma.user.count(), users);
+    assert.equal(await getActiveLink(OTRO), null);
+    await tap(OTRO, "Usar otro correo");
+    await say(OTRO, "ana.copia@ejemplo.com");
+    assert.match((await tap(OTRO, "Crear mi cuenta")).text, /Creamos tu cuenta/);
+    assert.equal(await prisma.user.count(), users + 1);
   });
   await check("25. recursos ajenos: aunque se fuerce una opción con el id de otra persona, no se muestran", async () => {
     const ajena = await createRequest(clienteB, { taxpayerId: bruno.id, topic: "OTRO", subject: "Solicitud privada de Bruno", body: "Privado" }, [], botOrigin);

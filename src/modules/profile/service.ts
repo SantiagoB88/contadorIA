@@ -33,7 +33,7 @@ export async function changePassword(
   if (next !== confirm) return { ok: false, message: "Revisá los campos marcados.", fieldErrors: { confirm: "Las contraseñas no coinciden." } };
 
   await prisma.$transaction([
-    prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } }),
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next), mustChangePassword: false, tempPasswordExpiresAt: null } }),
     prisma.session.deleteMany({ where: { userId: user.id } }),
   ]);
   await audit({ studyId: user.studyId, actorId: user.id, action: "PASSWORD_CHANGE", entity: "User", entityId: user.id });

@@ -28,7 +28,32 @@ export default async function WhatsAppSimulatorPage() {
             hay que empezar el recorrido de nuevo. Conviene hacerlo de corrido.
           </p>
         )}
-        <SimulatorClient identities={SIMULATOR_IDENTITIES.map((i) => ({ address: i.address, label: i.label }))} canResetDemo={user.role === ROLES.ADMIN} />
+        <details className="mt-3 max-w-3xl rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" open>
+          <summary className="cursor-pointer font-medium text-navy">Cómo probarlo</summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>
+              Con <strong>Tu WhatsApp de prueba</strong> escribí <em>hola</em> y tocá <strong>Quiero registrarme</strong>: el
+              asistente te pide nombre, correo, CUIT, actividad y fecha de inicio, y te da una contraseña temporal para la web.
+            </li>
+            <li>
+              El estudio aprueba el acceso en{" "}
+              <a href="/admin/accesos" target="_blank" rel="noreferrer" className="text-brand-700 underline">
+                Accesos
+              </a>{" "}
+              (con el usuario administrador). Al aprobar, te llega el aviso al chat y se habilita el menú completo.
+            </li>
+            <li>
+              Para recorrer todo con datos cargados, elegí <strong>Ana Gómez · clienta de ejemplo</strong> en Quién escribe.
+            </li>
+            <li>
+              Para entrar a la web con la cuenta nueva, usá una ventana privada: así no se mezcla con tu sesión actual.
+            </li>
+          </ol>
+        </details>
+        <SimulatorClient
+          examples={SIMULATOR_IDENTITIES.filter((i) => i.example).map((i) => ({ address: i.address, label: i.label }))}
+          canResetDemo={user.role === ROLES.ADMIN}
+        />
       </main>
     </div>
   );

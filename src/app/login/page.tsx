@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { APP_MODE } from "@/lib/constants";
 import { AuthShell } from "@/components/AuthShell";
+import { SignedInNotice } from "@/components/SignedInNotice";
 import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "Ingresar · ContadorSmart" };
@@ -11,7 +11,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const user = await getCurrentUser();
   const next = (await searchParams).next;
   const target = typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-  if (user) redirect(target);
+  if (user) {
+    return (
+      <AuthShell title="ContadorSmart" subtitle="Ya tenés una sesión abierta.">
+        <SignedInNotice name={user.name} email={user.email} continueHref={target} action="entrar con otra cuenta" />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell

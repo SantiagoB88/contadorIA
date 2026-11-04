@@ -261,6 +261,47 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
 
+## Alta por el chat y simulador pensado para clientes ✅ (rama `feat/whatsapp-bot`)
+
+Revisión hecha recorriendo la demo como un cliente.
+
+**Problemas encontrados:**
+- **No se podía registrar.** El bot mandaba a crear la cuenta en la web, pero con la sesión del estudio abierta, Crear cuenta e Ingresar redirigían a la dashboard del estudio, que lista a todos los clientes.
+- **El simulador mostraba la lista de clientes** y herramientas técnicas.
+- **Errores de texto:**
+  - período `2026-11` en vez de "noviembre 2026";
+  - "Alta o acceso" como motivo para quien ya tiene cuenta;
+  - ejemplo de mensaje que no correspondía al motivo;
+  - "Escala Escala";
+  - "desactivados" con el género mal;
+  - CUIT sin formato en los avisos;
+  - teléfono sin formato en Accesos.
+
+**Cambios:**
+- **Alta completa por el chat** (`src/modules/bot/flows-signup.ts`):
+  - pide nombre y apellido, correo, CUIT (con dígito verificador), actividad y fecha de inicio;
+  - permite corregir y confirma solo con botón;
+  - crea la cuenta (`registerFromChannel`), vincula el número (`ALTA_BOT`) y pide el acceso al CUIT;
+  - da una **contraseña temporal** que vence a las 72 h y hay que cambiar al primer ingreso (`mustChangePassword`, `tempPasswordExpiresAt`);
+  - si el correo ya tiene cuenta, no la crea ni lo revela y ofrece usar otro;
+  - la alternativa por la web sigue en **Prefiero la web**.
+- **Ingreso**: una cuenta creada por WhatsApp puede entrar antes de confirmar el correo, porque el número vinculado prueba que es suya. Con contraseña temporal, la web lleva a elegir una propia y muestra un aviso en todas las pantallas.
+- **Aviso por WhatsApp** cuando el estudio aprueba o rechaza el acceso (`notifyAccessReviewed`).
+- **Ingresar y Crear cuenta con una sesión abierta**: muestran con qué cuenta estás y ofrecen **Cerrar sesión y entrar con otra cuenta** (antes redirigían sin avisar).
+- **Simulador**:
+  - cada navegador tiene su propio número de prueba (5555-0100 a 0999), que arranca sin cuenta, con **Usar un número nuevo**;
+  - solo Ana como clienta de ejemplo;
+  - herramientas técnicas plegadas y una guía "Cómo probarlo".
+- **Pendiente sin contribuyente**: menú en lista con Ver estado, Consultar al estudio, Entrar a la web (otra contraseña temporal), Corregir datos y Ayuda.
+- **Esquema** `whatsapp-5`: dos columnas nuevas en `User`. Probado sobre una copia de `dev.db`: sin avisos, conserva las 201 facturas.
+
+**Pruebas ejecutadas:**
+- `npm run verify` 116/116, incluidas dos nuevas: el alta completa con datos inválidos, corrección, aprobación con aviso y cambio de contraseña; y el correo ya usado.
+- En el navegador, versión compilada local: 24/24.
+- Simulación de Vercel: 21/21 (repetida sobre la misma base).
+- A mano en la simulación de Vercel: alta por chat, aprobación en Accesos, aviso en el chat y menú completo.
+- **No probado**: en Vercel real hasta publicar.
+
 ## Simulador desde la dashboard, también en Vercel ✅ (rama `feat/whatsapp-bot`, sin publicar)
 
 - Se evaluó una base compartida en Turso y se descartó porque obligaba a crear una cuenta en otro servicio. Se sacó todo lo de Turso.

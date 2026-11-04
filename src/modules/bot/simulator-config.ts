@@ -16,9 +16,11 @@ export function isSimulatorAddress(address: string): boolean {
   return /^\+5491155550\d{3}$/.test(address);
 }
 
+// Números fijos para las pruebas automáticas. En la pantalla solo se ofrece Ana como ejemplo; cada persona usa su
+// propio número de prueba (5555-0100 a 0999), que arranca sin cuenta.
 export const SIMULATOR_IDENTITIES = [
-  { address: "+5491155550001", label: "Ana Gómez (cliente.a) · WhatsApp vinculado" },
-  { address: "+5491155550002", label: "Bruno Díaz (cliente.b) · cuenta sin vincular" },
-  { address: "+5491155550003", label: "Persona nueva · sin cuenta" },
-  { address: "+5491155550004", label: "Otra persona nueva · sin cuenta" },
+  { address: "+5491155550001", label: "Ana Gómez · clienta de ejemplo", example: true },
+  { address: "+5491155550002", label: "Bruno Díaz · cuenta sin vincular", example: false },
+  { address: "+5491155550003", label: "Persona nueva · sin cuenta", example: false },
+  { address: "+5491155550004", label: "Otra persona nueva · sin cuenta", example: false },
 ] as const;

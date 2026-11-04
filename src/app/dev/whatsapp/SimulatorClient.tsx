@@ -103,8 +103,37 @@ function Interactive({ message, disabled, onChoose }: { message: BotMessage; dis
   );
 }
 
-export function SimulatorClient({ identities, canResetDemo = false }: { identities: Identity[]; canResetDemo?: boolean }) {
-  const [address, setAddress] = useState(identities[0].address);
+// Cada navegador tiene su propio número de prueba (se guarda en el navegador): arranca sin cuenta, como una persona
+// que le escribe por primera vez al estudio. Rango del simulador +54 9 11 5555-0100 a 0999 (los anteriores son de ejemplo).
+const OWN_KEY = "contadorsmart-sim-numero";
+const newOwnNumber = () => `+5491155550${String(100 + Math.floor(Math.random() * 900))}`;
+const pretty = (a: string) => `+54 9 11 ${a.slice(-8, -4)}-${a.slice(-4)}`;
+function readOwn(): string {
+  try {
+    const saved = window.localStorage.getItem(OWN_KEY);
+    if (saved && /^\+5491155550[1-9]\d{2}$/.test(saved)) return saved;
+  } catch {
+    // sin almacenamiento del navegador: igual funciona con un número nuevo
+  }
+  return saveOwn(newOwnNumber());
+}
+function saveOwn(n: string): string {
+  try {
+    window.localStorage.setItem(OWN_KEY, n);
+  } catch {
+    // no se pudo guardar: el número dura mientras la página esté abierta
+  }
+  return n;
+}
+
+export function SimulatorClient({ examples, canResetDemo = false }: { examples: Identity[]; canResetDemo?: boolean }) {
+  const [own, setOwn] = useState<string | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+  useEffect(() => {
+    const n = readOwn();
+    setOwn(n);
+    setAddress(n);
+  }, []);
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [text, setText] = useState("");
   const [fault, setFault] = useState<"" | "antes" | "despues">("");
@@ -118,6 +147,7 @@ export function SimulatorClient({ identities, canResetDemo = false }: { identiti
   const firstInstance = useRef<string | null | undefined>(undefined);
   const [restarted, setRestarted] = useState(false);
   const refresh = useCallback(async () => {
+    if (!address) return;
     try {
       const [list, current] = await Promise.all([simulatorTranscript(address), simulatorInstance()]);
       if (firstInstance.current === undefined) firstInstance.current = current;
@@ -159,10 +189,10 @@ export function SimulatorClient({ identities, canResetDemo = false }: { identiti
     run(async () => {
       if (!value.trim()) return null;
       setText("");
-      return failed(await simulatorSend(address, value, { fault: fault || undefined }));
+      return failed(await simulatorSend(address!, value, { fault: fault || undefined }));
     });
 
-  const choose = (c: Choice) => run(async () => failed(await simulatorSend(address, c.title, { choiceId: c.id, fault: fault || undefined })));
+  const choose = (c: Choice) => run(async () => failed(await simulatorSend(address!, c.title, { choiceId: c.id, fault: fault || undefined })));
 
   const upload = (file: File) =>
     run(async () => {
@@ -171,110 +201,134 @@ export function SimulatorClient({ identities, canResetDemo = false }: { identiti
       if (text.trim()) form.set("caption", text.trim());
       setText("");
       if (fileInput.current) fileInput.current.value = "";
-      return failed(await simulatorUpload(address, form));
+      return failed(await simulatorUpload(address!, form));
     });
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-3">
       <aside className="space-y-4 lg:col-span-1">
-        <div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <label htmlFor="identity" className={labelClass}>
             Quién escribe
           </label>
-          <select id="identity" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass}>
-            {identities.map((i) => (
+          <select id="identity" value={address ?? ""} onChange={(e) => setAddress(e.target.value)} className={inputClass} disabled={!own}>
+            {own && <option value={own}>Tu WhatsApp de prueba</option>}
+            {examples.map((i) => (
               <option key={i.address} value={i.address}>
                 {i.label}
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-slate-500">Número ficticio: {address}</p>
-        </div>
-
-        <div>
-          <label htmlFor="fault" className={labelClass}>
-            Simular una falla del servidor
-          </label>
-          <select id="fault" value={fault} onChange={(e) => setFault(e.target.value as typeof fault)} className={inputClass}>
-            <option value="">Sin fallas</option>
-            <option value="antes">Falla antes de procesar el mensaje</option>
-            <option value="despues">Falla después de hacer la acción</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-2">
+          <p className="mt-2 text-xs text-slate-600">
+            {address ? <span className="block font-medium text-slate-700">Número ficticio: {pretty(address)}</span> : null}
+            {address === own
+              ? "Arranca como una persona sin cuenta: escribí hola y date de alta por el chat."
+              : "Clienta de ejemplo con cuenta y datos cargados, para recorrer todo el menú."}
+          </p>
           <button
             type="button"
-            disabled={pending || !lastInbound}
-            onClick={() =>
-              run(async () => {
-                const r = await simulatorSend(address, lastInbound!.text, { repeatOf: lastInbound!.providerId });
-                // (si era una opción tocada o un archivo, el reenvío lleva lo mismo)
-                return r.outcome.status === "duplicado" ? "Evento duplicado: se descartó (no se procesó dos veces)." : `Resultado: ${r.outcome.status}`;
-              })
-            }
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Reenviar el último mensaje (duplicado)
-          </button>
-          <button
-            type="button"
-            disabled={pending || !text.trim()}
-            onClick={() =>
-              run(async () => {
-                const value = text;
-                setText("");
-                const r = await simulatorConcurrent(address, value);
-                return `Dos entregas simultáneas del mismo evento: ${r.map((o) => o.status).join(" y ")}.`;
-              })
-            }
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Enviar el texto dos veces a la vez
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(async () => `Reintentados: ${await simulatorRetry(address)}.`)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Reintentar fallidos
-          </button>
-          <button
-            type="button"
-            disabled={pending}
+            disabled={pending || !own}
             onClick={() => {
-              if (window.confirm("¿Reiniciar este número? Se desvincula su WhatsApp y se borra la conversación (solo datos de prueba).")) {
-                run(() => simulatorReset(address));
-              }
+              const n = saveOwn(newOwnNumber());
+              setOwn(n);
+              setAddress(n);
+              firstInstance.current = undefined;
+              setNotice("Número nuevo: empezás de cero, como otra persona.");
             }}
-            className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            Reiniciar este número
+            Usar un número nuevo
           </button>
-          {canResetDemo && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (window.confirm("¿Restablecer toda la demo? Se borra todo lo que se creó (usuarios, solicitudes, facturas, conversaciones) y se cierran las sesiones.")) {
-                  run(async () => {
-                    const message = await simulatorResetDemo();
-                    window.location.href = "/login?next=/dev/whatsapp";
-                    return message;
-                  });
-                }
-              }}
-              className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
-            >
-              Restablecer demo (todos los datos)
-            </button>
-          )}
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} />
-            Ver como un cliente sin botones (opciones numeradas)
-          </label>
         </div>
+
+        <details className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+          <summary className="cursor-pointer font-medium text-navy">Herramientas de prueba técnicas</summary>
+          <div className="mt-3 space-y-3">
+            <div>
+              <label htmlFor="fault" className={labelClass}>
+                Simular una falla del servidor
+              </label>
+              <select id="fault" value={fault} onChange={(e) => setFault(e.target.value as typeof fault)} className={inputClass}>
+                <option value="">Sin fallas</option>
+                <option value="antes">Falla antes de procesar el mensaje</option>
+                <option value="despues">Falla después de hacer la acción</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={pending || !lastInbound}
+                onClick={() =>
+                  run(async () => {
+                    // Si era una opción tocada o un archivo, el reenvío lleva lo mismo.
+                    const r = await simulatorSend(address!, lastInbound!.text, { repeatOf: lastInbound!.providerId });
+                    return r.outcome.status === "duplicado" ? "Evento duplicado: se descartó (no se procesó dos veces)." : `Resultado: ${r.outcome.status}`;
+                  })
+                }
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Reenviar el último mensaje (duplicado)
+              </button>
+              <button
+                type="button"
+                disabled={pending || !text.trim()}
+                onClick={() =>
+                  run(async () => {
+                    const value = text;
+                    setText("");
+                    const r = await simulatorConcurrent(address!, value);
+                    return `Dos entregas simultáneas del mismo evento: ${r.map((o) => o.status).join(" y ")}.`;
+                  })
+                }
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Enviar el texto dos veces a la vez
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(async () => `Reintentados: ${await simulatorRetry(address!)}.`)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Reintentar fallidos
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (window.confirm("¿Reiniciar este número? Se desvincula su WhatsApp y se borra la conversación (solo datos de prueba).")) {
+                    run(() => simulatorReset(address!));
+                  }
+                }}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                Reiniciar este número
+              </button>
+              {canResetDemo && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    if (window.confirm("¿Restablecer toda la demo? Se borra todo lo que se creó (usuarios, solicitudes, facturas, conversaciones) y se cierran las sesiones.")) {
+                      run(async () => {
+                        const message = await simulatorResetDemo();
+                        window.location.href = "/login?next=/dev/whatsapp";
+                        return message;
+                      });
+                    }
+                  }}
+                  className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+                >
+                  Restablecer demo (todos los datos)
+                </button>
+              )}
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} />
+                Ver como un cliente sin botones (opciones numeradas)
+              </label>
+            </div>
+          </div>
+        </details>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
           <p className="font-medium text-navy">Para revisar en la web</p>
