@@ -5,6 +5,7 @@ import type { MessagingTransport } from "@/providers/messaging";
 import { handleMessage } from "./engine";
 import { T } from "./copy";
 import { textMessage, type BotMessage } from "./ui";
+import { maybeCleanupUploads } from "./uploads";
 
 // Recepción de mensajes del canal, común al webhook de WhatsApp y al simulador local.
 // 1. El evento se guarda ANTES de procesarlo. El id del proveedor es único: un reenvío se descarta.
@@ -23,7 +24,7 @@ export type InboundInput = {
   text: string;
   choiceId?: string | null; // opción tocada (botón o fila de lista)
   uploadId?: string | null; // archivo ya validado y guardado (BotUpload)
-  uploadError?: string | null; // archivo rechazado: el motivo se le explica a la persona (no se guarda en el evento)
+  uploadError?: string | null; // archivo rechazado: el motivo se guarda en el evento para explicarlo también en un reintento
 };
 
 export type InboundOptions = {
@@ -81,7 +82,7 @@ async function deliver(address: string, replies: BotMessage[], inboundId: string
   }
 }
 
-async function processEvent(eventId: string, options: InboundOptions, uploadError?: string | null): Promise<InboundOutcome> {
+async function processEvent(eventId: string, options: InboundOptions): Promise<InboundOutcome> {
   const event = await prisma.inboundEvent.findUniqueOrThrow({ where: { id: eventId } });
   try {
     const upload = event.uploadId ? await prisma.botUpload.findUnique({ where: { id: event.uploadId } }) : null;
@@ -91,7 +92,7 @@ async function processEvent(eventId: string, options: InboundOptions, uploadErro
       text: event.body,
       choiceId: event.choiceId,
       upload: upload && upload.address === event.address ? { id: upload.id, fileName: upload.fileName } : null,
-      uploadError,
+      uploadError: event.uploadError,
       eventRef: event.id,
       origin: options.origin,
       fault: options.fault,
@@ -133,6 +134,7 @@ export async function receiveInbound(input: InboundInput, options: InboundOption
         body: input.text.slice(0, 4096),
         choiceId: input.choiceId?.slice(0, 256) ?? null,
         uploadId: input.uploadId ?? null,
+        uploadError: input.uploadError?.slice(0, 300) ?? null,
         status: "RECIBIDO",
       },
     });
@@ -141,11 +143,13 @@ export async function receiveInbound(input: InboundInput, options: InboundOption
     if ((err as { code?: string }).code === "P2002") return { status: "duplicado" };
     throw err;
   }
-  return serialize(address, () => processEvent(eventId, options, input.uploadError));
+  await maybeCleanupUploads();
+  return serialize(address, () => processEvent(eventId, options));
 }
 
 /** Reintenta eventos fallidos (o que quedaron sin procesar por una caída) con menos de MAX_ATTEMPTS intentos. */
 export async function retryPendingInbound(options: InboundOptions, limit = 20, provider?: InboundInput["provider"]): Promise<number> {
+  await maybeCleanupUploads();
   const stale = new Date(Date.now() - 60_000); // RECIBIDO hace más de un minuto: el proceso se cortó
   const events = await prisma.inboundEvent.findMany({
     where: {

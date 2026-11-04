@@ -74,7 +74,11 @@ En el simulador se tocan los botones de cada mensaje y, en las listas, el botón
 - **Desvincular WhatsApp** de Bruno → en el simulador, vuelve el saludo de persona sin vincular.
 - O bien **Suspender** a Bruno → "Tu acceso no está disponible…".
 
-**9. Reinicio**
+**9. Volver a empezar**
+
+Con **Reiniciar este número**, un número ficticio vuelve a quedar desvinculado y sin conversación.
+
+**10. Reinicio del servidor**
 
 Cortá `npm run dev`, volvé a levantarlo y recargá el simulador: la conversación y los datos siguen ahí.
 

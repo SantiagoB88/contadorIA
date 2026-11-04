@@ -47,3 +47,29 @@ export async function takeUpload(id: string | undefined, address: string): Promi
 export async function markUploadUsed(id: string | undefined) {
   if (id) await prisma.botUpload.updateMany({ where: { id, usedAt: null }, data: { usedAt: new Date() } });
 }
+
+/** Los archivos del bot se conservan este tiempo: alcanza para terminar un recorrido y para los reintentos. */
+export const UPLOAD_KEEP_HOURS = 24;
+
+/**
+ * Borra los archivos recibidos por el bot con más de UPLOAD_KEEP_HOURS horas, usados o no. Los servicios de la web
+ * guardan su propia copia al crear la solicitud, el mensaje o el pago: esta copia es solo de paso.
+ */
+export async function cleanupOldUploads(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - UPLOAD_KEEP_HOURS * 60 * 60 * 1000);
+  const rows = await prisma.botUpload.findMany({ where: { createdAt: { lt: cutoff } }, select: { id: true, storageKey: true }, take: 200 });
+  for (const row of rows) {
+    await storage.remove(row.storageKey).catch(() => undefined); // si ya no estaba, igual se borra el registro
+    await prisma.botUpload.delete({ where: { id: row.id } }).catch(() => undefined);
+  }
+  return rows.length;
+}
+
+// Se corre como mucho una vez por hora, aprovechando la llegada de mensajes (no hay un proceso periódico).
+const lastCleanup = globalThis as unknown as { botUploadCleanupAt?: number };
+export async function maybeCleanupUploads(): Promise<void> {
+  const now = Date.now();
+  if (lastCleanup.botUploadCleanupAt && now - lastCleanup.botUploadCleanupAt < 60 * 60 * 1000) return;
+  lastCleanup.botUploadCleanupAt = now;
+  await cleanupOldUploads().catch((err) => console.error("[bot] Falló la limpieza de archivos:", err instanceof Error ? err.message : err));
+}

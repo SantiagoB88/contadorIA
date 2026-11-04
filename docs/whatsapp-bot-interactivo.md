@@ -42,7 +42,10 @@ Código en `src/modules/bot/`:
 - **Archivos.**
   - Solo PDF, PNG y JPG, validados por contenido, igual que en la web.
   - Un archivo rechazado se explica y se repite el pedido vigente.
-  - Un archivo que llega sin que el bot lo espere queda en el almacenamiento privado sin asociarse a nada, y el bot explica dónde enviarlo. Todavía no hay una limpieza automática de esos archivos (pendiente).
+  - Un archivo que llega sin que el bot lo espere no se asocia a nada, y el bot explica dónde enviarlo.
+  - Los archivos que recibe el bot se borran a las 24 horas, usados o no. Al crear la solicitud, el mensaje o el pago, la web guarda su propia copia, así que lo enviado no se pierde. La limpieza corre como mucho una vez por hora, cuando llegan mensajes (no hay un proceso periódico).
+  - Si un borrador perdió su adjunto (pasaron más de 24 horas), al enviarlo el bot lo pide de nuevo en lugar de mandarlo sin él.
+  - El motivo de un archivo rechazado se guarda con el mensaje: si el mensaje se reintenta después de una caída, se vuelve a explicar.
 - **Seguridad.**
   - Nunca se pide la clave fiscal ni contraseñas.
   - Las notas internas y los documentos internos no llegan nunca al chat.
@@ -116,7 +119,7 @@ Fuente: documentación oficial de Cloud API, consultada el 04/11/2026.
 
 ## Guion de prueba manual (simulador)
 
-1. Cerrá cualquier `npm run dev` que esté usando `dev.db`, o probá sobre una base de prueba. El esquema cambió (`whatsapp-2`): al iniciar, la app actualiza la base. Las columnas y tablas nuevas no borran datos (probado sobre una copia de `dev.db`).
+1. Cerrá cualquier `npm run dev` que esté usando `dev.db`, o probá sobre una base de prueba. El esquema cambió (`whatsapp-3`): al iniciar, la app actualiza la base. Las columnas y tablas nuevas no borran datos (probado sobre una copia de `dev.db`).
 2. Abrí `http://localhost:3000/dev/whatsapp` (solo en la compu y en modo DEMO).
 3. **Persona nueva** (+54 9 11 5555-0003):
    - escribí *hola* y tocá *Conocer el servicio* y después *Quiero registrarme*;
@@ -138,12 +141,13 @@ Fuente: documentación oficial de Cloud API, consultada el 04/11/2026.
 8. Desde la web (admin), respondé esa solicitud: al chat llega el aviso con el número.
 9. Elegí **Facturación → Preparar factura → Otro contribuyente**: tiene que pedir resolver la factura a medio cargar.
 10. Tildá *Ver como un cliente sin botones*: las opciones se ven numeradas y responder con el número funciona.
-11. Elegí *Simular una falla* → "después de hacer la acción", confirmá una solicitud y tocá *Reintentar fallidos*: queda una sola.
+11. Para empezar de cero con un número de prueba, tocá **Reiniciar este número**: lo desvincula y borra su conversación. Es solo para los números ficticios.
+12. Elegí *Simular una falla* → "después de hacer la acción", confirmá una solicitud y tocá *Reintentar fallidos*: queda una sola.
 
 ## Resultados de las pruebas (04/11/2026)
 
 - `npm run typecheck` → OK.
-- `npm run verify` → **112/112 OK**. De esas, 25 son del bot:
+- `npm run verify` → **114/114 OK**. De esas, 27 son del bot:
   - alta con botones, pendiente y consulta sin contribuyente;
   - aprobación y menú completo;
   - vinculación con código;
@@ -168,12 +172,14 @@ Fuente: documentación oficial de Cloud API, consultada el 04/11/2026.
   - pago informado con archivo rechazado y aceptado;
   - retomar después de horas;
   - derivación al estudio;
-  - recurso ajeno forzado.
+  - recurso ajeno forzado;
+  - motivo de archivo rechazado en un reintento;
+  - limpieza de archivos a las 24 horas y borrador que pide de nuevo el adjunto perdido.
 - Pruebas en el navegador (Edge) contra la versión compilada (puerto 3300, base `e2e.db` recién sembrada) → **23/23 OK**:
   - recorrido completo tocando botones y listas, con adjunto, código S-XXXXXX en la Bandeja, aviso y respuesta;
   - opción vencida, duplicado, falla y reintento, y modo sin botones;
   - webhook con botones, listas, foto y audio en formato Meta.
-- La prueba en el navegador del alta usa el número +54 9 11 5555-0004. Si se vuelve a correr sobre la misma base sin volver a sembrarla, ese número ya está vinculado y la prueba falla. Hay que correrla sobre una base nueva.
+- Las pruebas del bot en el navegador se corrieron **8 veces seguidas sobre la misma base**, sin fallas. La de alta empieza con **Reiniciar este número**, un botón del simulador que desvincula el número ficticio y borra su conversación.
 
 ## Pendiente o no verificado
 
@@ -185,5 +191,4 @@ Fuente: documentación oficial de Cloud API, consultada el 04/11/2026.
 - **Recordatorios de vencimientos** no existen: no hay un proceso periódico. Por eso no se ofrecen en Avisos.
 - **Avisos fuera de la ventana de 24 h** requieren plantillas aprobadas por Meta (no implementado). El envío queda FALLIDO con su motivo.
 - **Rechazo simulado en la factura**: desde el bot no se ofrece; sí en la web.
-- **Archivo rechazado**: el motivo se informa en el primer intento. Si ese evento se reintenta después de una caída, el bot responde "no te entendí" y repite las opciones.
 - **El bot en Vercel no funciona**: cada instancia tiene su propia copia de la base. Hace falta una base compartida (PostgreSQL).

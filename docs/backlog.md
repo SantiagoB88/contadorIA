@@ -17,7 +17,7 @@
 - [ ] Solicitudes: búsqueda por texto y paginación en la bandeja (hoy muestra hasta 200)
 - [x] Bot de WhatsApp integrado: alta, vinculación, consultas, solicitudes, simulador y webhook
 - [x] WhatsApp: botones y listas, factura guiada, pago informado, documentos, derivación al estudio, retomar y opciones vencidas
-- [ ] WhatsApp: limpieza periódica de archivos recibidos que nunca se usaron (`BotUpload` sin `usedAt`)
+- [x] WhatsApp: limpieza de archivos recibidos por el bot (24 horas)
 - [ ] WhatsApp: recordatorios de vencimientos (necesita un proceso periódico y plantillas de Meta)
 - [ ] WhatsApp: evaluar WhatsApp Flows para formularios largos (requiere configuración en Meta)
 - [ ] WhatsApp: probar con el número de prueba de Meta (necesita cuenta de Meta for Developers y túnel)

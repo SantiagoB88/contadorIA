@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   simulatorConcurrent,
+  simulatorReset,
   simulatorRetry,
   simulatorSend,
   simulatorTranscript,
@@ -223,6 +224,18 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Reintentar fallidos
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              if (window.confirm("¿Reiniciar este número? Se desvincula su WhatsApp y se borra la conversación (solo datos de prueba).")) {
+                run(() => simulatorReset(address));
+              }
+            }}
+            className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+          >
+            Reiniciar este número
           </button>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} />

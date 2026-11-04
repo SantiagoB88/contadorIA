@@ -556,6 +556,13 @@ on(
       return showMenu(ctx);
     }
     const file = await takeUpload(d.uploadId, ctx.address);
+    if (d.uploadId && !file) {
+      // El adjunto ya no está (se guarda 24 horas): se pide de nuevo en lugar de enviar sin él.
+      delete d.uploadId;
+      delete d.uploadName;
+      ctx.say("No encuentro el archivo que habías adjuntado (pasó mucho tiempo). Mandalo de nuevo o seguí sin adjunto.");
+      return actions["s.adjuntar"](ctx);
+    }
     const result = await createRequest(
       ctx.user,
       {

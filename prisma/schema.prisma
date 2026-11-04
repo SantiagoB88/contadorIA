@@ -486,6 +486,7 @@ model InboundEvent {
   body        String // texto recibido (no se registra en logs)
   choiceId    String? // id de la opción tocada (botón o fila de lista)
   uploadId    String? // adjunto recibido (BotUpload)
+  uploadError String? // adjunto recibido pero rechazado: motivo para explicarlo (también en un reintento)
   status      String // RECIBIDO | PROCESADO | FALLIDO
   attempts    Int       @default(0)
   lastError   String?

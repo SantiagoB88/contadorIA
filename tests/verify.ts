@@ -37,10 +37,10 @@ import { receiveInbound, retryPendingInbound } from "@/modules/bot/inbound";
 import { consumeBotInvite, createWebLinkCode, getActiveLink, listStudyLinks, unlinkChannel } from "@/modules/bot/links";
 import { simulatorTransport, type MessagingTransport } from "@/providers/messaging";
 import { buttonsMessage, choicesOf, fallbackText, listMessage, type BotMessage } from "@/modules/bot/ui";
-import { saveBotUpload } from "@/modules/bot/uploads";
+import { cleanupOldUploads, saveBotUpload, UPLOAD_KEEP_HOURS } from "@/modules/bot/uploads";
 import { requestCode } from "@/modules/bot/notify";
 import { MAX_FILE_BYTES } from "@/lib/constants";
-import { LocalFileStorage, storageDir } from "@/providers/storage";
+import { LocalFileStorage, storage, storageDir } from "@/providers/storage";
 import {
   checkFile,
   checkFiles,
@@ -1322,6 +1322,40 @@ async function main() {
     assert.match((await say(ANA_WA, "Además tengo una duda con la cuota")).text, /Agregué tu mensaje a la solicitud/);
     assert.ok((await prisma.requestMessage.findMany({ where: { requestId: req.id } })).some((m) => m.body.includes("Además tengo una duda")));
     assert.match((await tap(ANA_WA, "Volver al asistente")).text, /¿Qué necesitás\?/);
+  });
+  await check("26. archivo rechazado: el motivo se guarda y se explica también si el mensaje se reintenta", async () => {
+    await say(NUEVO, "menu");
+    const id = "verify-archivo-rechazado";
+    const first = await send(NUEVO, { uploadError: "el tipo de archivo no está permitido." }, { id, fault: "antes" });
+    assert.equal(first.outcome.status, "fallido");
+    const event = await prisma.inboundEvent.findFirstOrThrow({ where: { providerId: id } });
+    assert.equal(event.uploadError, "el tipo de archivo no está permitido.");
+    await retryPendingInbound({ transport: simulatorTransport, origin: botOrigin }, 20, "SIMULADOR");
+    const reply = await prisma.outboundMessage.findFirstOrThrow({ where: { inboundId: event.id, body: { contains: "No pude recibir el archivo" } } });
+    assert.match(reply.body, /el tipo de archivo no está permitido/);
+  });
+  await check("27. los archivos del bot se borran a las 24 horas; un borrador sin su adjunto lo pide de nuevo", async () => {
+    await useTaxpayer(ANA_WA, "Ana Gómez");
+    await tap(ANA_WA, "Mis solicitudes");
+    await tap(ANA_WA, "Crear solicitud");
+    await pickTopic(ANA_WA, "Otra consulta");
+    await say(ANA_WA, "Consulta con adjunto viejo");
+    await tap(ANA_WA, "Adjuntar archivo");
+    await sendFile(ANA_WA, pdfFile("viejo.pdf"));
+    const upload = await prisma.botUpload.findFirstOrThrow({ where: { fileName: "viejo.pdf" } });
+    assert.ok(await storage.get(upload.storageKey));
+    // Recién subido no se borra; con más de 24 horas, sí (archivo y registro).
+    assert.equal(await cleanupOldUploads(new Date()), 0);
+    assert.ok((await cleanupOldUploads(new Date(Date.now() + (UPLOAD_KEEP_HOURS + 1) * 60 * 60 * 1000))) >= 1);
+    assert.equal(await prisma.botUpload.findUnique({ where: { id: upload.id } }), null);
+    assert.equal(await storage.get(upload.storageKey), null);
+    const before = await prisma.serviceRequest.count();
+    const r = await tap(ANA_WA, "Enviar al estudio");
+    assert.match(r.text, /No encuentro el archivo que habías adjuntado/);
+    assert.equal(await prisma.serviceRequest.count(), before);
+    await tap(ANA_WA, "Sin adjunto");
+    assert.match((await tap(ANA_WA, "Enviar al estudio")).text, /quedó enviada al estudio/);
+    assert.equal(await prisma.serviceRequest.count(), before + 1);
   });
   await check("25. recursos ajenos: aunque se fuerce una opción con el id de otra persona, no se muestran", async () => {
     const ajena = await createRequest(clienteB, { taxpayerId: bruno.id, topic: "OTRO", subject: "Solicitud privada de Bruno", body: "Privado" }, [], botOrigin);

@@ -57,8 +57,13 @@ async function pick(page: Page, row: string, expectReply: RegExp) {
   await act(
     page,
     async () => {
-      await conversation(page).getByRole("button", { name: /^☰/ }).last().click();
-      await conversation(page).getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last().click();
+      // La lista se abre con ☰; si un refresco del chat la cerró antes de ver la fila, se vuelve a abrir.
+      const option = conversation(page).getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last();
+      await expect(async () => {
+        if (!(await option.isVisible())) await conversation(page).getByRole("button", { name: /^☰/ }).last().click();
+        await expect(option).toBeVisible({ timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
+      await option.click();
     },
     expectReply,
   );
@@ -74,6 +79,11 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   // 1. Una persona nueva le escribe al bot (número ficticio del simulador) y elige con botones.
   await page.goto("/dev/whatsapp");
   await page.getByLabel("Quién escribe").selectOption("+5491155550004");
+  // Se puede repetir sobre la misma base: el número ficticio arranca desvinculado y sin conversación.
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Reiniciar este número" }).click();
+  await expect(page.getByText(/Número reiniciado/)).toBeVisible();
+  await expect(conversation(page).getByText(/Todavía no hay mensajes/)).toBeVisible();
   await chat(page, "hola", /¿Cómo querés empezar\?/);
   await tap(page, "Quiero registrarme", /Creá tu cuenta/);
   const inviteText = await conversation(page).getByText(/vincular\?t=/).last().innerText();

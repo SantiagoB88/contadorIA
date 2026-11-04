@@ -244,17 +244,19 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - Cerrar solicitud por el cliente: `closeByClient`.
 - **Archivos por el bot**: tabla `BotUpload`, validados igual que en la web.
 - **Avisos**: preferencias reales (`NotificationPreference`) solo para los dos avisos que existen.
-- **Esquema** `whatsapp-2`:
+- **Esquema** `whatsapp-3`:
   - `ServiceRequest.taxpayerId` opcional, para la consulta de alta sin contribuyente;
   - `OutboundMessage.payload`;
-  - `InboundEvent.choiceId` / `uploadId`;
+  - `InboundEvent.choiceId` / `uploadId` / `uploadError`;
   - `BotUpload`;
   - `NotificationPreference`.
   Probado sobre una copia de `dev.db`: sin avisos y conserva las 201 facturas.
+- **Archivos del bot**: se borran a las 24 horas (la web guarda su propia copia) y el motivo de un rechazo se guarda con el mensaje.
+- **Simulador**: botón **Reiniciar este número** para volver a empezar con un número ficticio.
 - **Web**: número de solicitud visible (S-XXXXXX), el mismo en la Bandeja, el detalle, los avisos y el bot.
 - **Pruebas**:
-  - `npm run verify` **112/112 OK** (25 del bot);
-  - en el navegador contra la versión compilada, **23/23 OK**;
+  - `npm run verify` **114/114 OK** (27 del bot);
+  - en el navegador contra la versión compilada, **23/23 OK**, y las del bot 8 veces seguidas sobre la misma base;
   - `npm run typecheck` OK;
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.

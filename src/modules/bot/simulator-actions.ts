@@ -33,14 +33,16 @@ export async function simulatorSend(
   const providerId = opts.repeatOf ?? `sim-${randomUUID()}`;
   let choiceId = opts.choiceId ?? null;
   let uploadId: string | null = null;
+  let uploadError: string | null = null;
   if (opts.repeatOf) {
     // Un reenvío lleva exactamente lo mismo que el original.
     const original = await prisma.inboundEvent.findUnique({ where: { provider_providerId: { provider: "SIMULADOR", providerId: opts.repeatOf } } });
     choiceId = original?.choiceId ?? choiceId;
     uploadId = original?.uploadId ?? null;
+    uploadError = original?.uploadError ?? null;
   }
   const outcome = await receiveInbound(
-    { provider: "SIMULADOR", providerId, rawAddress: address.replace(/^\+/, ""), text, choiceId, uploadId },
+    { provider: "SIMULADOR", providerId, rawAddress: address.replace(/^\+/, ""), text, choiceId, uploadId, uploadError },
     { transport: simulatorTransport, origin: await getOrigin(), fault: opts.fault },
   );
   return { outcome, providerId };
@@ -74,6 +76,33 @@ export async function simulatorConcurrent(address: string, text: string, choiceI
   const options = { transport: simulatorTransport, origin: await getOrigin() };
   const input = { provider: "SIMULADOR" as const, providerId, rawAddress: address.replace(/^\+/, ""), text, choiceId: choiceId ?? null };
   return Promise.all([receiveInbound(input, options), receiveInbound(input, options)]);
+}
+
+/**
+ * Deja un número ficticio como recién llegado: desvincula su WhatsApp (con registro en la auditoría) y borra su
+ * conversación y su historial de mensajes. Solo para los números del simulador.
+ */
+export async function simulatorReset(address: string): Promise<string> {
+  guard(address);
+  const links = await prisma.channelLink.findMany({ where: { address, status: "ACTIVO" } });
+  for (const link of links) {
+    await prisma.$transaction([
+      prisma.channelLink.update({
+        where: { id: link.id },
+        data: { status: "DESVINCULADO", activeKey: null, unlinkedAt: new Date(), unlinkReason: "Reinicio del simulador (DEMO)" },
+      }),
+      prisma.auditEvent.create({
+        data: { studyId: link.studyId, actorId: null, action: "CHANNEL_UNLINK", entity: "User", entityId: link.userId, detail: "Reinicio del simulador (DEMO)" },
+      }),
+    ]);
+  }
+  await prisma.$transaction([
+    prisma.botConversation.deleteMany({ where: { address } }),
+    prisma.outboundMessage.deleteMany({ where: { address } }),
+    prisma.inboundEvent.deleteMany({ where: { address } }),
+    prisma.linkCode.deleteMany({ where: { address } }),
+  ]);
+  return links.length ? "Número reiniciado: se desvinculó y se borró la conversación." : "Número reiniciado: se borró la conversación.";
 }
 
 /** Reintenta los eventos del simulador que quedaron fallidos. */
