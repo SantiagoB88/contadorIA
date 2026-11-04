@@ -14,9 +14,13 @@
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts --reset",
     "db:studio": "prisma studio",
     "dev:test": "node scripts/dev-test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "turso:prepare": "node scripts/turso-prepare.mjs",
+    "verify:turso": "node scripts/verify.mjs --turso"
   },
   "dependencies": {
+    "@libsql/client": "0.8.1",
+    "@prisma/adapter-libsql": "6.19.3",
     "@prisma/client": "6.19.3",
     "bcryptjs": "3.0.3",
     "libphonenumber-js": "1.13.15",

@@ -5,6 +5,7 @@ import { logoutAction } from "@/app/actions";
 import { AppNav, MobileNav } from "@/components/AppNav";
 import { DemoBanner } from "@/components/DemoBanner";
 import { BrandMark } from "@/components/ui";
+import { simulatorEnabled } from "@/modules/bot/simulator-config";
 
 // Todas las pantallas internas dependen de la sesión: nunca se cachean entre usuarios.
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const isAdmin = user.role === ROLES.ADMIN;
+  const showBot = simulatorEnabled();
 
   const logout = (
     <form action={logoutAction}>
@@ -46,7 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
             <span className="font-semibold">ContadorSmart</span>
           </Link>
-          <AppNav isAdmin={isAdmin} />
+          <AppNav isAdmin={isAdmin} showBot={showBot} />
           <div className="mt-auto border-t border-white/15 pt-4">
             <p className="truncate px-2 text-sm font-medium text-white">{user.name}</p>
             <p className="truncate px-2 text-xs text-slate-300">
@@ -66,6 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </Link>
               <MobileNav
                 isAdmin={isAdmin}
+                showBot={showBot}
                 logout={logout}
                 account={
                   <>

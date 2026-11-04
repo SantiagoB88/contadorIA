@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   simulatorConcurrent,
   simulatorReset,
+  simulatorResetDemo,
   simulatorRetry,
   simulatorSend,
   simulatorTranscript,
@@ -101,7 +102,7 @@ function Interactive({ message, disabled, onChoose }: { message: BotMessage; dis
   );
 }
 
-export function SimulatorClient({ identities }: { identities: Identity[] }) {
+export function SimulatorClient({ identities, canResetDemo = false }: { identities: Identity[]; canResetDemo?: boolean }) {
   const [address, setAddress] = useState(identities[0].address);
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [text, setText] = useState("");
@@ -237,6 +238,24 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
           >
             Reiniciar este número
           </button>
+          {canResetDemo && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (window.confirm("¿Restablecer toda la demo? Se borra todo lo que se creó (usuarios, solicitudes, facturas, conversaciones) y se cierran las sesiones.")) {
+                  run(async () => {
+                    const message = await simulatorResetDemo();
+                    window.location.href = "/login?next=/dev/whatsapp";
+                    return message;
+                  });
+                }
+              }}
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+            >
+              Restablecer demo (todos los datos)
+            </button>
+          )}
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} />
             Ver como un cliente sin botones (opciones numeradas)

@@ -1,14 +1,20 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { ROLES } from "@/lib/constants";
 import { DemoBanner } from "@/components/DemoBanner";
 import { SIMULATOR_IDENTITIES, simulatorEnabled } from "@/modules/bot/simulator-config";
 import { SimulatorClient } from "./SimulatorClient";
 
 export const metadata = { title: "Simulador de WhatsApp · ContadorSmart" };
 export const dynamic = "force-dynamic";
+// Restablecer la demo sobre la base compartida (Turso) puede tardar más que una página común.
+export const maxDuration = 120;
 
-/** Simulador local del bot. Solo existe en modo DEMO y fuera de producción: en cualquier otro caso da 404. */
-export default function WhatsAppSimulatorPage() {
+/** Simulador del bot. Solo existe en modo DEMO (en la compu o en la demo de Vercel con Turso); si no, da 404. */
+export default async function WhatsAppSimulatorPage() {
   if (!simulatorEnabled()) notFound();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/dev/whatsapp");
   return (
     <div className="flex min-h-screen flex-col">
       <DemoBanner />
@@ -18,7 +24,7 @@ export default function WhatsAppSimulatorPage() {
           Reemplaza solo a WhatsApp: cada mensaje entra por la misma recepción y el mismo motor que el webhook real, contra la
           misma base. Lo que hagas acá se ve en la web (Bandeja, Accesos, Mi perfil). Solo usa números ficticios.
         </p>
-        <SimulatorClient identities={SIMULATOR_IDENTITIES.map((i) => ({ address: i.address, label: i.label }))} />
+        <SimulatorClient identities={SIMULATOR_IDENTITIES.map((i) => ({ address: i.address, label: i.label }))} canResetDemo={user.role === ROLES.ADMIN} />
       </main>
     </div>
   );

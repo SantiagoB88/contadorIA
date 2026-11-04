@@ -261,6 +261,28 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
 
+## Demo de Vercel con Turso y simulador desde la web ✅ (rama `feat/whatsapp-bot`, sin publicar)
+
+Guía: `docs/vercel-turso.md`.
+
+- **Base compartida**: con `TURSO_DATABASE_URL`, Prisma se conecta con el adaptador libSQL (`@prisma/adapter-libsql` 6.19.3 + `@libsql/client` 0.8.1, con `intMode: "bigint"` para que los importes grandes vuelvan exactos). El esquema sigue siendo SQLite.
+- **Archivos**: con Turso van a la tabla `StoredFile` (`DatabaseFileStorage`). En la compu siguen en `storage/`.
+- **Sesiones**: con Turso vuelven a la base, como en la compu. La cookie firmada queda solo para la demo sin Turso.
+- **Preparación**: `scripts/turso-prepare.mjs` corre en el deploy de producción. Si el esquema no cambió, conserva los datos; si cambió, recrea las tablas y carga la demo. Las vistas previas no tocan la base.
+- **Datos de demo**: pasaron a `src/modules/demo/seed-data.ts` (`prisma/seed.ts` los llama). La limpieza ahora incluye las tablas del bot.
+- **Simulador**:
+  - se habilita en Vercel solo con Turso;
+  - pide una sesión iniciada (también en la compu);
+  - se abre desde el menú con **Probar bot de WhatsApp (DEMO)**, en otra pestaña;
+  - un administrador tiene **Restablecer demo (todos los datos)**.
+- **Esquema** `turso-1` (tabla `StoredFile`). Probado sobre una copia de `dev.db`.
+- **Pruebas**:
+  - `npm run verify` 114/114 y `npm run verify:turso` 114/114 (las mismas, conectadas por el adaptador de Turso a una base libSQL local);
+  - en el navegador, en modo local 24 pruebas: 23 pasaron y 1 falló de forma intermitente (ver abajo);
+  - en modo Vercel + Turso (`VERCEL=1`, base libSQL local), 24/24.
+- **No probado**: con una base Turso real en internet ni en Vercel; hace falta la cuenta (pasos en la guía).
+- **Falla intermitente que ya existía**: la prueba visual de Movimientos a veces registra el error de hidratación de React #418 (1 de cada 4 corridas). La causa probable es el `<noscript>` dentro del selector de contribuyente (componente de cliente). No tiene relación con el bot; anotado en el backlog.
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK

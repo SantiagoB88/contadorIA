@@ -2,7 +2,10 @@ import { copyFileSync, cpSync, existsSync, linkSync, mkdirSync, renameSync, rmSy
 import os from "node:os";
 import path from "node:path";
 
-// Demo en Vercel sin servicios externos.
+// Demo en Vercel. Dos variantes:
+// - Con TURSO_DATABASE_URL (recomendada): una base compartida en Turso. Todas las instancias ven los mismos datos,
+//   así que se puede usar el bot (simulador incluido) y lo que se crea no desaparece. Ver docs/vercel-turso.md.
+// - Sin servicios externos (lo que sigue):
 // Al compilar en Vercel (scripts/vercel-prepare.mjs) se arma una base de demo (prisma/demo.db) y sus archivos
 // (demo-storage/), que viajan dentro del deploy. Ahí el disco del proyecto es de solo lectura, así que al arrancar
 // se copian a la carpeta temporal y se trabaja sobre esa copia. Es una demo: cuando Vercel recicla la instancia,
@@ -12,7 +15,10 @@ import path from "node:path";
 // Next carga este archivo más de una vez en el mismo servidor (páginas, acciones y rutas): la decisión se toma
 // una sola vez y se comparte, así todas las partes usan la misma base y la misma carpeta de archivos.
 const shared = globalThis as unknown as { contadorSmartDemo?: boolean };
-shared.contadorSmartDemo ??= Boolean(process.env.VERCEL) && !process.env.DATABASE_URL;
+shared.contadorSmartDemo ??= Boolean(process.env.VERCEL) && !process.env.DATABASE_URL && !process.env.TURSO_DATABASE_URL;
+
+/** Base compartida en Turso (libSQL): la usan todas las instancias. */
+export const usesTursoDb = Boolean(process.env.TURSO_DATABASE_URL);
 
 /** Corre en Vercel y no se configuró una base propia: se usa la de demo incluida en el deploy. */
 export const usesBundledDemo = shared.contadorSmartDemo;

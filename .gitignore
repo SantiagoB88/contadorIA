@@ -26,3 +26,6 @@ demo-storage/
 
 # Repositorios externos de referencia (no se suben)
 externo/
+prisma/verify-turso.db*
+prisma/e2e-turso.db*
+prisma/turso-local.db*

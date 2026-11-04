@@ -556,3 +556,11 @@ model NotificationPreference {
 
   @@unique([userId, channel, type])
 }
+
+// Archivos guardados dentro de la base. Solo se usa con la base compartida de Turso (demo en Vercel); en la compu los
+// archivos van a la carpeta storage/. La clave es la misma que guarda Document.storageKey / BotUpload.storageKey.
+model StoredFile {
+  key       String   @id
+  bytes     Bytes
+  createdAt DateTime @default(now())
+}

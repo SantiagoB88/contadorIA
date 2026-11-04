@@ -40,7 +40,8 @@ import { buttonsMessage, choicesOf, fallbackText, listMessage, type BotMessage }
 import { cleanupOldUploads, saveBotUpload, UPLOAD_KEEP_HOURS } from "@/modules/bot/uploads";
 import { requestCode } from "@/modules/bot/notify";
 import { MAX_FILE_BYTES } from "@/lib/constants";
-import { LocalFileStorage, storage, storageDir } from "@/providers/storage";
+import { DatabaseFileStorage, LocalFileStorage, storage, storageDir } from "@/providers/storage";
+import { usesTursoDb } from "@/lib/vercel-demo";
 import {
   checkFile,
   checkFiles,
@@ -675,7 +676,8 @@ async function main() {
     const checked = checkFile(pdfFile("x.pdf", "persistencia"));
     assert.ok(checked.ok);
     const [stored] = await storeFiles([checked.file]);
-    const again = new LocalFileStorage(storageDir);
+    // Otra instancia: un almacenamiento nuevo del mismo tipo (carpeta en la compu, la base con Turso).
+    const again = usesTursoDb ? new DatabaseFileStorage() : new LocalFileStorage(storageDir);
     const bytes = await again.get(stored.storageKey);
     assert.ok(bytes && Buffer.from(bytes).equals(Buffer.from(pdfBytes("persistencia"))));
     assert.equal(createHash("sha256").update(bytes!).digest("hex"), stored.sha256);

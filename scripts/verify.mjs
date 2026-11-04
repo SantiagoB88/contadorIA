@@ -12,6 +12,17 @@ const env = { ...process.env, DATABASE_URL: "file:./verify.db", STORAGE_DIR: sto
 const run = (cmd) => execSync(cmd, { cwd: root, stdio: "inherit", env });
 
 // Se borra solo el archivo de prueba de corridas anteriores y se crea vacío con el esquema actual.
+// `npm run verify:turso`: las mismas verificaciones con la app conectada por el adaptador de Turso (libSQL), sobre una
+// base libSQL local aparte (prisma/verify-turso.db). Comprueba que la demo de Vercel con Turso se comporta igual.
+if (process.argv.includes("--turso")) {
+  const tursoEnv = { ...process.env, TURSO_DATABASE_URL: "file:prisma/verify-turso.db" };
+  delete tursoEnv.TURSO_AUTH_TOKEN;
+  rmSync(path.join(root, "prisma", "verify-turso.db"), { force: true });
+  execSync("node scripts/turso-prepare.mjs", { cwd: root, stdio: "inherit", env: tursoEnv });
+  execSync("npx tsx tests/verify.ts", { cwd: root, stdio: "inherit", env: tursoEnv });
+  process.exit(0);
+}
+
 for (const file of ["verify.db", "verify.db-journal"]) {
   rmSync(path.join(root, "prisma", file), { force: true });
 }

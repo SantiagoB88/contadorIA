@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-type Item = { href: string; label: string; exact?: boolean };
+type Item = { href: string; label: string; exact?: boolean; newTab?: boolean };
 
-function navItems(isAdmin: boolean): Item[] {
+function navItems(isAdmin: boolean, showBot: boolean): Item[] {
   return [
     { href: "/dashboard", label: "Inicio", exact: true },
     { href: "/dashboard/movimientos", label: "Movimientos" },
@@ -24,6 +24,8 @@ function navItems(isAdmin: boolean): Item[] {
         ]
       : []),
     { href: "/perfil", label: "Mi perfil" },
+    // Simulador del bot de WhatsApp: solo en la demo (se abre aparte para probarlo al lado de la web).
+    ...(showBot ? [{ href: "/dev/whatsapp", label: "Probar bot de WhatsApp (DEMO)", newTab: true }] : []),
   ];
 }
 
@@ -53,6 +55,20 @@ function NavLinks({ items, pathname, tone }: { items: Item[]; pathname: string; 
     <>
       {items.map((item) => {
         const active = isActive(item, pathname);
+        if (item.newTab) {
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              className={`rounded-lg px-3 py-2 text-sm font-medium ${style.focus} ${style.idle}`}
+            >
+              {item.label} <span aria-hidden="true">↗</span>
+              <span className="sr-only"> (se abre en otra pestaña)</span>
+            </a>
+          );
+        }
         return (
           <Link
             key={item.href}
@@ -69,20 +85,30 @@ function NavLinks({ items, pathname, tone }: { items: Item[]; pathname: string; 
 }
 
 /** Menú lateral de escritorio. */
-export function AppNav({ isAdmin }: { isAdmin: boolean }) {
+export function AppNav({ isAdmin, showBot = false }: { isAdmin: boolean; showBot?: boolean }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Navegación principal" className="flex flex-col gap-1">
-      <NavLinks items={navItems(isAdmin)} pathname={pathname} tone="dark" />
+      <NavLinks items={navItems(isAdmin, showBot)} pathname={pathname} tone="dark" />
     </nav>
   );
 }
 
 /** Celular y tablet: un botón "Menú" que despliega todas las secciones, la cuenta y el cierre de sesión. */
-export function MobileNav({ isAdmin, account, logout }: { isAdmin: boolean; account: React.ReactNode; logout: React.ReactNode }) {
+export function MobileNav({
+  isAdmin,
+  showBot = false,
+  account,
+  logout,
+}: {
+  isAdmin: boolean;
+  showBot?: boolean;
+  account: React.ReactNode;
+  logout: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = navItems(isAdmin);
+  const items = navItems(isAdmin, showBot);
   const current = items.find((i) => isActive(i, pathname))?.label;
 
   // Al cambiar de pantalla, el menú se cierra.

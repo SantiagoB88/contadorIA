@@ -32,11 +32,13 @@ El bot está adentro de la web y usa los mismos datos, permisos y cálculos que 
 - **Con WhatsApp real**: con el número de prueba de Meta y un túnel, siguiendo `docs/whatsapp-prueba-real.md`.
 - **Contratos y reglas**: en `docs/whatsapp-contratos.md`.
 
-El bot no funciona en la demo de Vercel: cada instancia tiene su propia copia de la base. Hace falta una base compartida.
+En la demo de Vercel, el bot y su simulador funcionan con la base compartida de Turso (ver `docs/vercel-turso.md`). Sin Turso, el simulador no aparece.
 
 ## Demo online en Vercel
 
-La app se puede publicar en Vercel como demo, sin bases de datos ni servicios externos.
+**Recomendado: con la base compartida de Turso.** Así funcionan el simulador del bot y todo lo que se crea en la demo. Los pasos están en `docs/vercel-turso.md`: crear la base y cargar `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` en Vercel.
+
+Sin Turso, la app también se puede publicar como demo, sin bases de datos ni servicios externos:
 
 1. En Vercel: **Add New → Project**, elegí el repositorio y tocá **Create Project**. No hace falta configurar variables ni cambiar nada.
 2. Listo. Cada vez que se sube un cambio a `main`, Vercel vuelve a publicar solo.

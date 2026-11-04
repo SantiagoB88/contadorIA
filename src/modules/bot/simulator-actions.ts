@@ -3,6 +3,9 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { getOrigin } from "@/lib/origin";
+import { getCurrentUser } from "@/lib/auth";
+import { ROLES } from "@/lib/constants";
+import { seedDemo } from "@/modules/demo/seed-data";
 import { simulatorTransport } from "@/providers/messaging";
 import { receiveInbound, retryPendingInbound, type InboundOutcome } from "./inbound";
 import { isSimulatorAddress, simulatorEnabled } from "./simulator-config";
@@ -13,8 +16,11 @@ import type { BotMessage } from "./ui";
 // recepción (guardado, deduplicación, cola por número) y el mismo motor que usa el webhook real, contra la
 // misma base. Solo en modo DEMO fuera de producción y solo con los números ficticios del simulador.
 
-function guard(address: string) {
+// Cada acción vuelve a validar: entorno, sesión iniciada y número ficticio. La sesión de la web no decide quién
+// escribe en el chat (eso lo da el número ficticio, como en WhatsApp); solo impide usar el simulador sin ingresar.
+async function guard(address: string) {
   if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
+  if (!(await getCurrentUser())) throw new Error("Ingresá a la web para usar el simulador.");
   if (!isSimulatorAddress(address)) throw new Error("El simulador solo acepta sus números de prueba.");
 }
 
@@ -29,7 +35,7 @@ export async function simulatorSend(
   text: string,
   opts: { choiceId?: string; repeatOf?: string; fault?: "antes" | "despues" } = {},
 ): Promise<SimulatorResult> {
-  guard(address);
+  await guard(address);
   const providerId = opts.repeatOf ?? `sim-${randomUUID()}`;
   let choiceId = opts.choiceId ?? null;
   let uploadId: string | null = null;
@@ -50,7 +56,7 @@ export async function simulatorSend(
 
 /** Envía un archivo (foto o PDF) como si llegara por WhatsApp. Se valida igual que en el webhook. */
 export async function simulatorUpload(address: string, form: FormData): Promise<SimulatorResult> {
-  guard(address);
+  await guard(address);
   const file = form.get("file");
   if (!(file instanceof File)) throw new Error("Elegí un archivo.");
   const caption = String(form.get("caption") ?? "");
@@ -71,7 +77,7 @@ export async function simulatorUpload(address: string, form: FormData): Promise<
 
 /** Dos entregas simultáneas del mismo evento: debe procesarse una sola vez. */
 export async function simulatorConcurrent(address: string, text: string, choiceId?: string): Promise<InboundOutcome[]> {
-  guard(address);
+  await guard(address);
   const providerId = `sim-${randomUUID()}`;
   const options = { transport: simulatorTransport, origin: await getOrigin() };
   const input = { provider: "SIMULADOR" as const, providerId, rawAddress: address.replace(/^\+/, ""), text, choiceId: choiceId ?? null };
@@ -83,7 +89,7 @@ export async function simulatorConcurrent(address: string, text: string, choiceI
  * conversación y su historial de mensajes. Solo para los números del simulador.
  */
 export async function simulatorReset(address: string): Promise<string> {
-  guard(address);
+  await guard(address);
   const links = await prisma.channelLink.findMany({ where: { address, status: "ACTIVO" } });
   for (const link of links) {
     await prisma.$transaction([
@@ -105,9 +111,22 @@ export async function simulatorReset(address: string): Promise<string> {
   return links.length ? "Número reiniciado: se desvinculó y se borró la conversación." : "Número reiniciado: se borró la conversación.";
 }
 
+/**
+ * Vuelve toda la demo a los datos de ejemplo: borra lo que se creó (usuarios nuevos, solicitudes, facturas, archivos,
+ * conversaciones) y carga los datos iniciales. Solo un administrador y solo donde existe el simulador (modo DEMO).
+ * Cierra todas las sesiones, la propia también.
+ */
+export async function simulatorResetDemo(): Promise<string> {
+  if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
+  const user = await getCurrentUser();
+  if (!user || user.role !== ROLES.ADMIN) throw new Error("Solo un administrador puede restablecer la demo.");
+  await seedDemo({ reset: true });
+  return "Demo restablecida con los datos de ejemplo. Volvé a ingresar.";
+}
+
 /** Reintenta los eventos del simulador que quedaron fallidos. */
 export async function simulatorRetry(address: string): Promise<number> {
-  guard(address);
+  await guard(address);
   return retryPendingInbound({ transport: simulatorTransport, origin: await getOrigin() }, 20, "SIMULADOR");
 }
 
@@ -125,7 +144,7 @@ export type TranscriptItem = {
 
 /** Conversación del número, leída de la base (sobrevive a reinicios del servidor). */
 export async function simulatorTranscript(address: string): Promise<TranscriptItem[]> {
-  guard(address);
+  await guard(address);
   const [inbound, outbound] = await Promise.all([
     prisma.inboundEvent.findMany({ where: { address }, orderBy: { receivedAt: "asc" }, take: 200 }),
     prisma.outboundMessage.findMany({ where: { address }, orderBy: { createdAt: "asc" }, take: 300 }),

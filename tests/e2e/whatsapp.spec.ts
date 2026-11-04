@@ -77,6 +77,7 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   const name = `Monotributista WA ${id}`;
 
   // 1. Una persona nueva le escribe al bot (número ficticio del simulador) y elige con botones.
+  await login(page, USERS.admin); // el simulador pide una sesión iniciada
   await page.goto("/dev/whatsapp");
   await page.getByLabel("Quién escribe").selectOption("+5491155550004");
   // Se puede repetir sobre la misma base: el número ficticio arranca desvinculado y sin conversación.
@@ -186,6 +187,14 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
 });
 
 test("opción vencida, evento duplicado, falla del servidor y modo sin botones", async ({ page }) => {
+  // Sin sesión, el simulador manda a ingresar; desde la dashboard se abre con el acceso del menú.
+  await page.context().clearCookies();
+  await page.goto("/dev/whatsapp");
+  await page.waitForURL(/\/login\?next=%2Fdev%2Fwhatsapp|\/login\?next=\/dev\/whatsapp/, { waitUntil: "commit" });
+  await login(page, USERS.admin);
+  const botLink = page.getByRole("link", { name: /Probar bot de WhatsApp \(DEMO\)/ }).first();
+  await expect(botLink).toHaveAttribute("href", "/dev/whatsapp");
+  await expect(botLink).toHaveAttribute("target", "_blank");
   await page.goto("/dev/whatsapp");
   await page.getByLabel("Quién escribe").selectOption("+5491155550001");
   // Ana tiene varios contribuyentes: elige uno desde la lista.
@@ -225,4 +234,21 @@ test("opción vencida, evento duplicado, falla del servidor y modo sin botones",
   await page.getByLabel("Ver como un cliente sin botones (opciones numeradas)").check();
   await lastReply(page, /1\. Este mes/);
   await chat(page, "1", /Resumen de Ana Gómez/);
+});
+
+test("restablecer la demo: solo el administrador; vuelve a los datos de ejemplo", async ({ page }) => {
+  // Un cliente no ve el botón.
+  await login(page, USERS.clienteA);
+  await page.goto("/dev/whatsapp");
+  await expect(page.getByRole("button", { name: "Restablecer demo (todos los datos)" })).toHaveCount(0);
+
+  // El administrador lo usa: se borra lo creado y se cierran las sesiones.
+  await login(page, USERS.admin);
+  await page.goto("/dev/whatsapp");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Restablecer demo (todos los datos)" }).click();
+  await page.waitForURL(/\/login/, { timeout: 120_000, waitUntil: "commit" });
+  await login(page, USERS.admin);
+  await page.goto("/admin/solicitudes?estado=activas");
+  await expect(page.getByText(/Necesito la constancia/)).toHaveCount(0);
 });
