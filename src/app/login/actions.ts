@@ -29,7 +29,12 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  const valid = user !== null && user.active && (await verifyPassword(password, user.passwordHash));
+  // Al pegar una contraseña suelen venir espacios de más: si la exacta no coincide, se prueba sin ellos.
+  const valid =
+    user !== null &&
+    user.active &&
+    ((await verifyPassword(password, user.passwordHash)) ||
+      (password.trim() !== password && (await verifyPassword(password.trim(), user.passwordHash))));
   if (!valid || !user) {
     registerFailedAttempt(email);
     // Mensaje genérico: no revela si el correo existe.

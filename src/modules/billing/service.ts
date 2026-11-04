@@ -9,7 +9,7 @@ import {
   MONOTRIBUTO_INVOICE_TYPE,
   STATUS_LABEL,
 } from "@/lib/constants";
-import { isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { addDaysYmd, formatDateAR, isValidYmd, todayAR } from "@/lib/dates";
 import { formatARS, lineSubtotalCents, parseAmountToCents, parseQuantityMilli } from "@/lib/money";
 import type { CurrentUser } from "@/lib/auth";
@@ -115,7 +115,7 @@ async function validateDraft(
     if (!DOC_TYPES.includes(docType)) e.docType = "Elegí el tipo de documento.";
     else if (docType === "CUIT") {
       docNumber = normalizeCuit(input.docNumber);
-      if (!isValidCuit(docNumber)) e.docNumber = "El CUIT no es válido.";
+      if (!isValidCuit(docNumber)) e.docNumber = `El CUIT no es válido: ${cuitProblem(docNumber)}`;
     } else if (docType === "DNI") {
       if (!docNumber || !/^\d{7,8}$/.test(docNumber)) e.docNumber = "El DNI tiene que tener 7 u 8 números.";
     } else {

@@ -47,6 +47,28 @@ function Rich({ text }: { text: string }) {
   );
 }
 
+/** Copia la contraseña temporal entera (en WhatsApp se copia tocando el mensaje; acá, con un botón). */
+function CopyPassword({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const password = text.match(/Contraseña temporal: (\S+)/)![1];
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(password);
+          setCopied(true);
+        } catch {
+          window.prompt("Copiá la contraseña:", password);
+        }
+      }}
+      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+    >
+      {copied ? "Contraseña copiada" : "Copiar contraseña"}
+    </button>
+  );
+}
+
 /** Botones y listas como los muestra WhatsApp. Los de mensajes viejos se pueden tocar igual (para probar opciones vencidas). */
 function Interactive({ message, disabled, onChoose }: { message: BotMessage; disabled: boolean; onChoose: (c: Choice) => void }) {
   const [open, setOpen] = useState(false);
@@ -370,6 +392,7 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
                 {m.file && <p className="mb-1 text-xs font-medium text-slate-700">📎 {m.file}</p>}
                 {m.choice && <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Opción tocada</p>}
                 <Rich text={plain && m.message ? fallbackText(m.message) : m.text} />
+                {m.dir === "out" && /Contraseña temporal: (\S+)/.test(m.text) && <CopyPassword text={m.text} />}
                 {!plain && m.message && <Interactive message={m.message} disabled={pending} onChoose={choose} />}
                 <p className="mt-1 text-right text-[10px] text-slate-500">
                   {new Date(m.at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} · {STATUS_LABEL[m.status] ?? m.status}

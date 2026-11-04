@@ -1,7 +1,7 @@
 import { notifyAccessReviewed } from "@/modules/bot/notify";
 import { prisma } from "@/lib/db";
 import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
-import { isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { isValidYmd, todayAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 
@@ -27,7 +27,7 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
   const category = input.category.trim().toUpperCase();
   const fieldErrors: Record<string, string> = {};
 
-  if (!isValidCuit(cuit)) fieldErrors.cuit = "El CUIT no es válido. Revisá los 11 números.";
+  if (!isValidCuit(cuit)) fieldErrors.cuit = `El CUIT no es válido: ${cuitProblem(cuit)}`;
   if (name.length < 2 || name.length > 120) fieldErrors.name = "Ingresá el nombre o razón social (2 a 120 caracteres).";
   if (activity.length < 2 || activity.length > 120) fieldErrors.activity = "Ingresá la actividad (2 a 120 caracteres).";
   if (category && !/^[A-K]$/.test(category)) fieldErrors.category = "Elegí una categoría de la A a la K.";

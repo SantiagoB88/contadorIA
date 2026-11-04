@@ -261,6 +261,21 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
 
+## Ingreso con contraseña temporal y mensajes del CUIT ✅ (rama `feat/whatsapp-bot`)
+
+- **Problema reportado en la demo publicada**: con el correo y la contraseña temporal del bot, el ingreso decía que los datos no eran correctos. Causas encontradas:
+  - la contraseña tenía guiones (`Bv3X-PH3w-uc4K`) y con doble clic se copiaba solo el primer tramo;
+  - "Entrar a la web" ofrecía generar otra contraseña, y eso invalidaba la anterior.
+
+  En la demo publicada, las altas del bot se ven siempre en la misma instancia (`/dev/correos`), así que no se perdieron cuentas.
+- **Cambios**:
+  - contraseña temporal sin guiones (12 caracteres);
+  - botón **Copiar contraseña** en el simulador;
+  - el ingreso tolera espacios de más al pegar;
+  - "Entrar a la web" primero recuerda el correo y el enlace, y genera otra contraseña solo con **Generar otra** y una confirmación.
+- **CUIT**: no se consulta ningún padrón; se valida el prefijo (20, 23, 24, 27, 30, 33, 34) y el dígito verificador (módulo 11). Por eso un número inventado casi nunca pasa, aunque tenga 11 dígitos. Ahora el mensaje dice qué falla y qué último número correspondería (bot, web y facturador).
+- **Pruebas**: `npm run verify` 116/116; simulación de Vercel 21/21. **No probado** en Vercel real hasta publicar.
+
 ## Alta por el chat y simulador pensado para clientes ✅ (rama `feat/whatsapp-bot`)
 
 Revisión hecha recorriendo la demo como un cliente.

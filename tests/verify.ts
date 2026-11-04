@@ -1370,7 +1370,8 @@ async function main() {
     assert.match((await say(LUCIA, "Lucía Fernández")).text, /correo electrónico/);
     assert.match((await say(LUCIA, "lucia@")).text, /no parece válido/);
     assert.match((await say(LUCIA, email)).text, /CUIT/);
-    assert.match((await say(LUCIA, "20-12345678-0")).text, /no es válido/);
+    assert.match((await say(LUCIA, "20-12345678-0")).text, /no es válido: el último número .* tendría que ser 6/);
+    assert.match((await say(LUCIA, "12-12345678-0")).text, /tiene que empezar con 20, 23, 24, 27, 30, 33, 34/);
     assert.match((await say(LUCIA, "27-28456123-1")).text, /A qué te dedicás/);
     await say(LUCIA, "Clases de inglés");
     assert.match((await say(LUCIA, "13/2023")).text, /No pude interpretar la fecha/);
@@ -1387,6 +1388,7 @@ async function main() {
     assert.match(done.text, /Creamos tu cuenta y vinculamos este WhatsApp/);
     assert.ok(!/clave fiscal:/i.test(done.text));
     const temp = done.text.match(/Contraseña temporal: (\S+)/)![1];
+    assert.match(temp, /^[A-Za-z2-9]{12}$/); // sin guiones: se copia entera con doble clic
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
     assert.equal(await prisma.user.count(), users + 1);
     assert.equal(user.role, "CLIENTE");
@@ -1404,7 +1406,10 @@ async function main() {
     // Pendiente: sin datos fiscales; puede pedir otra contraseña temporal (la anterior deja de valer).
     const pending = await say(LUCIA, "menu");
     assert.match(pending.text, /pendiente de revisión/);
-    await tap(LUCIA, "Entrar a la web");
+    // "Entrar a la web" recuerda los datos y no invalida la contraseña; otra solo si se pide.
+    assert.match((await tap(LUCIA, "Entrar a la web")).text, /la temporal que te di al crear la cuenta/);
+    assert.ok(await verifyPassword(temp, (await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash));
+    await tap(LUCIA, "Generar otra");
     const again = await tap(LUCIA, "Sí, generar");
     const temp2 = again.text.match(/Contraseña temporal: (\S+)/)![1];
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });

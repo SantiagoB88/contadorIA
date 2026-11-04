@@ -90,11 +90,12 @@ test("alta por chat → aprobación con aviso → ingreso con contraseña tempor
   await tap(page, "Empezar", /nombre y apellido/);
   await chat(page, name, /correo electrónico/);
   await chat(page, email, /CUIT/);
-  await chat(page, "20-12345678-0", /no es válido/);
+  await chat(page, "20-12345678-0", /tendría que ser 6/);
   await chat(page, fakeCuit(), /A qué te dedicás/);
   await chat(page, "Servicios de prueba", /mes y año/);
   await chat(page, "05/2023", /Revisá tus datos/);
   await tap(page, "Crear mi cuenta", /Creamos tu cuenta y vinculamos este WhatsApp/);
+  await expect(page.getByRole("button", { name: "Copiar contraseña" })).toBeVisible();
   const credentials = await page.locator('[data-dir="out"]').filter({ hasText: "Contraseña temporal" }).last().innerText();
   const temp = credentials.match(/Contraseña temporal: (\S+)/)![1];
   await chat(page, "hola", /pendiente de revisión por el estudio/);
@@ -113,7 +114,8 @@ test("alta por chat → aprobación con aviso → ingreso con contraseña tempor
   const client = await browser.newPage();
   await client.goto("/login");
   await client.getByLabel("Correo electrónico").fill(email);
-  await client.getByLabel("Contraseña").fill(temp);
+  // Copiada con un espacio de más (pasa al pegar): igual entra.
+  await client.getByLabel("Contraseña").fill(`${temp} `);
   await client.getByRole("button", { name: "Ingresar" }).click();
   await client.waitForURL(/\/perfil\?clave=temporal/, { waitUntil: "commit" });
   await expect(client.getByText(/Estás usando una contraseña temporal/)).toBeVisible();

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { APP_MODE, ROLES } from "@/lib/constants";
-import { formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { todayAR } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import type { CurrentUser } from "@/lib/auth";
@@ -108,7 +108,8 @@ textSteps["g.correo"] = async (ctx, text) => {
 textSteps["g.cuit"] = async (ctx, text) => {
   const cuit = normalizeCuit(text);
   if (!isValidCuit(cuit)) {
-    ctx.say("Ese CUIT no es válido: revisá los 11 números (el último es un dígito verificador). Si no lo tenés a mano, tocá Cancelar y retomá cuando lo tengas.");
+    // No se consulta ningún padrón: solo el formato y el dígito verificador, igual que en la web.
+    ctx.say(`Ese CUIT no es válido: ${cuitProblem(cuit)} Revisalo y escribilo de nuevo, o tocá Cancelar.`);
     ctx.expect("g.cuit");
     return;
   }
@@ -241,13 +242,23 @@ on(
       ctx.buttons("¿Algo más?", [{ title: T.menu, a: "menu" }]);
       return;
     }
-    ctx.buttons(
-      "¿Te genero una contraseña temporal nueva para entrar a la web? La anterior deja de funcionar.",
-      [
-        { title: "Sí, generar", a: "c.clave.ok" },
-        { title: T.cancel, a: "menu" },
-      ],
+    ctx.say(
+      `Para entrar a la web:\n• ${ctx.origin}/login\n• Correo: ${user.email}\n• Contraseña: la temporal que te di al crear la cuenta (vence a las ${TEMP_PASSWORD_HOURS} horas).`,
     );
+    ctx.buttons("¿No la tenés o no te funciona?", [
+      { title: "Generar otra", a: "c.clave.nueva" },
+      { title: T.menu, a: "menu" },
+    ]);
+  },
+  { noTaxpayer: true },
+);
+on(
+  "c.clave.nueva",
+  async (ctx) => {
+    ctx.buttons("¿Te genero una contraseña temporal nueva? La anterior deja de funcionar.", [
+      { title: "Sí, generar", a: "c.clave.ok" },
+      { title: T.cancel, a: "menu" },
+    ]);
   },
   { noTaxpayer: true },
 );

@@ -24,6 +24,8 @@ Esta demo muestra cómo funciona el asistente de WhatsApp de ContadorSmart. Todo
    - desde qué mes y año facturás (por ejemplo `05/2023`).
 
    Si cargás algo mal (un correo incompleto, un CUIT con el último número equivocado), te lo dice y te lo vuelve a pedir.
+
+   El CUIT no se busca en ningún padrón: se valida con su dígito verificador. Si inventás uno, el asistente te dice qué último número corresponde. Uno de prueba que funciona: `20-12345678-6`.
 3. Revisá el resumen. Si querés, tocá **Corregir**. Para confirmar tocá **Crear mi cuenta**: escribir "sí" no alcanza, hay que tocar el botón.
 4. El asistente crea tu cuenta, vincula ese WhatsApp y te da una **contraseña temporal** para entrar a la web (vence en 72 horas). Nunca te pide la clave fiscal.
 5. Mientras el estudio no apruebe tu acceso, el asistente solo te deja ver el estado, consultar al estudio o pedir otra contraseña temporal.
@@ -38,7 +40,7 @@ Esta demo muestra cómo funciona el asistente de WhatsApp de ContadorSmart. Todo
 
 1. Abrí una **ventana privada** del navegador, para no mezclarla con la sesión del estudio.
    - Si usás la misma ventana, la página de ingreso te muestra con qué cuenta estás y te ofrece **Cerrar sesión y entrar con otra cuenta**.
-2. Ingresá con tu correo y la contraseña temporal. La web te pide elegir una contraseña propia.
+2. Ingresá con tu correo y la contraseña temporal. Para copiarla sin errores, usá el botón **Copiar contraseña** del simulador. La web te pide elegir una contraseña propia.
 
 ## 5. Recorrer todo con datos cargados
 

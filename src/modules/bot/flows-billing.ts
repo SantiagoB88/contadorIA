@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { APP_MODE, INVOICE_SOURCE, INVOICE_STATUS, STATUS_LABEL, TAX_CONDITION_LABEL } from "@/lib/constants";
 import { formatARS, formatQuantity, parseAmountToCents, parseQuantityMilli } from "@/lib/money";
 import { addDaysYmd, formatDateAR, todayAR } from "@/lib/dates";
-import { isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
 import {
   deleteDraft,
@@ -181,7 +181,7 @@ textSteps["f.rnum"] = async (ctx, text) => {
   const digits = text.replace(/\D/g, "");
   const valid = docType === "CUIT" ? isValidCuit(normalizeCuit(text)) : /^\d{7,8}$/.test(digits);
   if (!valid) {
-    ctx.say(docType === "CUIT" ? "Ese CUIT no es válido. Revisá los 11 números (por ejemplo 30-00000007-4)." : "El DNI tiene que tener 7 u 8 números.");
+    ctx.say(docType === "CUIT" ? `Ese CUIT no es válido: ${cuitProblem(normalizeCuit(text))}` : "El DNI tiene que tener 7 u 8 números.");
     ctx.expect("f.rnum");
     return;
   }

@@ -136,11 +136,14 @@ export const TEMP_PASSWORD_HOURS = 72;
 const TEMP_LETTERS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
 const TEMP_DIGITS = "23456789";
 
-/** Contraseña temporal legible, por ejemplo "Kx7m-Pq4t-Zr9w" (siempre con letras y números). */
+/**
+ * Contraseña temporal legible, por ejemplo "Kx7mPq4tZr9w": siempre con letras y números y sin guiones ni espacios,
+ * para que se copie entera con un doble clic (con guiones el navegador cortaba la selección en el primero).
+ */
 export function newTempPassword(): string {
   const group = () =>
     [TEMP_LETTERS, TEMP_LETTERS, TEMP_DIGITS, TEMP_LETTERS].map((set) => set[randomInt(set.length)]).join("");
-  return [group(), group(), group()].join("-");
+  return group() + group() + group();
 }
 
 /** Genera una contraseña temporal nueva para la cuenta (reemplaza la anterior) y cierra sus sesiones. */
