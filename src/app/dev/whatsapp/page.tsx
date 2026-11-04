@@ -8,7 +8,7 @@ import { SimulatorClient } from "./SimulatorClient";
 export const metadata = { title: "Simulador de WhatsApp · ContadorSmart" };
 export const dynamic = "force-dynamic";
 
-/** Simulador local del bot. Solo existe en modo DEMO y en la compu: en cualquier otro caso da 404. */
+/** Simulador del bot. Solo existe en modo DEMO (en la compu y en la demo de Vercel): en cualquier otro caso da 404. */
 export default async function WhatsAppSimulatorPage() {
   if (!simulatorEnabled()) notFound();
   const user = await getCurrentUser();
@@ -22,6 +22,12 @@ export default async function WhatsAppSimulatorPage() {
           Reemplaza solo a WhatsApp: cada mensaje entra por la misma recepción y el mismo motor que el webhook real, contra la
           misma base. Lo que hagas acá se ve en la web (Bandeja, Accesos, Mi perfil). Solo usa números ficticios.
         </p>
+        {process.env.VERCEL && (
+          <p className="mt-2 max-w-3xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Demo online: los datos son temporales. Si la demo queda un rato sin uso, vuelve sola a los datos de ejemplo y
+            hay que empezar el recorrido de nuevo. Conviene hacerlo de corrido.
+          </p>
+        )}
         <SimulatorClient identities={SIMULATOR_IDENTITIES.map((i) => ({ address: i.address, label: i.label }))} canResetDemo={user.role === ROLES.ADMIN} />
       </main>
     </div>

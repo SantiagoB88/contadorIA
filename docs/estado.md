@@ -261,20 +261,29 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
 
-## Simulador desde la dashboard (solo en la compu) ✅ (rama `feat/whatsapp-bot`, sin publicar)
+## Simulador desde la dashboard, también en Vercel ✅ (rama `feat/whatsapp-bot`, sin publicar)
 
-- Se evaluó llevar el simulador a Vercel con una base compartida (Turso) y se descartó: obligaba a crear una cuenta en otro servicio. Se sacó todo lo de Turso y Vercel quedó como antes: la demo con la base incluida y sin simulador (`/dev/whatsapp` da 404).
-- **En la compu**:
-  - el menú de la web tiene **Probar bot de WhatsApp (DEMO)**, que abre el simulador en otra pestaña;
-  - el simulador pide una sesión iniciada;
+- Se evaluó una base compartida en Turso y se descartó porque obligaba a crear una cuenta en otro servicio. Se sacó todo lo de Turso.
+- **El simulador funciona en la compu y en la demo de Vercel**, sobre la base temporal de la demo, sin servicios nuevos:
+  - se abre desde el menú con **Probar bot de WhatsApp (DEMO)**, en otra pestaña;
+  - pide una sesión iniciada;
   - un administrador tiene **Restablecer demo (todos los datos)**.
+- **Riesgo aceptado**: en Vercel cada instancia tiene su copia de la base. Si Vercel reinicia la demo (por falta de uso) o abre otra instancia, los datos vuelven a los de ejemplo.
+  - El simulador lo detecta: cambia el identificador de la instancia (`simulatorInstance`) o se pierde la conexión o la sesión.
+  - En ese caso avisa con **Recargar y empezar de nuevo**.
+  - Con una sola persona probando de corrido, Vercel atiende con la misma instancia.
+- **Restablecer demo conserva el secreto de las sesiones firmadas de Vercel.** Sin eso, nadie podría volver a ingresar hasta que Vercel reiniciara la demo.
 - **Datos de demo**: pasaron a `src/modules/demo/seed-data.ts` (`prisma/seed.ts` los llama). La limpieza al restablecer ahora incluye las tablas del bot (`BotUpload`, `NotificationPreference`).
-- **Esquema** `whatsapp-4`, igual a `whatsapp-3`. Se subió la versión para que una base que llegó a tener la tabla de Turso la saque al iniciar; esa tabla estaba vacía, así que no se pierde nada. Probado sobre una copia de `dev.db`.
-- **Pruebas**:
-  - `npm run verify` 114/114;
-  - en el navegador, versión compilada local, 24/24;
-  - simulación de la demo de Vercel (`VERCEL=1`, base incluida armada por `scripts/vercel-prepare.mjs`): 18/18 de la web y el simulador da 404.
-- **Falla intermitente que ya existía**: la prueba visual de Movimientos a veces registra el error de hidratación de React #418 (anotado en el backlog). En esta última corrida no apareció.
+- **Esquema** `whatsapp-4`, igual a `whatsapp-3`. Probado sobre una copia de `dev.db`: no hay cambios que aplicar.
+- **Pruebas ejecutadas**:
+  - `npm run verify`: 114/114.
+  - En el navegador, versión compilada local: 24/24.
+  - Simulación de la demo de Vercel (`VERCEL=1`, base incluida armada por `scripts/vercel-prepare.mjs`): 21/21 de la web y del bot, incluidos el alta completa y Restablecer demo con reingreso. Después del último cambio del simulador se repitieron 18/18 (web y bot).
+  - A mano en esa simulación: con el simulador abierto se reinició el servidor y apareció el aviso.
+  - `dev.db` no se tocó.
+- **No probado**: en Vercel real (falta pasar a `main`) y con varias instancias a la vez.
+- **Guía para clientes**: `docs/guia-cliente-bot.md`.
+- **Falla intermitente que ya existía**: la prueba visual de Movimientos a veces registra el error de hidratación de React #418 (anotado en el backlog).
 
 ## Verificaciones ejecutadas
 

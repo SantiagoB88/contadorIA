@@ -1,12 +1,14 @@
 import { APP_MODE } from "@/lib/constants";
 
-// El simulador de WhatsApp existe solo para probar en la compu: modo DEMO y fuera de producción
-// (o con ENABLE_BOT_SIMULATOR=1 para las pruebas automáticas). En la demo de Vercel no existe: cada instancia tiene
-// su propia copia de la base y el estado de la conversación se perdería entre clics.
+// El simulador de WhatsApp existe solo en modo DEMO: en la compu (fuera de producción, o con ENABLE_BOT_SIMULATOR=1
+// para las pruebas automáticas) y en la demo de Vercel, para que un cliente pueda recorrer el bot desde la web.
+// En Vercel la base es una copia temporal por instancia (ver src/lib/vercel-demo.ts): si Vercel reinicia la demo, los
+// datos vuelven a los de ejemplo y el simulador lo avisa (simulatorInstance).
 // Pide una sesión iniciada y solo usa números ficticios de un rango fijo: nunca puede hacerse pasar por un número real.
 
 export function simulatorEnabled(): boolean {
-  return APP_MODE === "DEMO" && (process.env.NODE_ENV !== "production" || process.env.ENABLE_BOT_SIMULATOR === "1") && !process.env.VERCEL;
+  if (APP_MODE !== "DEMO") return false;
+  return Boolean(process.env.VERCEL) || process.env.NODE_ENV !== "production" || process.env.ENABLE_BOT_SIMULATOR === "1";
 }
 
 /** Rango ficticio reservado al simulador: +54 9 11 5555-0000 a 5555-0999. */

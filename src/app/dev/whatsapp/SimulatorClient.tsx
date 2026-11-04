@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   simulatorConcurrent,
+  simulatorInstance,
   simulatorReset,
   simulatorResetDemo,
   simulatorRetry,
@@ -113,7 +114,20 @@ export function SimulatorClient({ identities, canResetDemo = false }: { identiti
   const [pending, startTransition] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
 
-  const refresh = useCallback(async () => setItems(await simulatorTranscript(address)), [address]);
+  // Demo de Vercel: si cambia la copia de la base que atiende, la demo se reinició y los datos volvieron al inicio.
+  const firstInstance = useRef<string | null | undefined>(undefined);
+  const [restarted, setRestarted] = useState(false);
+  const refresh = useCallback(async () => {
+    try {
+      const [list, current] = await Promise.all([simulatorTranscript(address), simulatorInstance()]);
+      if (firstInstance.current === undefined) firstInstance.current = current;
+      else if (current !== firstInstance.current) setRestarted(true);
+      setItems(list);
+    } catch {
+      // Sin conexión, o la demo se reinició y la sesión ya no vale: se avisa en lugar de fallar en silencio.
+      setRestarted(true);
+    }
+  }, [address]);
 
   useEffect(() => {
     refresh();
@@ -311,6 +325,15 @@ export function SimulatorClient({ identities, canResetDemo = false }: { identiti
           ))}
           <div ref={bottom} />
         </div>
+        {restarted && (
+          <div className="border-t border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900" role="alert">
+            La demo se reinició o se cortó la conexión. Si se reinició, los datos volvieron a los de ejemplo (por ejemplo, una
+            cuenta creada en la demo ya no existe).{" "}
+            <button type="button" className="font-medium underline" onClick={() => window.location.reload()}>
+              Recargar y empezar de nuevo
+            </button>
+          </div>
+        )}
         {notice && <p className="border-t border-slate-200 bg-amber-50 px-4 py-2 text-sm text-amber-900" role="status">{notice}</p>}
         <form
           className="flex gap-2 border-t border-slate-200 bg-white p-3"

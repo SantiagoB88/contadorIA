@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { usesBundledDemo } from "@/lib/vercel-demo";
 import { prisma } from "@/lib/db";
 import { getOrigin } from "@/lib/origin";
 import { getCurrentUser } from "@/lib/auth";
@@ -141,6 +142,20 @@ export type TranscriptItem = {
   choice?: boolean; // entrada: fue una opción tocada
   file?: string; // entrada: nombre del archivo
 };
+
+// Identifica la copia de la base de demo de esta instancia (una por proceso en Vercel).
+const instance = globalThis as unknown as { contadorSmartDemoInstance?: string };
+
+/**
+ * En la demo de Vercel, qué copia de la base atiende. Si cambia, Vercel reinició la demo (o abrió otra copia) y los
+ * datos volvieron a los de ejemplo: el simulador lo avisa. En la compu la base es una sola y devuelve null.
+ */
+export async function simulatorInstance(): Promise<string | null> {
+  if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
+  if (!usesBundledDemo) return null;
+  instance.contadorSmartDemoInstance ??= randomUUID();
+  return instance.contadorSmartDemoInstance;
+}
 
 /** Conversación del número, leída de la base (sobrevive a reinicios del servidor). */
 export async function simulatorTranscript(address: string): Promise<TranscriptItem[]> {

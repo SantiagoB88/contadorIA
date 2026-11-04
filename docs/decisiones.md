@@ -61,14 +61,14 @@
 | Mensajes entrantes | Se guardan antes de procesar, se deduplican por (proveedor, id), se procesan de a uno por número y se reintentan hasta 3 veces | Meta reintenta hasta 7 días y puede duplicar. |
 | Envíos | Estado real: ENVIADO (Meta lo aceptó), FALLIDO, PENDIENTE (sin proveedor) o SIMULADO | No se promete entrega. Fuera de la ventana de 24 h haría falta una plantilla (no implementado). |
 | Simulador | `/dev/whatsapp` solo en DEMO, fuera de producción y de Vercel, con números del rango +54 9 11 5555-0xxx | Probar todo sin WhatsApp sin poder hacerse pasar por números reales. |
-| Bot en Vercel | No se configura; el simulador queda solo en la compu | La copia de la base por instancia perdería vínculos y conversaciones, y una base compartida exige una cuenta externa (Turso se evaluó y se descartó por eso). |
+| Bot en Vercel | Simulador sobre la base temporal de la demo, con aviso si la demo se reinicia; WhatsApp real no | Permite que un cliente recorra el bot sin crear cuentas en otros servicios. Una base compartida (Turso) se evaluó y se descartó por necesitar una cuenta externa. |
 | Opciones del bot | Botones y listas con id opaco `<token>.<n>`; la acción vive en el servidor y solo vale la del último mensaje | Un id no puede llevar datos manipulables y un toque viejo o repetido no ejecuta nada. |
 | Confirmaciones del bot | Solo con botón, después de un resumen | Un "sí" escrito es ambiguo (puede responder otra cosa). |
 | Formularios del bot | Pasos guiados en el chat, sin WhatsApp Flows | Flows requiere configuración en Meta que todavía no está confirmada. |
 | Factura desde el bot | Mismo facturador demo (borrador en el servidor + emisión simulada con clave del evento) | El total lo calcula el servidor y un reintento nunca emite dos veces. |
 | Solicitud de alta sin contribuyente | `ServiceRequest.taxpayerId` opcional solo para el motivo "Alta o acceso", sin adjuntos | Una persona pendiente necesita poder consultar al estudio. Solo la ve quien la creó y el estudio. |
 | Número de solicitud | `S-` + últimos 6 caracteres del id, igual en web, avisos y bot | Cliente y estudio hablan del mismo número sin agregar otra columna. |
-| Simulador en la web | Solo en la compu, en DEMO y con sesión iniciada; se abre desde el menú | Probar el bot al lado de la dashboard sin poder escribir como un número real. |
+| Simulador en la web | Solo en DEMO, con sesión iniciada, en la compu y en la demo de Vercel; se abre desde el menú | Probar el bot al lado de la dashboard sin poder escribir como un número real. |
 | Operadores | Postergados | Mantener la entrega 2 simple; el rol requiere un backoffice filtrado por asignación. |
 
 ## Supuestos

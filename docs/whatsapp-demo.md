@@ -6,7 +6,7 @@
 npm run dev
 ```
 
-1. Ingresá a la web y abrí **Probar bot de WhatsApp (DEMO)** en el menú (o http://localhost:3000/dev/whatsapp): es el simulador. Pide tener la sesión iniciada.
+1. Ingresá a la web y abrí **Probar bot de WhatsApp (DEMO)** en el menú (o `/dev/whatsapp`): es el simulador. Pide tener la sesión iniciada. Funciona en la compu y en la demo de Vercel.
 2. En otra pestaña abrí la web, http://localhost:3000.
 
 Si tu base viene de antes, no tiene a Ana con el WhatsApp ya vinculado. Podés vincularla con un código (paso 2 del guion) o correr `npm run db:reset`, que **borra lo que cargaste**.

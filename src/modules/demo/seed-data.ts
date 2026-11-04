@@ -120,6 +120,8 @@ export async function seedDemo(options: { reset?: boolean } = {}) {
     console.log("La base ya tiene datos. No se modificó nada. Para empezar de cero: npm run db:reset");
     return;
   }
+  // La demo de Vercel firma las sesiones con un secreto guardado en la base: se conserva al restablecer.
+  const sessionSecret = reset ? await prisma.appMeta.findUnique({ where: { key: "demo-session-secret" } }) : null;
   if (reset) {
     await wipe();
     await storage.clear(); // archivos de documentos y adjuntos de la base anterior
@@ -418,6 +420,7 @@ export async function seedDemo(options: { reset?: boolean } = {}) {
 
   // Este seed ya incluye los datos de las entregas 2 y 4: no hace falta la actualización de prisma/upgrade.ts.
   await prisma.appMeta.createMany({ data: [{ key: "upgrade-entrega2", value: "seed" }, { key: "upgrade-entrega4", value: "seed" }, { key: SCHEMA_META_KEY, value: SCHEMA_VERSION }] });
+  if (sessionSecret) await prisma.appMeta.create({ data: { key: sessionSecret.key, value: sessionSecret.value } });
 
   // Contribuyente del otro estudio (no debe verse nunca desde Estudio Demo).
   await prisma.taxpayer.create({

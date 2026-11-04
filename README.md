@@ -26,13 +26,13 @@ Antes de levantar, `npm run dev` prepara la base:
 
 El bot está adentro de la web y usa los mismos datos, permisos y cálculos que el tablero.
 
-- **Probarlo sin WhatsApp**: con `npm run dev`, abrí http://localhost:3000/dev/whatsapp. Es un simulador que usa el motor y la base reales; el guion de 10 minutos está en `docs/whatsapp-demo.md`.
+- **Probarlo sin WhatsApp**: en la web, ingresá y tocá **Probar bot de WhatsApp (DEMO)** en el menú (o abrí `/dev/whatsapp`). Es un simulador que usa el motor y la base reales; el guion de 10 minutos está en `docs/whatsapp-demo.md`. Hay una guía corta para clientes en `docs/guia-cliente-bot.md`.
 - **Vincular una cuenta**: en **Mi perfil → WhatsApp**, generá un código y mandáselo al bot. También se puede abrir el enlace que manda el bot.
 - **En el estudio**: las solicitudes del bot llegan a la Bandeja con "canal WhatsApp". En Accesos se ve qué usuario tiene WhatsApp vinculado y se puede desvincular.
 - **Con WhatsApp real**: con el número de prueba de Meta y un túnel, siguiendo `docs/whatsapp-prueba-real.md`.
 - **Contratos y reglas**: en `docs/whatsapp-contratos.md`.
 
-El bot no funciona en la demo de Vercel: cada instancia tiene su propia copia de la base. Hace falta una base compartida.
+En la demo de Vercel el simulador también está disponible, sobre la base temporal de la demo: anda igual que en la compu, pero si la demo queda un rato sin uso vuelve a los datos de ejemplo y el simulador lo avisa. WhatsApp real conectado a Vercel no se recomienda sin una base compartida.
 
 ## Demo online en Vercel
 
