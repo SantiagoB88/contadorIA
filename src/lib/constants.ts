@@ -99,6 +99,7 @@ export const SR_STATUS_LABEL: Record<string, string> = {
 };
 
 export const SR_TOPIC_LABEL: Record<string, string> = {
+  ALTA: "Alta o acceso",
   FACTURACION: "Facturación",
   CATEGORIA: "Categoría y límites",
   DEUDAS: "Deudas y vencimientos",
@@ -174,4 +175,5 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   CHANNEL_LINK: "Vinculó su WhatsApp",
   CHANNEL_UNLINK: "Desvinculó un WhatsApp",
   CHANNEL_LINK_FAILED: "Intento fallido de vincular WhatsApp",
+  REQUEST_CLOSED_BY_CLIENT: "El cliente marcó una solicitud como resuelta",
 };

@@ -57,3 +57,27 @@ test("firma obligatoria, mensaje procesado una sola vez aunque Meta lo reenvíe"
   const again = await request.post("/api/whatsapp/webhook", { data: raw, headers: { "content-type": "application/json", "x-hub-signature-256": sign(raw) } });
   expect(again.status()).toBe(200);
 });
+
+function signedPost(raw: string) {
+  return { data: raw, headers: { "content-type": "application/json", "x-hub-signature-256": sign(raw) } };
+}
+
+function interactivePayload(id: string, from: string, message: Record<string, unknown>) {
+  const value = { messaging_product: "whatsapp", metadata: { phone_number_id: "PHONE-PRUEBA" }, messages: [{ from, id, timestamp: "1793800000", ...message }] };
+  return JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "WABA-PRUEBA", changes: [{ field: "messages", value }] }] });
+}
+
+test("botones, listas, fotos y tipos no soportados con el formato de Meta: se aceptan sin romper", async ({ request }) => {
+  const from = "5491155550008";
+  const t = Date.now();
+  // Toque de un botón con un id que no corresponde a ninguna opción vigente: se trata como opción vencida.
+  const button = interactivePayload(`wamid.boton-${t}`, from, { type: "interactive", interactive: { type: "button_reply", button_reply: { id: "zzzz.1", title: "Ya tengo cuenta" } } });
+  expect((await request.post("/api/whatsapp/webhook", signedPost(button))).status()).toBe(200);
+  const list = interactivePayload(`wamid.lista-${t}`, from, { type: "interactive", interactive: { type: "list_reply", list_reply: { id: "zzzz.2", title: "Mi resumen" } } });
+  expect((await request.post("/api/whatsapp/webhook", signedPost(list))).status()).toBe(200);
+  // Foto: sin token de envío no se puede descargar; se le explica a la persona en vez de fallar.
+  const image = interactivePayload(`wamid.foto-${t}`, from, { type: "image", image: { id: "MEDIA-PRUEBA", mime_type: "image/jpeg" } });
+  expect((await request.post("/api/whatsapp/webhook", signedPost(image))).status()).toBe(200);
+  const audio = interactivePayload(`wamid.audio-${t}`, from, { type: "audio", audio: { id: "MEDIA-AUDIO" } });
+  expect((await request.post("/api/whatsapp/webhook", signedPost(audio))).status()).toBe(200);
+});

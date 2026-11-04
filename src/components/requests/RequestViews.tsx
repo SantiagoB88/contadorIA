@@ -92,7 +92,7 @@ type RequestRow = {
   status: string;
   priority: string;
   lastActivityAt: Date;
-  taxpayer: { name: string };
+  taxpayer: { name: string } | null;
   assignedTo: { name: string } | null;
 };
 

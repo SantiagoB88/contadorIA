@@ -13,63 +13,66 @@ Si tu base viene de antes, no tiene a Ana con el WhatsApp ya vinculado. Podés v
 
 ## Guion de demo
 
-Cada paso indica qué escribir en el simulador (o qué hacer en la web) y qué tiene que pasar.
+En el simulador se tocan los botones de cada mensaje y, en las listas, el botón ☰ y una fila, igual que en WhatsApp. Lo que dice "escribí" se manda con el cuadro de texto.
 
 **1. Persona nueva** (Quién escribe: "Persona nueva · sin cuenta")
 
-| Escribí | Resultado esperado |
-|---|---|
-| `hola` | "Este WhatsApp todavía no está vinculado…" y las opciones 1, 2 y 3 |
-| `1` | Enlace a `/registro` y enlace "vincular este WhatsApp" (vence en 24 h). Aclara que nunca pide clave fiscal |
-| `2` | No muestra facturación: repite que el número no está vinculado |
+1. Escribí `hola` → saludo con los botones **Ya tengo cuenta**, **Quiero registrarme** y **Conocer el servicio**.
+2. **Conocer el servicio** → qué se puede hacer, sin conexión con ARCA.
+3. **Quiero registrarme** → enlace a `/registro` y enlace para vincular este WhatsApp (vence en 24 h). Aclara que nunca pide clave fiscal.
 
 **2. Cliente existente que vincula** (Quién escribe: "Bruno Díaz (cliente.b) · cuenta sin vincular")
 
 1. En la web, ingresá como `cliente.b@contadorsmart.local` / `Demo1234!` y entrá a **Mi perfil → WhatsApp → Generar código**.
-2. Escribí el código de 6 números en el simulador → "Listo, vinculamos este WhatsApp con tu cuenta. Hola, Bruno."
-3. Escribí el mismo código otra vez → "El código no es válido o ya se usó".
-4. Escribí `menú` → menú con 7 opciones y "Estás consultando *Bruno Díaz*".
+2. Escribí el código de 6 números → "Listo: vinculamos este WhatsApp…". Escribirlo otra vez → "no es válido o ya se usó".
+3. **Ver opciones** → menú en lista, con "Estás consultando Bruno Díaz".
 
 **3. Consultas iguales a la web** (sigue Bruno)
 
-| Escribí | Resultado esperado |
-|---|---|
-| `2` | Facturación del mes, semestre, año y 12 meses, con fechas: los mismos importes que el tablero de Bruno |
-| `3` | Margen **orientativo**, con el límite de la categoría C y el nivel "Superado" |
-| `4` | "Hay 3 vencimientos impagos…", con importes y "No incluye intereses" |
+- **Mi resumen → Este año**: mismos importes que el tablero, con período, margen orientativo, próximo vencimiento y cobertura.
+- **Categoría y límites**: límite de la categoría C, margen o exceso y **Simular un importe** (escribí `150000`).
+- **Deudas y vencimientos → Deudas registradas**: cuotas impagas con importes y "No incluye intereses".
 
-**4. Solicitud al contador** (sigue Bruno)
+**4. Factura guiada** (sigue Bruno; es una simulación sin validez fiscal)
 
-| Escribí | Resultado esperado |
-|---|---|
-| `5` | Lista de temas |
-| `3` | "Escribí un asunto corto" |
-| `Quiero entrar en un plan de pagos` | "Ahora contame el detalle…" |
-| `Tengo 3 cuotas vencidas, ¿qué me conviene?` | "Listo, creamos tu solicitud…" |
+**Facturación → Preparar factura → Sí, continuar**, y después:
 
-**5. El estudio la atiende** (web, como `admin@contadorsmart.local`)
+1. Receptor y concepto:
+   - elegí un receptor guardado o **Nuevo receptor**;
+   - elegí un concepto ya usado o escribilo;
+   - cantidad y precio (probá `abc`: lo rechaza).
+2. **Continuar → Hoy** → resumen con el total calculado por el servidor.
+3. Escribí `sí`: no confirma. Tocá **Confirmar simulación** → número de factura simulada y enlace al PDF en la web.
 
-1. **Bandeja**: la solicitud figura con "canal WhatsApp".
-2. Abrila y agregá una **nota interna**: "Revisar el plan vigente".
-3. Respondé al cliente: "Podemos armar un plan de 6 cuotas" y elegí el estado "Esperando respuesta del cliente".
-4. En "Avisos por WhatsApp" aparece "Entregado en el simulador".
+**5. Pago informado y solicitudes** (sigue Bruno)
 
-**6. El cliente ve la respuesta** (simulador, Bruno)
+1. Pago informado:
+   - **Deudas → Informar un pago** → cuota → **Hoy** → importe → adjuntá un PDF con 📎;
+   - en el resumen, **Informar pago**.
+2. Hablar con el estudio:
+   - **Hablar con el estudio** → motivo → escribí la consulta → **Sin adjunto** → **Enviar al estudio**;
+   - escribí otro mensaje: se suma a la misma solicitud;
+   - **Volver al asistente**.
 
-1. Llega solo el aviso "El estudio respondió tu solicitud…" (el chat se actualiza cada 4 segundos).
-2. `6` → lista con la solicitud. `1` → se ve la respuesta del estudio y **no** la nota interna.
-3. `1` y después `Dale, avancemos` → "Le mandamos tu mensaje al estudio". En la web, la solicitud vuelve a "En curso".
+**6. El estudio la atiende** (web, como `admin@contadorsmart.local`)
 
-**7. Fallas y duplicados** (simulador)
+1. **Bandeja**: la solicitud figura con su número S-XXXXXX y "canal WhatsApp".
+2. Agregá una **nota interna** y respondé al cliente. En "Avisos por WhatsApp" aparece "Entregado en el simulador".
+3. En el simulador llega solo el aviso con el número. Para ver la respuesta: **Mis solicitudes → Ver abiertas** → la solicitud. La nota interna **no** aparece.
 
-1. Tocá **Reenviar el último mensaje (duplicado)** → "Evento duplicado: se descartó".
-2. En "Simular una falla", elegí **Falla antes de procesar** y escribí `2` → "Tuvimos un problema…".
-3. Volvé a "Sin fallas" y tocá **Reintentar fallidos** → llega la facturación una sola vez.
+**7. Fallas, duplicados y opciones viejas** (simulador)
+
+1. Tocá un botón de un mensaje anterior → "Esa opción es de un mensaje anterior…" y repite las opciones vigentes.
+2. **Reenviar el último mensaje (duplicado)** → "Evento duplicado: se descartó".
+3. Falla antes de procesar:
+   - en "Simular una falla", elegí **Falla antes de procesar** y tocá una opción → "Estoy verificando si quedó registrado…";
+   - volvé a "Sin fallas" y tocá **Reintentar fallidos** → llega la respuesta una sola vez.
+4. Tildá **Ver como un cliente sin botones**: las opciones se ven numeradas y responder con el número funciona.
 
 **8. Corte de acceso** (web, admin → Accesos)
 
-- **Desvincular WhatsApp** de Bruno → en el simulador, `2` ya no muestra datos.
-- O bien **Suspender** a Bruno → "Tu cuenta está suspendida…".
+- **Desvincular WhatsApp** de Bruno → en el simulador, vuelve el saludo de persona sin vincular.
+- O bien **Suspender** a Bruno → "Tu acceso no está disponible…".
 
 **9. Reinicio**
 
@@ -81,7 +84,7 @@ Cortá `npm run dev`, volvé a levantarlo y recargá el simulador: la conversaci
 npm run verify
 ```
 
-Incluye los 15 casos del bot, sobre una base aparte.
+Incluye los 25 casos del bot, sobre una base aparte. Detalle en `docs/whatsapp-bot-interactivo.md`.
 
 ```bash
 npm run test:e2e

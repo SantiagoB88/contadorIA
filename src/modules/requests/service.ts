@@ -17,7 +17,7 @@ import type { ServiceResult } from "@/modules/access/service";
 import { getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
 import { checkFiles, discardStored, storeFiles, type StoredFile, type UploadFile } from "@/modules/documents/service";
 import { mail } from "@/providers/mail";
-import { notifyRequestReply } from "@/modules/bot/notify";
+import { notifyRequestReply, notifyRequestStatus } from "@/modules/bot/notify";
 import type { Prisma } from "@prisma/client";
 
 // Solicitudes al estudio: conversación con mensajes públicos y notas internas.
@@ -59,7 +59,7 @@ async function notify(to: string[], subject: string, body: string) {
 async function createMessage(
   tx: Prisma.TransactionClient,
   input: {
-    request: { id: string; studyId: string; taxpayerId: string };
+    request: { id: string; studyId: string; taxpayerId: string | null };
     authorId: string;
     body: string;
     visibility: string;
@@ -78,11 +78,13 @@ async function createMessage(
       channel: input.channel,
     },
   });
-  for (const f of input.files) {
+  // Un documento siempre pertenece a un contribuyente: sin contribuyente no se aceptan adjuntos (se valida antes).
+  const taxpayerId = input.request.taxpayerId;
+  for (const f of taxpayerId ? input.files : []) {
     await tx.document.create({
       data: {
         studyId: input.request.studyId,
-        taxpayerId: input.request.taxpayerId,
+        taxpayerId: taxpayerId as string,
         storageKey: f.storageKey,
         fileName: f.fileName,
         mimeType: f.mimeType,
@@ -127,15 +129,20 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
   const subject = input.subject.trim();
   const body = input.body.trim();
   const fieldErrors: Record<string, string> = {};
-  const taxpayer = await getAuthorizedTaxpayer(user, input.taxpayerId);
-  if (!taxpayer) fieldErrors.taxpayerId = "Elegí un contribuyente habilitado.";
+  // "Alta o acceso" se puede pedir sin contribuyente habilitado (por ejemplo, con la asociación pendiente).
+  const withoutTaxpayer = input.topic === "ALTA" && !input.taxpayerId;
+  const taxpayer = withoutTaxpayer ? null : await getAuthorizedTaxpayer(user, input.taxpayerId);
+  if (!taxpayer && !withoutTaxpayer) fieldErrors.taxpayerId = "Elegí un contribuyente habilitado.";
+  if (withoutTaxpayer && files.length > 0) fieldErrors.files = "Sin un contribuyente habilitado todavía no se pueden adjuntar archivos.";
   if (!CLIENT_TOPICS.includes(input.topic)) fieldErrors.topic = "Elegí un tema.";
   if (subject.length < 3 || subject.length > 120) fieldErrors.subject = "Escribí un asunto (3 a 120 caracteres).";
   const bodyError = checkBody(body);
   if (bodyError) fieldErrors.body = bodyError;
   const checked = checkFiles(files);
   if (!checked.ok) fieldErrors.files = checked.message;
-  if (Object.keys(fieldErrors).length > 0 || !taxpayer || !checked.ok) return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
+  if (Object.keys(fieldErrors).length > 0 || (!taxpayer && !withoutTaxpayer) || !checked.ok) {
+    return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
+  }
 
   if (input.externalRef) {
     const existing = await prisma.idempotencyKey.findUnique({ where: { key: input.externalRef } });
@@ -159,7 +166,7 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
       const request = await tx.serviceRequest.create({
         data: {
           studyId: user.studyId,
-          taxpayerId: taxpayer.id,
+          taxpayerId: taxpayer?.id ?? null,
           createdById: user.id,
           topic: input.topic,
           subject,
@@ -186,7 +193,7 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
           action: "REQUEST_CREATE",
           entity: "ServiceRequest",
           entityId: request.id,
-          detail: `${taxpayer.name}: ${subject}${stored.length ? ` · ${stored.length} adjunto(s)` : ""}`,
+          detail: `${taxpayer?.name ?? "Sin contribuyente"}: ${subject}${stored.length ? ` · ${stored.length} adjunto(s)` : ""}`,
         },
       });
       return request;
@@ -196,7 +203,7 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
   await notify(
     await staffRecipients(user.studyId, null),
     `Nueva solicitud: ${subject}`,
-    `${user.name} creó una solicitud para ${taxpayer.name} (${SR_TOPIC_LABEL[input.topic]}).\n\nVer la solicitud:\n${origin}/admin/solicitudes/${request.id}`,
+    `${user.name} creó una solicitud para ${taxpayer?.name ?? "un alta pendiente"} (${SR_TOPIC_LABEL[input.topic]}).\n\nVer la solicitud:\n${origin}/admin/solicitudes/${request.id}`,
   );
   return { ok: true, message: "Solicitud enviada. Te avisamos por correo cuando el estudio responda.", requestId: request.id };
 }
@@ -210,6 +217,8 @@ async function findAuthorizedRequest(user: CurrentUser, requestId: string) {
   });
   if (!request) return null;
   if (isStaff(user)) return request;
+  // Sin contribuyente (alta pendiente): solo la ve quien la creó.
+  if (!request.taxpayerId) return request.createdById === user.id ? request : null;
   return (await getAuthorizedTaxpayer(user, request.taxpayerId)) ? request : null;
 }
 
@@ -242,7 +251,7 @@ export async function getRequestForUser(user: CurrentUser, requestId: string) {
       },
     }),
     request.assignedToId ? prisma.user.findUnique({ where: { id: request.assignedToId }, select: { id: true, name: true } }) : null,
-    request.obligationId
+    request.obligationId && request.taxpayerId
       ? prisma.obligation.findFirst({ where: { id: request.obligationId, taxpayerId: request.taxpayerId } })
       : null,
   ]);
@@ -256,7 +265,7 @@ export async function getRequestForUser(user: CurrentUser, requestId: string) {
     channel: request.channel,
     createdAt: request.createdAt,
     lastActivityAt: request.lastActivityAt,
-    taxpayer: { id: request.taxpayer.id, name: request.taxpayer.name },
+    taxpayer: request.taxpayer ? { id: request.taxpayer.id, name: request.taxpayer.name } : null,
     createdBy: { name: request.createdBy.name },
     assignedTo: assignee,
     obligation: obligation
@@ -299,6 +308,7 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
   if (staff && input.newStatus && !STATUS_VALUES.includes(input.newStatus)) fieldErrors.newStatus = "Elegí un estado.";
   const checked = checkFiles(files);
   if (!checked.ok) fieldErrors.files = checked.message;
+  if (!request.taxpayerId && files.length > 0) fieldErrors.files = "Esta solicitud no tiene un contribuyente asociado: no se pueden adjuntar archivos.";
   if (Object.keys(fieldErrors).length > 0 || !checked.ok) return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
 
   const isPublic = input.visibility === MESSAGE_VISIBILITY.PUBLICA;
@@ -335,7 +345,7 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
           action: isPublic ? "REQUEST_MESSAGE" : "REQUEST_INTERNAL_NOTE",
           entity: "ServiceRequest",
           entityId: request.id,
-          detail: `${request.taxpayer.name}: ${request.subject}${status !== request.status ? ` · ${SR_STATUS_LABEL[request.status]} → ${SR_STATUS_LABEL[status]}` : ""}${
+          detail: `${(request.taxpayer?.name ?? "Sin contribuyente")}: ${request.subject}${status !== request.status ? ` · ${SR_STATUS_LABEL[request.status]} → ${SR_STATUS_LABEL[status]}` : ""}${
             stored.length ? ` · ${stored.length} adjunto(s)` : ""
           }`,
         },
@@ -356,7 +366,7 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
     await notify(
       await staffRecipients(request.studyId, assignedToId),
       `Nuevo mensaje del cliente: ${request.subject}`,
-      `${user.name} escribió en la solicitud "${request.subject}" (${request.taxpayer.name}).\n\nVer la solicitud:\n${origin}/admin/solicitudes/${request.id}`,
+      `${user.name} escribió en la solicitud "${request.subject}" (${(request.taxpayer?.name ?? "Sin contribuyente")}).\n\nVer la solicitud:\n${origin}/admin/solicitudes/${request.id}`,
     );
   }
   return { ok: true, message: isPublic ? "Mensaje enviado." : "Nota interna guardada. El cliente no la ve." };
@@ -405,11 +415,14 @@ export async function updateRequest(
         action: "REQUEST_UPDATE",
         entity: "ServiceRequest",
         entityId: request.id,
-        detail: `${request.taxpayer.name}: ${request.subject} · ${changes.join(", ")}`,
+        detail: `${(request.taxpayer?.name ?? "Sin contribuyente")}: ${request.subject} · ${changes.join(", ")}`,
       },
     }),
   ]);
 
+  if (input.status !== request.status) {
+    await notifyRequestStatus(request, input.status).catch((err) => console.error("[bot] No se pudo registrar el aviso de estado:", err instanceof Error ? err.message : err));
+  }
   if (input.status !== request.status && input.status === SR_STATUS.RESUELTA) {
     await notify(
       [request.createdBy.email],
@@ -448,7 +461,14 @@ export async function listRequestsForUser(user: CurrentUser, filter: ClientReque
     where: {
       studyId: user.studyId,
       ...(filter.taxpayerId ? { taxpayerId: filter.taxpayerId } : {}),
-      ...(isStaff(user) ? {} : { taxpayer: { accesses: { some: { userId: user.id, status: ACCESS_STATUS.APROBADO } } } }),
+      ...(isStaff(user)
+        ? {}
+        : {
+            OR: [
+              { taxpayer: { accesses: { some: { userId: user.id, status: ACCESS_STATUS.APROBADO } } } },
+              { taxpayerId: null, createdById: user.id },
+            ],
+          }),
       ...statusWhere,
     },
     orderBy: { lastActivityAt: "desc" },
@@ -513,7 +533,15 @@ export async function informPayment(
   noteInput: string,
   files: UploadFile[],
   origin: string,
+  externalRef?: string,
 ): Promise<RequestResult> {
+  if (externalRef) {
+    const existing = await prisma.idempotencyKey.findUnique({ where: { key: externalRef } });
+    if (existing) {
+      if (existing.userId !== user.id) return { ok: false, message: "No se pudo informar el pago." };
+      return { ok: true, message: "Pago informado. El estudio va a revisar el comprobante.", requestId: existing.requestId };
+    }
+  }
   const obligation = await prisma.obligation.findFirst({ where: { id: obligationId, studyId: user.studyId } });
   const taxpayer = obligation ? await getAuthorizedTaxpayer(user, obligation.taxpayerId) : null;
   if (!obligation || !taxpayer) return { ok: false, message: "El vencimiento no existe o no tenés acceso." };
@@ -554,8 +582,10 @@ export async function informPayment(
           subject: `Pago informado: ${periodText}`,
           status: SR_STATUS.ABIERTA,
           obligationId: obligation.id,
+          ...(externalRef ? { channel: CHANNEL.WHATSAPP } : {}),
         },
       });
+      if (externalRef) await tx.idempotencyKey.create({ data: { key: externalRef, requestId: request.id, userId: user.id } });
       await createMessage(tx, {
         request,
         authorId: user.id,
@@ -593,3 +623,36 @@ export async function informPayment(
 }
 
 class PaymentConflict extends Error {}
+
+/**
+ * El cliente indica que su solicitud está resuelta. Queda un mensaje público que lo dice (lo ve el estudio)
+ * y la solicitud pasa a "Resuelta". Si después necesita algo más, al escribir vuelve a "En curso".
+ */
+export async function closeByClient(user: CurrentUser, requestId: string, origin: string, channel: string = CHANNEL.WEB): Promise<ServiceResult> {
+  if (isStaff(user)) return { ok: false, message: "Esta opción es para el cliente." };
+  const request = await findAuthorizedRequest(user, requestId);
+  if (!request) return { ok: false, message: "La solicitud no existe o no tenés acceso." };
+  if (request.status === SR_STATUS.RESUELTA) return { ok: false, message: "La solicitud ya estaba resuelta." };
+  await prisma.$transaction(async (tx) => {
+    await tx.requestMessage.create({
+      data: { requestId: request.id, authorId: user.id, body: "El cliente indicó que la consulta está resuelta.", visibility: MESSAGE_VISIBILITY.PUBLICA, channel },
+    });
+    await tx.serviceRequest.update({ where: { id: request.id }, data: { status: SR_STATUS.RESUELTA, lastActivityAt: new Date() } });
+    await tx.auditEvent.create({
+      data: {
+        studyId: request.studyId,
+        actorId: user.id,
+        action: "REQUEST_CLOSED_BY_CLIENT",
+        entity: "ServiceRequest",
+        entityId: request.id,
+        detail: `${request.taxpayer?.name ?? "Sin contribuyente"}: ${request.subject}`,
+      },
+    });
+  });
+  await notify(
+    await staffRecipients(request.studyId, request.assignedToId),
+    `Solicitud resuelta por el cliente: ${request.subject}`,
+    `${user.name} indicó que la solicitud "${request.subject}" está resuelta.\n\n${origin}/admin/solicitudes/${request.id}`,
+  );
+  return { ok: true, message: "Marcamos la solicitud como resuelta." };
+}

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { ROLES } from "@/lib/constants";
 import { formatDateTimeAR } from "@/lib/dates";
+import { requestCode } from "@/lib/request-code";
 import { getRequestForUser } from "@/modules/requests/service";
 import { ReplyForm } from "@/components/requests/RequestForms";
 import { Conversation, PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
@@ -31,7 +32,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
       </div>
       <PageHeader
         title={request.subject}
-        subtitle={`${request.taxpayer.name} · ${topicLabel(request.topic)} · creada ${formatDateTimeAR(request.createdAt)}`}
+        subtitle={`${requestCode(request.id)} · ${request.taxpayer?.name ?? "Alta o acceso"} · ${topicLabel(request.topic)} · creada ${formatDateTimeAR(request.createdAt)}`}
       >
         <div className="flex flex-wrap gap-1">
           <PriorityBadge priority={request.priority} />

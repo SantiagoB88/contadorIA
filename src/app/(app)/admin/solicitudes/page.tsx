@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { CHANNEL_LABEL, SR_STATUS_LABEL } from "@/lib/constants";
 import { formatDateTimeAR } from "@/lib/dates";
+import { requestCode } from "@/lib/request-code";
 import { listInbox } from "@/modules/requests/service";
 import { PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
@@ -83,7 +84,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                 <Link href={`/admin/solicitudes/${r.id}`} className="block space-y-1 px-4 py-3 text-sm hover:bg-slate-50">
                   <p className="font-medium text-navy">{r.subject}</p>
                   <p className="text-slate-600">
-                    {r.taxpayer.name} · {topicLabel(r.topic)}
+                    {requestCode(r.id)} · {r.taxpayer?.name ?? "Sin contribuyente"} · {topicLabel(r.topic)}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     <PriorityBadge priority={r.priority} />
@@ -115,10 +116,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                         {r.subject}
                       </Link>
                       <p className="text-xs text-slate-500">
-                        {topicLabel(r.topic)} · de {r.createdBy.name} · canal {CHANNEL_LABEL[r.channel] ?? r.channel}
+                        {requestCode(r.id)} · {topicLabel(r.topic)} · de {r.createdBy.name} · canal {CHANNEL_LABEL[r.channel] ?? r.channel}
                       </p>
                     </td>
-                    <td className="px-4 py-3">{r.taxpayer.name}</td>
+                    <td className="px-4 py-3">{r.taxpayer?.name ?? <span className="text-slate-500">Sin contribuyente</span>}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         <PriorityBadge priority={r.priority} />

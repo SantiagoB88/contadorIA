@@ -1,3 +1,4 @@
+import { requestCode } from "@/lib/request-code";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
@@ -34,10 +35,14 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
         title={request.subject}
         subtitle={
           <>
-            <Link href={`/admin/contribuyentes/${request.taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
-              {request.taxpayer.name}
-            </Link>{" "}
-            · {topicLabel(request.topic)} · creada por {request.createdBy.name} el {formatDateTimeAR(request.createdAt)} · canal{" "}
+            {request.taxpayer ? (
+              <Link href={`/admin/contribuyentes/${request.taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
+                {request.taxpayer.name}
+              </Link>
+            ) : (
+              <span>Sin contribuyente (alta o acceso pendiente)</span>
+            )}{" "}
+            · {requestCode(request.id)} · {topicLabel(request.topic)} · creada por {request.createdBy.name} el {formatDateTimeAR(request.createdAt)} · canal{" "}
             {CHANNEL_LABEL[request.channel] ?? request.channel}
           </>
         }
@@ -55,7 +60,7 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ i
           {request.obligation.status === "PAGO_INFORMADO" && (
             <>
               Revisá el comprobante adjunto y verificá el pago en{" "}
-              <Link href={`/admin/contribuyentes/${request.taxpayer.id}#deudas`} className="font-medium underline">
+              <Link href={`/admin/contribuyentes/${request.taxpayer?.id ?? ""}#deudas`} className="font-medium underline">
                 Deudas y vencimientos
               </Link>
               .

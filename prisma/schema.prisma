@@ -355,8 +355,8 @@ model AuditEvent {
 model ServiceRequest {
   id             String           @id @default(cuid())
   studyId        String
-  taxpayerId     String
-  taxpayer       Taxpayer         @relation(fields: [taxpayerId], references: [id])
+  taxpayerId     String?
+  taxpayer       Taxpayer?        @relation(fields: [taxpayerId], references: [id])
   createdById    String
   createdBy      User             @relation("RequestCreator", fields: [createdById], references: [id])
   assignedToId   String?
@@ -484,6 +484,8 @@ model InboundEvent {
   channel     String
   address     String
   body        String // texto recibido (no se registra en logs)
+  choiceId    String? // id de la opción tocada (botón o fila de lista)
+  uploadId    String? // adjunto recibido (BotUpload)
   status      String // RECIBIDO | PROCESADO | FALLIDO
   attempts    Int       @default(0)
   lastError   String?
@@ -500,7 +502,8 @@ model OutboundMessage {
   id         String    @id @default(cuid())
   channel    String
   address    String
-  body       String
+  body       String // texto (o texto alternativo de un mensaje interactivo)
+  payload    String? // JSON del mensaje interactivo (botones o lista), si lo es
   kind       String // RESPUESTA | AVISO
   inboundId  String? // evento que la originó
   requestId  String? // solicitud relacionada (aviso de respuesta del estudio)
@@ -523,4 +526,32 @@ model IdempotencyKey {
   requestId String
   userId    String
   createdAt DateTime @default(now())
+}
+
+// Adjunto recibido por el bot (foto o PDF). Se valida al recibirlo y se guarda en el almacenamiento privado;
+// queda disponible para el paso que lo pidió (comprobante de pago, documentación) y se marca como usado.
+model BotUpload {
+  id         String    @id @default(cuid())
+  address    String
+  storageKey String    @unique
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  sha256     String
+  createdAt  DateTime  @default(now())
+  usedAt     DateTime?
+
+  @@index([address, createdAt])
+}
+
+// Preferencias de avisos por canal y tipo. Solo se ofrecen los tipos que tienen un envío real implementado.
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  channel   String // WHATSAPP
+  type      String // RESPUESTAS_ESTUDIO | CAMBIOS_ESTADO
+  enabled   Boolean
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, channel, type])
 }

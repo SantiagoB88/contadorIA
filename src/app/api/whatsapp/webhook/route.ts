@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { getOrigin } from "@/lib/origin";
-import { receiveInbound, retryPendingInbound } from "@/modules/bot/inbound";
+import { alreadyReceived, receiveInbound, retryPendingInbound, type InboundInput } from "@/modules/bot/inbound";
+import { saveBotUpload } from "@/modules/bot/uploads";
+import { normalizePhone } from "@/lib/phone";
 import { whatsappTransport } from "@/providers/messaging";
 
 // Webhook de WhatsApp Business (Meta Cloud API).
@@ -32,8 +34,18 @@ function validSignature(raw: string, header: string | null, secret: string): boo
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
+type MetaMedia = { id: string; mime_type?: string; filename?: string; caption?: string };
+type MetaMessage = {
+  from: string;
+  id: string;
+  type: string;
+  text?: { body: string };
+  interactive?: { button_reply?: { id: string; title?: string }; list_reply?: { id: string; title?: string } };
+  image?: MetaMedia;
+  document?: MetaMedia;
+};
 type MetaValue = {
-  messages?: { from: string; id: string; type: string; text?: { body: string }; interactive?: { button_reply?: { id: string }; list_reply?: { id: string } } }[];
+  messages?: MetaMessage[];
   statuses?: { id: string; status: string; errors?: { code?: number; title?: string }[] }[];
 };
 
@@ -59,12 +71,8 @@ export async function POST(req: Request) {
     for (const change of entry.changes ?? []) {
       const value = change.value ?? {};
       for (const m of value.messages ?? []) {
-        // Tocar un botón o una opción de lista equivale a escribir su id. Otros tipos (audio, foto) no se leen.
-        const text =
-          m.type === "text"
-            ? (m.text?.body ?? "")
-            : (m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? "Por ahora solo puedo leer mensajes de texto.");
-        await receiveInbound({ provider: "META", providerId: m.id, rawAddress: m.from, text }, options);
+        if (await alreadyReceived("META", m.id)) continue; // reenvío de Meta: ya está registrado
+        await receiveInbound(await toInbound(m, options.transport), options);
       }
       // Estados de los mensajes enviados: se registra lo que informa Meta (no se promete entrega).
       for (const s of value.statuses ?? []) {
@@ -77,4 +85,24 @@ export async function POST(req: Request) {
   // Reintenta lo que haya quedado fallido (por ejemplo, tras una caída) sin bloquear la respuesta a Meta por mucho.
   await retryPendingInbound(options, 5).catch((err) => console.error("[whatsapp] Reintento fallido:", err instanceof Error ? err.message : err));
   return new Response("OK", { status: 200 });
+}
+
+/** Mensaje de Meta → entrada del bot. Botones y listas llegan con el id de la opción; fotos y PDF se descargan
+ *  y validan con las mismas reglas que la web. Audios, videos, ubicaciones, etc. no se leen. */
+async function toInbound(m: MetaMessage, transport: ReturnType<typeof whatsappTransport>): Promise<InboundInput> {
+  const base = { provider: "META" as const, providerId: m.id, rawAddress: m.from };
+  if (m.type === "text") return { ...base, text: m.text?.body ?? "" };
+  if (m.type === "interactive") {
+    const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
+    return { ...base, text: reply?.title ?? "", choiceId: reply?.id ?? null };
+  }
+  const media = m.type === "image" ? m.image : m.type === "document" ? m.document : undefined;
+  if (media) {
+    const address = normalizePhone(m.from);
+    const file = transport.downloadMedia && address ? await transport.downloadMedia(media.id) : null;
+    if (!file || !address) return { ...base, text: media.caption ?? "", uploadError: "no pude descargarlo de WhatsApp. Probá mandarlo de nuevo." };
+    const saved = await saveBotUpload(address, { name: media.filename ?? null, mimeType: (media.mime_type ?? file.mimeType).split(";")[0], bytes: file.bytes });
+    return saved.ok ? { ...base, text: media.caption ?? "", uploadId: saved.id } : { ...base, text: media.caption ?? "", uploadError: saved.message };
+  }
+  return { ...base, text: "", uploadError: "por ahora solo puedo leer texto, opciones, fotos (JPG o PNG) y PDF." };
 }

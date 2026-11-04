@@ -16,6 +16,10 @@
 - [ ] Análisis antimalware de archivos antes de un piloto con archivos reales
 - [ ] Solicitudes: búsqueda por texto y paginación en la bandeja (hoy muestra hasta 200)
 - [x] Bot de WhatsApp integrado: alta, vinculación, consultas, solicitudes, simulador y webhook
+- [x] WhatsApp: botones y listas, factura guiada, pago informado, documentos, derivación al estudio, retomar y opciones vencidas
+- [ ] WhatsApp: limpieza periódica de archivos recibidos que nunca se usaron (`BotUpload` sin `usedAt`)
+- [ ] WhatsApp: recordatorios de vencimientos (necesita un proceso periódico y plantillas de Meta)
+- [ ] WhatsApp: evaluar WhatsApp Flows para formularios largos (requiere configuración en Meta)
 - [ ] WhatsApp: probar con el número de prueba de Meta (necesita cuenta de Meta for Developers y túnel)
 - [ ] WhatsApp: plantillas aprobadas para avisos fuera de la ventana de 24 h
 - [ ] WhatsApp: confirmar el formato del número argentino al responder (la documentación de Meta no lo aclara)

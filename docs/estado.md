@@ -226,6 +226,39 @@
 - **No aplica todavía**: el caso "operador no asignado", porque no existe el rol operador (backlog). Se probó que otro estudio o un cliente no pueden desvincular ni ver vínculos ajenos.
 - **Borrador de factura que aparecía, daba 404 y desaparecía**: no se reprodujo en la compu; el recorrido del facturador pasa en desarrollo y en la versión compilada. La explicación más probable es la demo de Vercel, donde el listado y el detalle pueden atenderlos instancias con bases distintas.
 
+## Bot de WhatsApp con botones y listas ✅ (rama `feat/whatsapp-bot`, sin publicar)
+
+Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interactivo.md`.
+
+- **Experiencia**: el menú de texto se reemplazó por botones y listas reales de WhatsApp, con respaldo en texto numerado. Cubre:
+  - entrada sin vincular, alta pendiente y suspendido;
+  - menú completo: resumen por período, facturación guiada, categoría con simulación, deudas con pago informado, documentos, solicitudes, hablar con el estudio y Mi cuenta.
+- **Seguridad de las opciones**:
+  - ids internos validados contra el último mensaje (las opciones vencidas no ejecutan nada);
+  - cada acción revalida permisos;
+  - confirmación solo con botón, nunca con un "sí" escrito.
+- **Operaciones**: usan los servicios de la web con claves de idempotencia del evento.
+  - Factura guiada: `saveDraft` + `emitInvoice`, solo simulación.
+  - Pago informado: `informPayment`.
+  - Solicitudes y pedidos de documentos: `createRequest`.
+  - Cerrar solicitud por el cliente: `closeByClient`.
+- **Archivos por el bot**: tabla `BotUpload`, validados igual que en la web.
+- **Avisos**: preferencias reales (`NotificationPreference`) solo para los dos avisos que existen.
+- **Esquema** `whatsapp-2`:
+  - `ServiceRequest.taxpayerId` opcional, para la consulta de alta sin contribuyente;
+  - `OutboundMessage.payload`;
+  - `InboundEvent.choiceId` / `uploadId`;
+  - `BotUpload`;
+  - `NotificationPreference`.
+  Probado sobre una copia de `dev.db`: sin avisos y conserva las 201 facturas.
+- **Web**: número de solicitud visible (S-XXXXXX), el mismo en la Bandeja, el detalle, los avisos y el bot.
+- **Pruebas**:
+  - `npm run verify` **112/112 OK** (25 del bot);
+  - en el navegador contra la versión compilada, **23/23 OK**;
+  - `npm run typecheck` OK;
+  - `next build` OK, en carpeta aparte.
+- **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
+
 ## Verificaciones ejecutadas
 
 - `npm run typecheck` → OK

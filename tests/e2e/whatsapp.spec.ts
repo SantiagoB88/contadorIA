@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { USERS, login } from "./helpers";
 
-// Recorrido completo del bot con el simulador visual y la web: alta desde el bot, aprobación del estudio,
-// vinculación, consulta, solicitud y respuesta del estudio que llega al chat.
+// Recorrido completo del bot con el simulador visual y la web, tocando botones y listas como en WhatsApp:
+// alta desde el bot, aprobación del estudio, vinculación, consulta, solicitud con adjunto y respuesta del estudio.
 
 const uid = () => Date.now().toString(36).slice(-5);
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function fakeCuit(): string {
   const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
@@ -17,23 +18,65 @@ function fakeCuit(): string {
   }
 }
 
-async function chat(page: Page, text: string, expectReply: RegExp) {
-  await page.locator("#sim-text").fill(text);
-  await page.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(page.getByLabel("Conversación").getByText(expectReply).last()).toBeVisible();
+const conversation = (page: Page) => page.getByLabel("Conversación");
+const lastReply = (page: Page, text: RegExp) => expect(conversation(page).getByText(text).last()).toBeVisible();
+const outCount = (page: Page) => page.locator('[data-dir="out"]').count();
+
+/** Hace algo en el chat y espera a que llegue una respuesta nueva que coincida. */
+async function act(page: Page, action: () => Promise<void>, expectReply: RegExp) {
+  const before = await outCount(page);
+  await action();
+  await newReply(page, before, expectReply);
 }
 
-test("alta por WhatsApp → aprobación → vinculación → consulta → solicitud → respuesta del estudio", async ({ page, browser }) => {
+/** Espera una respuesta del bot posterior a `before` (cantidad de mensajes salientes) que coincida. */
+async function newReply(page: Page, before: number, expectReply: RegExp) {
+  await expect
+    .poll(async () => (await page.locator('[data-dir="out"]').allInnerTexts()).slice(before).some((t) => expectReply.test(t)), { timeout: 20_000 })
+    .toBe(true);
+}
+
+async function chat(page: Page, text: string, expectReply: RegExp) {
+  await act(
+    page,
+    async () => {
+      await page.locator("#sim-text").fill(text);
+      await page.getByRole("button", { name: "Enviar", exact: true }).click();
+    },
+    expectReply,
+  );
+}
+
+/** Toca un botón de respuesta del último mensaje que lo tenga. */
+async function tap(page: Page, title: string, expectReply: RegExp) {
+  await act(page, () => conversation(page).getByRole("button", { name: title, exact: true }).last().click(), expectReply);
+}
+
+/** Abre la última lista y elige una fila (el nombre accesible de la fila empieza con su título). */
+async function pick(page: Page, row: string, expectReply: RegExp) {
+  await act(
+    page,
+    async () => {
+      await conversation(page).getByRole("button", { name: /^☰/ }).last().click();
+      await conversation(page).getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last().click();
+    },
+    expectReply,
+  );
+}
+
+const pdf = { name: "constancia.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% prueba\n%%EOF\n") };
+
+test("alta por WhatsApp → aprobación → vinculación → consulta → solicitud con adjunto → respuesta del estudio", async ({ page, browser }) => {
   const id = uid();
   const email = `wa.${id}@ejemplo.com`;
   const name = `Monotributista WA ${id}`;
 
-  // 1. Una persona nueva le escribe al bot (número ficticio del simulador).
+  // 1. Una persona nueva le escribe al bot (número ficticio del simulador) y elige con botones.
   await page.goto("/dev/whatsapp");
   await page.getByLabel("Quién escribe").selectOption("+5491155550004");
-  await chat(page, "hola", /no está vinculado/);
-  await chat(page, "1", /Creá tu cuenta/);
-  const inviteText = await page.getByLabel("Conversación").getByText(/vincular\?t=/).last().innerText();
+  await chat(page, "hola", /¿Cómo querés empezar\?/);
+  await tap(page, "Quiero registrarme", /Creá tu cuenta/);
+  const inviteText = await conversation(page).getByText(/vincular\?t=/).last().innerText();
   const invite = inviteText.match(/(\/whatsapp\/vincular\?t=[\w-]+)/)![1];
 
   // 2. Crea la cuenta en la web, confirma el correo y pide asociarse a un CUIT.
@@ -62,15 +105,15 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   await web.waitForURL(/\/perfil\?whatsapp=vinculado/, { waitUntil: "commit" });
   await expect(web.getByText("Listo: tu WhatsApp quedó vinculado")).toBeVisible();
 
-  // Pide asociarse a un CUIT nuevo. Hasta que el estudio apruebe, el bot no muestra datos.
+  // Pide asociarse a un CUIT nuevo. Hasta que el estudio apruebe, el bot no muestra datos fiscales.
   await web.locator("#as-cuit").fill(fakeCuit());
   await web.locator("#as-name").fill(name);
   await web.locator("#as-activity").fill("Servicios de prueba");
   await web.locator("#as-startDate").fill("2023-05-01");
   await web.getByRole("button", { name: "Enviar solicitud" }).click();
   await expect(web.getByText(/Solicitud enviada/)).toBeVisible();
-  await chat(page, "2", /Todavía no podés consultar/);
-  await chat(page, "1", /pendiente de aprobación/);
+  await chat(page, "hola", /pendiente de revisión por el estudio/);
+  await tap(page, "Ver estado", /pendiente de revisión del estudio/);
 
   // 4. El estudio aprueba en Accesos y ve el WhatsApp vinculado.
   await login(web, USERS.admin);
@@ -79,24 +122,34 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   await expect(web.getByText(/Solicitud aprobada/)).toBeVisible();
   await expect(web.locator("li", { hasText: email }).getByText(/WhatsApp \+54 9 11/)).toBeVisible();
 
-  // 5. Ahora el bot responde con datos reales del contribuyente (sin facturación cargada: lo dice).
-  await chat(page, "menu", /Estás consultando/);
-  await expect(page.getByLabel("Conversación").getByText(name).last()).toBeVisible();
-  await chat(page, "2", /no cargó la facturación/);
-  await chat(page, "4", /no cargó información/);
+  // 5. Ahora el bot muestra el menú y datos reales del contribuyente (sin facturación cargada: lo dice).
+  await chat(page, "menu", new RegExp(`Estás consultando ${esc(name)}`));
+  await pick(page, "Mi resumen", /¿Qué período querés ver\?/);
+  await pick(page, "Este mes", /no cargó la facturación/);
+  await chat(page, "menu", /¿Qué necesitás\?/);
+  await pick(page, "Deudas y vencimientos", /¿Qué querés ver\?/);
+  await pick(page, "Próximos vencimientos", /no cargó información/);
 
-  // 6. Crea una solicitud desde el bot.
-  const subject = `Consulta por WhatsApp ${id}`;
-  await chat(page, "5", /Sobre qué es tu consulta/);
-  await chat(page, "4", /asunto corto/);
-  await chat(page, subject, /detalle en un mensaje/);
-  await chat(page, "Necesito la constancia de inscripción", /creamos tu solicitud/);
+  // 6. Crea una solicitud desde el bot, con un PDF adjunto, y la confirma.
+  const body = `Necesito la constancia ${id}`;
+  await chat(page, "menu", /¿Qué necesitás\?/);
+  await pick(page, "Mis solicitudes", /¿Qué querés ver\?/);
+  await pick(page, "Crear solicitud", /¿Sobre qué es\?/);
+  await pick(page, "Documentación", /Contame en un mensaje/);
+  await chat(page, body, /¿Querés adjuntar un archivo/);
+  await tap(page, "Adjuntar archivo", /Mandá el archivo/);
+  await act(page, () => page.locator("#sim-file").setInputFiles(pdf), /Adjunto: constancia\.pdf/);
+  // Un "sí" escrito no confirma.
+  await chat(page, "sí", /No tomo un "sí" escrito/);
+  await tap(page, "Enviar al estudio", /quedó enviada al estudio/);
+  const code = (await conversation(page).getByText(/Tu solicitud S-\w{6}/).last().innerText()).match(/S-\w{6}/)![0];
 
-  // 7. El estudio la ve en la Bandeja con canal WhatsApp, deja una nota interna y responde.
+  // 7. El estudio la ve en la Bandeja con canal WhatsApp y el mismo número, deja una nota interna y responde.
   await web.goto("/admin/solicitudes?estado=activas&asignado=sin");
-  await expect(web.getByText(/canal WhatsApp/).first()).toBeVisible();
-  await web.getByRole("link", { name: subject }).first().click();
+  await expect(web.getByText(new RegExp(`${code} · .*canal WhatsApp`)).first()).toBeVisible();
+  await web.getByRole("link", { name: body }).first().click();
   await web.waitForURL(/\/admin\/solicitudes\/c/, { waitUntil: "commit" });
+  await expect(web.getByText("constancia.pdf").first()).toBeVisible();
   await web.getByRole("radio", { name: "Nota interna (el cliente no la ve)" }).click();
   await web.getByLabel("Nota interna", { exact: true }).fill(`SECRETO-${id}`);
   await web.getByRole("button", { name: "Guardar nota interna" }).click();
@@ -108,34 +161,58 @@ test("alta por WhatsApp → aprobación → vinculación → consulta → solici
   await expect(web.getByText("Entregado en el simulador")).toBeVisible();
 
   // 8. Al chat llega el aviso; el cliente ve la respuesta y nunca la nota interna.
-  await expect(page.getByLabel("Conversación").getByText(/El estudio respondió tu solicitud/).last()).toBeVisible({ timeout: 15_000 });
-  await chat(page, "6", /Tus últimas solicitudes/);
-  await chat(page, "1", new RegExp(`Te la mandamos hoy ${id}`));
-  await expect(page.getByLabel("Conversación").getByText(`SECRETO-${id}`)).toHaveCount(0);
+  await expect(conversation(page).getByText(new RegExp(`El estudio respondió tu solicitud ${code}`)).last()).toBeVisible({ timeout: 15_000 });
+  await chat(page, "menu", /¿Qué necesitás\?/);
+  await pick(page, "Mis solicitudes", /¿Qué querés ver\?/);
+  await pick(page, "Ver abiertas", /Tus solicitudes abiertas/);
+  await pick(page, body.slice(0, 20), new RegExp(`Te la mandamos hoy ${id}`));
+  await expect(conversation(page).getByText(`SECRETO-${id}`)).toHaveCount(0);
 
   // 9. Reiniciar (recargar) conserva la conversación: está en la base.
   await page.reload();
   await page.getByLabel("Quién escribe").selectOption("+5491155550004");
-  await expect(page.getByLabel("Conversación").getByText(new RegExp(`Te la mandamos hoy ${id}`)).last()).toBeVisible();
+  await lastReply(page, new RegExp(`Te la mandamos hoy ${id}`));
   await web.close();
 });
 
-test("evento duplicado y falla del servidor desde el simulador", async ({ page }) => {
+test("opción vencida, evento duplicado, falla del servidor y modo sin botones", async ({ page }) => {
   await page.goto("/dev/whatsapp");
   await page.getByLabel("Quién escribe").selectOption("+5491155550001");
-  await chat(page, "menu", /Hola, Ana/);
-  // Ana tiene dos contribuyentes: elige el primero.
-  await chat(page, "8", /Qué contribuyente querés consultar/);
-  await chat(page, "1", /ahora consultás/);
+  // Ana tiene varios contribuyentes: elige uno desde la lista.
+  await chat(page, "menu", /¿Qué contribuyente querés consultar\?|Estás consultando/);
+  if (/¿Qué contribuyente querés consultar\?/.test(await page.locator('[data-dir="out"]').last().innerText())) {
+    await pick(page, "Ana Gómez", /Ahora estás consultando Ana Gómez/);
+  }
+  await pick(page, "Mi cuenta", /Mi cuenta\. ¿Qué querés hacer\?/);
+  // Una opción de un mensaje anterior (el menú) ya no está vigente: no hace nada y repite las opciones actuales.
+  const menus = conversation(page).getByRole("button", { name: /^☰ Ver opciones/ });
+  await act(
+    page,
+    async () => {
+      await menus.nth((await menus.count()) - 2).click();
+      await conversation(page).getByRole("button", { name: /^Facturación/ }).last().click();
+    },
+    /ya no está vigente/,
+  );
+
   await page.getByRole("button", { name: "Reenviar el último mensaje (duplicado)" }).click();
   await expect(page.getByText(/Evento duplicado: se descartó/)).toBeVisible();
+
+  await chat(page, "menu", /¿Qué necesitás\?/);
   await page.getByLabel("Simular una falla del servidor").selectOption("antes");
-  await page.locator("#sim-text").fill("2");
-  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  const beforeFail = await outCount(page);
+  await conversation(page).getByRole("button", { name: /^☰/ }).last().click();
+  await conversation(page).getByRole("button", { name: /^Mi resumen/ }).last().click();
   await expect(page.getByText(/El servidor falló \(simulado\)/)).toBeVisible();
-  await expect(page.getByLabel("Conversación").getByText(/Tuvimos un problema/).last()).toBeVisible();
+  await newReply(page, beforeFail, /Estoy verificando si quedó registrado/);
+  const beforeRetry = await outCount(page);
   await page.getByLabel("Simular una falla del servidor").selectOption("");
   await page.getByRole("button", { name: "Reintentar fallidos" }).click();
   await expect(page.getByText(/Reintentados: [1-9]/)).toBeVisible();
-  await expect(page.getByLabel("Conversación").getByText(/Facturación de/).last()).toBeVisible();
+  await newReply(page, beforeRetry, /¿Qué período querés ver\?/);
+
+  // Cliente sin botones: las opciones se ven numeradas y responder con el número equivale a tocarlas.
+  await page.getByLabel("Ver como un cliente sin botones (opciones numeradas)").check();
+  await lastReply(page, /1\. Este mes/);
+  await chat(page, "1", /Resumen de Ana Gómez/);
 });

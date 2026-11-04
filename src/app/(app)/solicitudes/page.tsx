@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { ROLES } from "@/lib/constants";
 import { formatDateTimeAR } from "@/lib/dates";
+import { requestCode } from "@/lib/request-code";
 import { getAccessibleTaxpayers } from "@/modules/taxpayers/access";
 import { listRequestsForUser } from "@/modules/requests/service";
 import { PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
@@ -74,7 +75,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Sea
                     {r.subject}
                   </Link>
                   <p className="mt-0.5 text-sm text-slate-600">
-                    {r.taxpayer.name} · {topicLabel(r.topic)}
+                    {requestCode(r.id)} · {r.taxpayer?.name ?? "Alta o acceso"} · {topicLabel(r.topic)}
                   </p>
                   <p className="text-xs text-slate-500">Última actividad {formatDateTimeAR(r.lastActivityAt)}</p>
                 </div>

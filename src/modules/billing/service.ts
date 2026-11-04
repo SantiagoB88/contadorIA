@@ -499,7 +499,7 @@ export type InvoiceFilters = { status?: string; q?: string; from?: string; to?: 
 export const PAGE_SIZE = 20;
 
 /** Listado del facturador con filtros, orden estable y paginación. */
-export async function listInvoices(taxpayerId: string, filters: InvoiceFilters) {
+export async function listInvoices(taxpayerId: string, filters: InvoiceFilters, pageSize: number = PAGE_SIZE) {
   const where: Prisma.InvoiceWhereInput = {
     taxpayerId,
     environment: APP_MODE,
@@ -517,11 +517,11 @@ export async function listInvoices(taxpayerId: string, filters: InvoiceFilters) 
     prisma.invoice.findMany({
       where,
       orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
   ]);
-  return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+  return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 export async function listRecipients(taxpayerId: string) {

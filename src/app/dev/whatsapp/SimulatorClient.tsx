@@ -7,8 +7,10 @@ import {
   simulatorRetry,
   simulatorSend,
   simulatorTranscript,
+  simulatorUpload,
   type TranscriptItem,
 } from "@/modules/bot/simulator-actions";
+import { fallbackText, type BotMessage, type Choice } from "@/modules/bot/ui";
 import { inputClass, labelClass } from "@/components/ui";
 
 type Identity = { address: string; label: string };
@@ -42,12 +44,70 @@ function Rich({ text }: { text: string }) {
   );
 }
 
+/** Botones y listas como los muestra WhatsApp. Los de mensajes viejos se pueden tocar igual (para probar opciones vencidas). */
+function Interactive({ message, disabled, onChoose }: { message: BotMessage; disabled: boolean; onChoose: (c: Choice) => void }) {
+  const [open, setOpen] = useState(false);
+  if (message.kind === "buttons") {
+    return (
+      <div className="mt-1 flex flex-col gap-1">
+        {message.buttons.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChoose(b)}
+            className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-[#027eb5] shadow-sm hover:bg-slate-50 disabled:opacity-60"
+          >
+            {b.title}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (message.kind !== "list") return null;
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="w-full rounded-lg bg-white px-3 py-2 text-sm font-medium text-[#027eb5] shadow-sm hover:bg-slate-50 disabled:opacity-60"
+      >
+        ☰ {message.button}
+      </button>
+      {open && (
+        <ul className="mt-1 divide-y divide-slate-100 rounded-lg bg-white shadow-sm" role="list">
+          {message.sections.flatMap((sec) => sec.rows).map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  setOpen(false);
+                  onChoose(r);
+                }}
+                className="w-full px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-60"
+              >
+                <span className="block text-sm text-slate-900">{r.title}</span>
+                {r.description && <span className="block text-xs text-slate-500">{r.description}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function SimulatorClient({ identities }: { identities: Identity[] }) {
   const [address, setAddress] = useState(identities[0].address);
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [text, setText] = useState("");
   const [fault, setFault] = useState<"" | "antes" | "despues">("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [plain, setPlain] = useState(false); // ver como un cliente sin botones (opciones numeradas)
+  const fileInput = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -76,12 +136,26 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
       await refresh();
     });
 
+  const failed = (r: { outcome: { status: string; error?: string } }) =>
+    r.outcome.status === "fallido" ? `El servidor falló (simulado): ${r.outcome.error}. Probá "Reintentar fallidos".` : null;
+
   const send = (value: string) =>
     run(async () => {
       if (!value.trim()) return null;
       setText("");
-      const r = await simulatorSend(address, value, { fault: fault || undefined });
-      return r.outcome.status === "fallido" ? `El servidor falló (simulado): ${r.outcome.error}. Probá "Reintentar fallidos".` : null;
+      return failed(await simulatorSend(address, value, { fault: fault || undefined }));
+    });
+
+  const choose = (c: Choice) => run(async () => failed(await simulatorSend(address, c.title, { choiceId: c.id, fault: fault || undefined })));
+
+  const upload = (file: File) =>
+    run(async () => {
+      const form = new FormData();
+      form.set("file", file);
+      if (text.trim()) form.set("caption", text.trim());
+      setText("");
+      if (fileInput.current) fileInput.current.value = "";
+      return failed(await simulatorUpload(address, form));
     });
 
   return (
@@ -119,6 +193,7 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
             onClick={() =>
               run(async () => {
                 const r = await simulatorSend(address, lastInbound!.text, { repeatOf: lastInbound!.providerId });
+                // (si era una opción tocada o un archivo, el reenvío lleva lo mismo)
                 return r.outcome.status === "duplicado" ? "Evento duplicado: se descartó (no se procesó dos veces)." : `Resultado: ${r.outcome.status}`;
               })
             }
@@ -149,6 +224,10 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
           >
             Reintentar fallidos
           </button>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} />
+            Ver como un cliente sin botones (opciones numeradas)
+          </label>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
@@ -182,13 +261,16 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
         <div className="flex-1 space-y-2 overflow-y-auto p-4" aria-live="polite">
           {items.length === 0 && <p className="text-center text-sm text-slate-600">Todavía no hay mensajes. Escribí *hola*.</p>}
           {items.map((m) => (
-            <div key={m.id} className={`flex ${m.dir === "in" ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} data-dir={m.dir} className={`flex ${m.dir === "in" ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[85%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm shadow-sm ${
                   m.dir === "in" ? "bg-[#d9fdd3] text-slate-900" : "bg-white text-slate-900"
                 }`}
               >
-                <Rich text={m.text} />
+                {m.file && <p className="mb-1 text-xs font-medium text-slate-700">📎 {m.file}</p>}
+                {m.choice && <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Opción tocada</p>}
+                <Rich text={plain && m.message ? fallbackText(m.message) : m.text} />
+                {!plain && m.message && <Interactive message={m.message} disabled={pending} onChoose={choose} />}
                 <p className="mt-1 text-right text-[10px] text-slate-500">
                   {new Date(m.at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} · {STATUS_LABEL[m.status] ?? m.status}
                 </p>
@@ -207,6 +289,24 @@ export function SimulatorClient({ identities }: { identities: Identity[] }) {
         >
           <label htmlFor="sim-text" className="sr-only">
             Mensaje
+          </label>
+          <input
+            ref={fileInput}
+            id="sim-file"
+            type="file"
+            accept="application/pdf,image/png,image/jpeg"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+            }}
+          />
+          <label
+            htmlFor="sim-file"
+            title="Adjuntar foto o PDF"
+            className="flex cursor-pointer items-center rounded-lg border border-slate-300 px-3 text-lg hover:bg-slate-50"
+          >
+            📎<span className="sr-only">Adjuntar archivo</span>
           </label>
           <input id="sim-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Escribí un mensaje" className={inputClass} autoComplete="off" />
           <button type="submit" disabled={pending} className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-60">
