@@ -9,7 +9,9 @@ export const metadata = { title: "Ingresar · ContadorSmart" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
-  const next = (await searchParams).next;
+  const sp = await searchParams;
+  const next = sp.next;
+  const passwordChanged = sp.aviso === "clave-cambiada";
   const target = typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
   if (user) {
     return (
@@ -52,6 +54,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </>
       }
     >
+      {passwordChanged && (
+        <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Listo, tu contraseña cambió. Cerramos las sesiones abiertas: ingresá con la nueva.
+        </p>
+      )}
       <LoginForm next={target === "/dashboard" ? undefined : target} />
       <p className="mt-4 text-center text-sm">
         <Link href="/recuperar" className="font-medium text-brand-700 hover:underline">

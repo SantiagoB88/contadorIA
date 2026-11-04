@@ -61,7 +61,8 @@ async function pick(page: Page, row: string, expectReply: RegExp) {
       const lastList = conversation(page).locator('[data-dir="out"]').filter({ has: page.getByRole("button", { name: /^☰/ }) }).last();
       const option = lastList.getByRole("button", { name: new RegExp(`^${esc(row)}`) }).last();
       await expect(async () => {
-        if (!(await option.isVisible())) await lastList.getByRole("button", { name: /^☰/ }).click();
+        const toggle = lastList.getByRole("button", { name: /^☰/ });
+        if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
         await expect(option).toBeVisible({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       await option.click();
@@ -70,9 +71,23 @@ async function pick(page: Page, row: string, expectReply: RegExp) {
   );
 }
 
+/** Cambia de cuenta como una persona: Ingresar → "Cerrar sesión y entrar con otra cuenta" → ingresar (sin borrar cookies). */
+async function switchAccount(page: Page, email: string, password: string) {
+  await page.goto("/login");
+  const other = page.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ });
+  if (await other.isVisible()) {
+    await other.click();
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
+  }
+  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+}
+
 const pdf = { name: "constancia.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% prueba\n%%EOF\n") };
 
-test("alta por chat → aprobación con aviso → ingreso con contraseña temporal → consulta → solicitud con adjunto → respuesta del estudio", async ({ page, browser }) => {
+test("alta por chat → acceso inmediato → ingreso con contraseña temporal → consulta → solicitud con adjunto → respuesta del estudio", async ({ page }) => {
   const id = uid();
   const email = `wa.${id}@ejemplo.com`;
   const name = `Monotributista ${id}`;
@@ -98,41 +113,42 @@ test("alta por chat → aprobación con aviso → ingreso con contraseña tempor
   await expect(page.getByRole("button", { name: "Copiar contraseña" })).toBeVisible();
   const credentials = await page.locator('[data-dir="out"]').filter({ hasText: "Contraseña temporal" }).last().innerText();
   const temp = credentials.match(/Contraseña temporal: (\S+)/)![1];
-  await chat(page, "hola", /pendiente de revisión por el estudio/);
-  await pick(page, "Ver estado", /pendiente de revisión del estudio/);
+  // CUIT nuevo en el estudio: acceso inmediato, sin esperar al administrador.
+  await lastReply(page, /Ya tenés acceso a tu panel/);
 
-  // 2. El estudio aprueba en Accesos (otra ventana) y ve el WhatsApp vinculado; al chat llega el aviso.
-  const web = await browser.newPage();
-  await login(web, USERS.admin);
+  // 2. Todo en la misma ventana, como lo usa una persona: el estudio ve el alta en Accesos ("Clientes nuevos").
+  const web = await page.context().newPage();
   await web.goto("/admin/accesos");
-  await web.locator("section", { hasText: `${name} · CUIT` }).last().getByRole("button", { name: "Aprobar acceso" }).click();
-  await expect(web.getByText(/Solicitud aprobada/)).toBeVisible();
+  await expect(web.getByRole("heading", { name: /Clientes nuevos/ })).toBeVisible();
+  await expect(web.getByText(new RegExp(`${name} · CUIT`)).first()).toBeVisible();
   await expect(web.locator("li", { hasText: email }).getByText(/WhatsApp \+54 9 11/)).toBeVisible();
-  await expect(conversation(page).getByText(/El estudio aprobó tu acceso/).last()).toBeVisible({ timeout: 15_000 });
 
-  // 3. Entra a la web con la contraseña temporal (ventana aparte) y tiene que elegir una propia.
-  const client = await browser.newPage();
-  await client.goto("/login");
-  await client.getByLabel("Correo electrónico").fill(email);
-  // Copiada con un espacio de más (pasa al pegar): igual entra.
-  await client.getByLabel("Contraseña").fill(`${temp} `);
-  await client.getByRole("button", { name: "Ingresar" }).click();
-  await client.waitForURL(/\/perfil\?clave=temporal/, { waitUntil: "commit" });
-  await expect(client.getByText(/Estás usando una contraseña temporal/)).toBeVisible();
-  await client.getByLabel("Contraseña actual").fill(temp);
-  await client.getByLabel("Contraseña nueva", { exact: true }).fill("MiClave2026");
-  await client.getByLabel("Repetí la contraseña nueva").fill("MiClave2026");
-  await client.getByRole("button", { name: "Cambiar contraseña" }).click();
-  await expect(client.getByText("Contraseña actualizada.")).toBeVisible();
-  await client.goto("/dashboard");
-  await expect(client.getByText(/Estás usando una contraseña temporal/)).toHaveCount(0);
-  await expect(client.getByText(name).first()).toBeVisible();
-  await client.close();
-
-  // 4. Con la sesión de otra cuenta abierta, Ingresar ofrece cambiar de cuenta (antes redirigía sin avisar).
+  // 3. Con la sesión del estudio abierta, Ingresar avisa y deja entrar con la cuenta nueva.
   await web.goto("/login");
   await expect(web.getByText(/Ya ingresaste como/)).toBeVisible();
-  await expect(web.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ })).toBeVisible();
+  await web.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ }).click();
+  await web.waitForURL(/\/login$/, { waitUntil: "commit" });
+  await web.getByLabel("Correo electrónico").fill(email);
+  // Copiada con un espacio de más (pasa al pegar): igual entra.
+  await web.getByLabel("Contraseña").fill(`${temp} `);
+  await web.getByRole("button", { name: "Ingresar" }).click();
+  await web.waitForURL(/\/perfil\?clave=temporal/, { waitUntil: "commit" });
+  await expect(web.getByText(/Estás usando una contraseña temporal/)).toBeVisible();
+  await web.getByLabel("Contraseña actual").fill(temp);
+  await web.getByLabel("Contraseña nueva", { exact: true }).fill("MiClave2026");
+  await web.getByLabel("Repetí la contraseña nueva").fill("MiClave2026");
+  await web.getByRole("button", { name: "Cambiar contraseña" }).click();
+  await expect(web.getByText("Contraseña actualizada.")).toBeVisible();
+  // El panel abre (sin ida y vuelta al ingreso) y muestra su contribuyente.
+  await web.goto("/dashboard");
+  await expect(web).toHaveURL(/\/dashboard/);
+  await expect(web.getByText(/Estás usando una contraseña temporal/)).toHaveCount(0);
+  await expect(web.getByRole("heading", { level: 1 })).toHaveText(name);
+  // Volver a ingresar con la contraseña nueva también funciona.
+  await switchAccount(web, email, "MiClave2026");
+  await expect(web.getByRole("heading", { level: 1 })).toHaveText(name);
+  // Vuelve el estudio para atender la solicitud (paso 7).
+  await switchAccount(web, USERS.admin, "Demo1234!");
 
   // 5. Ahora el bot muestra el menú y datos reales del contribuyente (sin facturación cargada: lo dice).
   await chat(page, "menu", new RegExp(`Estás consultando ${esc(name)}`));
@@ -239,6 +255,8 @@ test("opción vencida, evento duplicado, falla del servidor y modo sin botones",
 });
 
 test("restablecer la demo: solo el administrador; vuelve a los datos de ejemplo", async ({ page }) => {
+  // En la demo de Vercel no existe: cada copia del servidor tiene su base y no se pueden restablecer todas juntas.
+  test.skip(process.env.E2E_VERCEL === "1", "solo en la compu");
   // Un cliente no ve el botón.
   await login(page, USERS.clienteA);
   await page.goto("/dev/whatsapp");

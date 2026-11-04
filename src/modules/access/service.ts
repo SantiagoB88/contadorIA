@@ -1,14 +1,21 @@
 import { notifyAccessReviewed } from "@/modules/bot/notify";
 import { prisma } from "@/lib/db";
 import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
-import { cuitProblem, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { mail } from "@/providers/mail";
 import { isValidYmd, todayAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 
-// Asociación usuario ↔ contribuyente. Declarar un CUIT nunca da acceso: lo aprueba el estudio.
+// Asociación usuario ↔ contribuyente.
+// - CUIT que el estudio todavía no tiene: se crea el contribuyente (sin datos) y el acceso queda habilitado al
+//   instante; el estudio recibe el aviso y lo ve en Accesos ("Clientes nuevos"), donde puede revocarlo.
+// - CUIT que ya es de un contribuyente del estudio: lo aprueba el estudio (si no, cualquiera que conozca un CUIT
+//   vería los datos de otra persona).
 // Sin dependencias de Next, para poder probarlo con `npm run verify`.
 
-export type ServiceResult = { ok: true; message: string } | { ok: false; message: string; fieldErrors?: Record<string, string> };
+export type ServiceResult =
+  | { ok: true; message: string; approved?: boolean }
+  | { ok: false; message: string; fieldErrors?: Record<string, string> };
 
 const MAX_PENDING_PER_USER = 5;
 
@@ -49,7 +56,9 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
     return { ok: false, message: "Tenés demasiadas solicitudes pendientes. Esperá a que el estudio las revise." };
   }
 
-  // No se consulta ni se informa si el CUIT ya existe: la respuesta es la misma en ambos casos.
+  const known = await prisma.taxpayer.findUnique({ where: { studyId_cuit: { studyId: user.studyId, cuit } } });
+  if (!known) return selfOnboard(user, { cuit, name, activity, category, startDate: input.startDate });
+
   const request = await prisma.accessRequest.create({
     data: {
       studyId: user.studyId,
@@ -73,6 +82,72 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
     },
   });
   return { ok: true, message: "Solicitud enviada. El estudio la va a revisar y te avisamos por acá cuando esté aprobada." };
+}
+
+/** Nota que identifica las altas habilitadas solas (las lista Accesos como "Clientes nuevos"). */
+export const AUTO_APPROVAL_NOTE = "Alta automática: CUIT nuevo en el estudio";
+
+/** CUIT nuevo en el estudio: crea el contribuyente sin datos, habilita el acceso y avisa al estudio. */
+async function selfOnboard(
+  user: CurrentUser,
+  input: { cuit: string; name: string; activity: string; category: string; startDate: string },
+): Promise<ServiceResult> {
+  const taxpayer = await prisma.$transaction(async (tx) => {
+    const created = await tx.taxpayer.create({
+      data: {
+        studyId: user.studyId,
+        cuit: input.cuit,
+        name: input.name,
+        activity: input.activity,
+        categoryCode: input.category || null,
+        startDate: input.startDate,
+      },
+    });
+    if (created.categoryCode) {
+      await tx.categoryHistory.create({
+        data: { taxpayerId: created.id, code: created.categoryCode, validFrom: created.startDate, reason: "Categoría declarada en el alta", createdById: user.id },
+      });
+    }
+    await tx.taxpayerAccess.create({ data: { userId: user.id, taxpayerId: created.id, status: ACCESS_STATUS.APROBADO } });
+    const request = await tx.accessRequest.create({
+      data: {
+        studyId: user.studyId,
+        userId: user.id,
+        cuit: input.cuit,
+        declaredName: input.name,
+        declaredActivity: input.activity,
+        declaredCategory: input.category || null,
+        declaredStartDate: input.startDate,
+        status: REQUEST_STATUS.APROBADO,
+        reviewedAt: new Date(),
+        reviewNote: AUTO_APPROVAL_NOTE,
+        taxpayerId: created.id,
+      },
+    });
+    await tx.auditEvent.create({
+      data: {
+        studyId: user.studyId,
+        actorId: user.id,
+        action: "ACCESS_AUTO_APPROVE",
+        entity: "AccessRequest",
+        entityId: request.id,
+        detail: `${created.name} (CUIT ${input.cuit}) · contribuyente nuevo`,
+      },
+    });
+    return created;
+  });
+  // Aviso al estudio (correo a los administradores). Si falla, el alta igual queda hecha.
+  const admins = await prisma.user.findMany({ where: { studyId: user.studyId, role: ROLES.ADMIN, active: true }, select: { email: true } });
+  for (const admin of admins) {
+    await mail
+      .send({
+        to: admin.email,
+        subject: `Cliente nuevo: ${taxpayer.name} (CUIT ${formatCuit(input.cuit)})`,
+        body: `Se dio de alta un cliente nuevo y ya tiene acceso a su panel:\n\n• Persona: ${user.name} (${user.email})\n• Contribuyente: ${taxpayer.name}, CUIT ${formatCuit(input.cuit)}\n• Actividad: ${taxpayer.activity}\n\nEl contribuyente se creó sin datos: cargale la categoría, la facturación y los vencimientos. Si el alta no corresponde, revocá el acceso en Accesos.`,
+      })
+      .catch((err) => console.error("[accesos] No se pudo avisar del cliente nuevo:", err instanceof Error ? err.message : err));
+  }
+  return { ok: true, approved: true, message: `Listo: ya podés ver a ${taxpayer.name} en tu panel. El estudio recibió el aviso de tu alta.` };
 }
 
 function assertAdmin(user: CurrentUser) {

@@ -1,10 +1,12 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getOrigin } from "@/lib/origin";
 import { passwordProblem } from "@/lib/crypto";
 import { isRateLimited, registerFailedAttempt } from "@/lib/auth";
 import { registerUser, requestPasswordReset, resetPassword, verifyEmail } from "./service";
+import { refreshDemoAccounts, rememberDemoAccountByEmail, restoreDemoAccounts } from "@/lib/demo-accounts";
 
 export type AuthFormState = {
   ok?: boolean;
@@ -50,6 +52,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
 
   const result = await registerUser({ ...parsed.data, password }, await getOrigin());
   if (!result.ok) return { ok: false, message: result.error, values: raw };
+  await rememberDemoAccountByEmail(parsed.data.email); // demo de Vercel: la cuenta sigue al navegador
   return {
     ok: true,
     message: `Listo. Te enviamos un correo a ${parsed.data.email} para confirmar la cuenta. Abrí el enlace y después ingresá.`,
@@ -57,7 +60,9 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
 }
 
 export async function verifyEmailAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  await restoreDemoAccounts(); // demo de Vercel: el enlace puede ser de otra copia del servidor
   const ok = await verifyEmail(String(formData.get("token") ?? ""));
+  if (ok) await refreshDemoAccounts();
   return ok
     ? { ok: true, message: "Tu correo quedó confirmado. Ya podés ingresar." }
     : { ok: false, message: "El enlace no es válido, ya se usó o venció. Ingresá con tu correo y contraseña para recibir uno nuevo." };
@@ -71,7 +76,9 @@ export async function requestResetAction(_prev: AuthFormState, formData: FormDat
   const key = `recuperar:${email}`;
   if (!isRateLimited(key)) {
     registerFailedAttempt(key);
+    await restoreDemoAccounts();
     await requestPasswordReset(email, await getOrigin());
+    await rememberDemoAccountByEmail(email);
   }
   // Mismo mensaje siempre: no revela si el correo tiene cuenta.
   return {
@@ -91,8 +98,10 @@ export async function resetPasswordAction(_prev: AuthFormState, formData: FormDa
     return { ok: false, message: "Revisá los campos marcados.", fieldErrors: { confirm: "Las contraseñas no coinciden." } };
   }
 
+  await restoreDemoAccounts();
   const ok = await resetPassword(token, password);
-  return ok
-    ? { ok: true, message: "Listo, tu contraseña cambió. Cerramos las sesiones abiertas: ingresá de nuevo." }
-    : { ok: false, message: "El enlace no es válido, ya se usó o venció. Pedí uno nuevo." };
+  if (!ok) return { ok: false, message: "El enlace no es válido, ya se usó o venció. Pedí uno nuevo." };
+  await refreshDemoAccounts();
+  // El enlace ya se usó: se sigue en Ingresar, con el aviso (si se quedara acá, la pantalla diría "enlace no válido").
+  redirect("/login?aviso=clave-cambiada");
 }

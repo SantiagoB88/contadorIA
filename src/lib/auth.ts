@@ -5,6 +5,8 @@ import { prisma } from "./db";
 import { ROLES, SESSION_COOKIE, SESSION_DAYS } from "./constants";
 import { passwordVersion, readSession, signSession } from "./signed-session";
 import { usesBundledDemo } from "./vercel-demo";
+import { demoSecret } from "./demo-secret";
+import { restoreDemoAccounts } from "./demo-accounts";
 
 export type CurrentUser = {
   id: string;
@@ -17,15 +19,7 @@ export type CurrentUser = {
 };
 
 // En la demo de Vercel la sesión va firmada en la cookie (ver signed-session.ts); en la compu, en la base.
-// El secreto de la firma lo genera scripts/vercel-prepare.mjs en cada deploy y queda en la base de demo.
-const DEMO_SECRET_KEY = "demo-session-secret";
-const secretCache = globalThis as unknown as { contadorSmartSessionSecret?: string };
-
-async function demoSecret(): Promise<string> {
-  secretCache.contadorSmartSessionSecret ??=
-    (await prisma.appMeta.findUnique({ where: { key: DEMO_SECRET_KEY }, select: { value: true } }))?.value ?? "";
-  return secretCache.contadorSmartSessionSecret;
-}
+// El secreto de la firma está en la base de demo (ver demo-secret.ts).
 
 /** Crea la sesión y deja el token en una cookie HttpOnly. Solo desde Server Actions. */
 export async function createSession(userId: string) {
@@ -71,7 +65,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     // Se valida la firma y, en la base, que el usuario siga activo y no haya cambiado la contraseña.
     const claims = readSession(token, await demoSecret());
     if (!claims) return null;
-    const user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
+    // Una cuenta creada en la demo puede no estar en esta copia del servidor, o tener una contraseña anterior
+    // (se cambió en otra copia): se trae lo último que guarda el navegador (ver demo-accounts.ts).
+    let user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
+    if (!user || passwordVersion(user.passwordHash) !== claims.pwv) {
+      await restoreDemoAccounts();
+      user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
+    }
     if (!user || !user.active || passwordVersion(user.passwordHash) !== claims.pwv) return null;
     return {
       id: user.id,

@@ -8,6 +8,7 @@ import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 import { ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
 import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
 import { listStudyLinks } from "@/modules/bot/links";
+import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
 
 export const metadata = { title: "Accesos · ContadorSmart" };
 
@@ -22,7 +23,14 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
   const aviso = (await searchParams).aviso;
   const notice = typeof aviso === "string" ? NOTICES[aviso] : undefined;
 
-  const [pending, accesses, users] = await Promise.all([
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [newClients, pending, accesses, users] = await Promise.all([
+    // Altas habilitadas solas (CUIT nuevo en el estudio) de los últimos 7 días.
+    prisma.accessRequest.findMany({
+      where: { studyId: admin.studyId, status: REQUEST_STATUS.APROBADO, reviewNote: AUTO_APPROVAL_NOTE, createdAt: { gte: since } },
+      include: { user: { select: { name: true, email: true, phone: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.accessRequest.findMany({
       where: { studyId: admin.studyId, status: REQUEST_STATUS.PENDIENTE },
       include: { user: { select: { name: true, email: true, phone: true, emailVerifiedAt: true } } },
@@ -53,6 +61,38 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
       </div>
       <PageHeader title="Accesos" subtitle="Solicitudes de asociación, accesos vigentes y usuarios del estudio" />
       {notice && <Notice title="Listo">{notice}</Notice>}
+
+      {newClients.length > 0 && (
+        <Card>
+          <h2 className="font-semibold text-navy">
+            Clientes nuevos <span className="tabular text-slate-500">({newClients.length}, últimos 7 días)</span>
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Se dieron de alta con un CUIT que el estudio no tenía y ya ven su panel. Cargales la categoría y la información; si
+            un alta no corresponde, revocá el acceso abajo.
+          </p>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {newClients.map((r) => (
+              <li key={r.id} className="flex flex-col gap-1 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-navy">
+                    {r.declaredName} · CUIT {formatCuit(r.cuit)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {r.user.name} ({r.user.email}
+                    {r.user.phone ? ` · ${r.user.phone}` : ""}) · {formatDateTimeAR(r.createdAt)}
+                  </p>
+                </div>
+                {r.taxpayerId && (
+                  <Link href={`/admin/contribuyentes/${r.taxpayerId}`} className="font-medium text-brand-700 hover:underline">
+                    Ver contribuyente
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-navy">

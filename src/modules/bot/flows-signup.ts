@@ -7,6 +7,7 @@ import type { CurrentUser } from "@/lib/auth";
 import { issueTempPassword, registerFromChannel, TEMP_PASSWORD_HOURS } from "@/modules/auth/service";
 import { requestAssociation } from "@/modules/access/service";
 import { createBotInvite, linkNewAccount } from "./links";
+import { rememberDemoAccount } from "@/lib/demo-accounts";
 import { showWelcome } from "./flows-home";
 import type { Ctx } from "./core";
 import { monthName, T } from "./copy";
@@ -149,7 +150,7 @@ async function showSummary(ctx: Ctx) {
   ctx.say(
     `Revisá tus datos:\n• Nombre: ${d.name}\n• Correo: ${d.email}\n• CUIT: ${formatCuit(d.cuit)}\n• Actividad: ${d.activity}\n• Facturás desde: ${monthName(
       d.start.slice(0, 7),
-    )}\n\nAl confirmar creamos tu cuenta, vinculamos este WhatsApp y le pedimos al estudio el acceso a tu CUIT.`,
+    )}\n\nAl confirmar creamos tu cuenta y vinculamos este WhatsApp.`,
   );
   ctx.buttons("¿Creamos la cuenta?", [
     { title: "Crear mi cuenta", a: "g.crear" },
@@ -206,14 +207,17 @@ on("g.crear", async (ctx) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: created.userId }, include: { study: true } });
   const current: CurrentUser = { id: user.id, studyId: user.studyId, studyName: user.study.name, email: user.email, name: user.name, role: ROLES.CLIENTE };
   const association = await requestAssociation(current, { cuit: d.cuit, name: d.name, activity: d.activity, category: "", startDate: d.start });
+  await rememberDemoAccount(created.userId);
 
   ctx.resetFlow();
   ctx.say(
     [
       `¡Listo, ${firstName(d.name)}! Creamos tu cuenta${linked.ok ? " y vinculamos este WhatsApp" : ""}.`,
-      association.ok
-        ? `Tu pedido de acceso al CUIT ${formatCuit(d.cuit)} quedó pendiente: el estudio lo revisa y te aviso por acá cuando lo apruebe.`
-        : `No pudimos registrar el pedido de acceso al CUIT: ${association.message} Podés pedirlo desde la web (Mi perfil).`,
+      !association.ok
+        ? `No pudimos registrar el CUIT: ${association.message} Podés cargarlo desde la web (Mi perfil).`
+        : association.approved
+          ? `Ya tenés acceso a tu panel con el CUIT ${formatCuit(d.cuit)}. El estudio recibió el aviso de tu alta y va a ir cargando tu información.`
+          : `Ese CUIT ya está registrado en el estudio: por seguridad, el acceso lo confirma el estudio. Te aviso por acá cuando lo apruebe.`,
       "",
       "Para entrar a la web:",
       `• ${ctx.origin}/login`,
@@ -224,10 +228,14 @@ on("g.crear", async (ctx) => {
       `Te mandamos un correo para confirmar tu dirección.${APP_MODE === "DEMO" ? ` (Demo: los correos se ven en ${ctx.origin}/dev/correos)` : ""}`,
     ].join("\n"),
   );
-  ctx.buttons("Mientras tanto podés:", [
-    { title: T.pendingStatus, a: "p.estado" },
-    { title: T.pendingAsk, a: "p.consultar" },
-  ]);
+  if (association.ok && association.approved) {
+    ctx.buttons("¿Seguimos?", [{ title: T.menuButton, a: "menu" }]);
+  } else {
+    ctx.buttons("Mientras tanto podés:", [
+      { title: T.pendingStatus, a: "p.estado" },
+      { title: T.pendingAsk, a: "p.consultar" },
+    ]);
+  }
 });
 
 /** Contraseña temporal para entrar a la web (solo cuentas que todavía no eligieron la suya). */
@@ -268,6 +276,7 @@ on(
     const user = await prisma.user.findUniqueOrThrow({ where: { id: ctx.user.id } });
     if (!user.mustChangePassword) return actions["c.clave"](ctx);
     const password = await issueTempPassword(user.id);
+    await rememberDemoAccount(user.id, true);
     ctx.say(
       `Para entrar a la web:\n• ${ctx.origin}/login\n• Correo: ${user.email}\n• Contraseña temporal: ${password}\nVence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.`,
     );

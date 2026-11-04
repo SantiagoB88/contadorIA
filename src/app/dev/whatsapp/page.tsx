@@ -52,7 +52,7 @@ export default async function WhatsAppSimulatorPage() {
         </details>
         <SimulatorClient
           examples={SIMULATOR_IDENTITIES.filter((i) => i.example).map((i) => ({ address: i.address, label: i.label }))}
-          canResetDemo={user.role === ROLES.ADMIN}
+          canResetDemo={user.role === ROLES.ADMIN && !process.env.VERCEL}
         />
       </main>
     </div>

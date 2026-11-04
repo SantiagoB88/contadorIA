@@ -7,6 +7,7 @@ import { getOrigin } from "@/lib/origin";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLES } from "@/lib/constants";
 import { seedDemo } from "@/modules/demo/seed-data";
+import { forgetDemoAccounts, restoreDemoAccounts } from "@/lib/demo-accounts";
 import { simulatorTransport } from "@/providers/messaging";
 import { receiveInbound, retryPendingInbound, type InboundOutcome } from "./inbound";
 import { isSimulatorAddress, simulatorEnabled } from "./simulator-config";
@@ -22,6 +23,7 @@ import type { BotMessage } from "./ui";
 async function guard(address: string) {
   if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
   if (!(await getCurrentUser())) throw new Error("Ingresá a la web para usar el simulador.");
+  await restoreDemoAccounts(); // demo de Vercel: cuentas creadas en otra copia del servidor
   if (!isSimulatorAddress(address)) throw new Error("El simulador solo acepta sus números de prueba.");
 }
 
@@ -121,7 +123,10 @@ export async function simulatorResetDemo(): Promise<string> {
   if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
   const user = await getCurrentUser();
   if (!user || user.role !== ROLES.ADMIN) throw new Error("Solo un administrador puede restablecer la demo.");
+  // En Vercel cada copia del servidor tiene su propia base: restablecer una sola las desincronizaría.
+  if (process.env.VERCEL) throw new Error("En la demo online los datos vuelven solos a los de ejemplo cuando se reinicia.");
   await seedDemo({ reset: true });
+  await forgetDemoAccounts();
   return "Demo restablecida con los datos de ejemplo. Volvé a ingresar.";
 }
 

@@ -28,19 +28,18 @@ Esta demo muestra cómo funciona el asistente de WhatsApp de ContadorSmart. Todo
    El CUIT no se busca en ningún padrón: se valida con su dígito verificador. Si inventás uno, el asistente te dice qué último número corresponde. Uno de prueba que funciona: `20-12345678-6`.
 3. Revisá el resumen. Si querés, tocá **Corregir**. Para confirmar tocá **Crear mi cuenta**: escribir "sí" no alcanza, hay que tocar el botón.
 4. El asistente crea tu cuenta, vincula ese WhatsApp y te da una **contraseña temporal** para entrar a la web (vence en 72 horas). Nunca te pide la clave fiscal.
-5. Mientras el estudio no apruebe tu acceso, el asistente solo te deja ver el estado, consultar al estudio o pedir otra contraseña temporal.
+5. Con un CUIT que el estudio todavía no tiene, **ya tenés acceso a tu panel**: no hace falta que nadie lo apruebe. Escribí `menú` y ves el menú completo (sin datos, hasta que el estudio los cargue).
 
-## 3. Aprobar como estudio
+## 3. Lo que ve el estudio
 
-1. Volvé a la pestaña de la web (usuario del estudio) y entrá a **Accesos**.
-2. Vas a ver tu pedido con el CUIT que cargaste. Tocá **Aprobar acceso**.
-3. En el chat te llega solo el aviso: **"El estudio aprobó tu acceso"**. Escribí `menú` y ya ves el menú completo.
+En la pestaña de la web (usuario del estudio), entrá a **Accesos**: arriba aparece tu alta en **Clientes nuevos**. El estudio también recibe un correo de aviso, que en la demo se ve en `/dev/correos`. Si el CUIT ya fuera de otro cliente del estudio, ahí aparecería como pedido pendiente para aprobar.
 
 ## 4. Entrar a la web con tu cuenta nueva
 
-1. Abrí una **ventana privada** del navegador, para no mezclarla con la sesión del estudio.
-   - Si usás la misma ventana, la página de ingreso te muestra con qué cuenta estás y te ofrece **Cerrar sesión y entrar con otra cuenta**.
-2. Ingresá con tu correo y la contraseña temporal. Para copiarla sin errores, usá el botón **Copiar contraseña** del simulador. La web te pide elegir una contraseña propia.
+1. **Usá la misma ventana del navegador** (no una ventana privada): en la demo online la cuenta nueva viaja con ese navegador.
+2. Entrá a Ingresar. Como ya tenés la sesión del estudio abierta, te muestra con qué cuenta estás: tocá **Cerrar sesión y entrar con otra cuenta**.
+3. Ingresá con tu correo y la contraseña temporal. Para copiarla sin errores, usá el botón **Copiar contraseña** del simulador.
+4. La web te pide elegir una contraseña propia y después te deja en tu panel.
 
 ## 5. Recorrer todo con datos cargados
 
@@ -55,7 +54,7 @@ Después, en la web del estudio, entrá a **Bandeja**: vas a ver la consulta con
 ## Volver a empezar
 
 - **Usar un número nuevo**: empezás de cero, como otra persona.
-- **Restablecer demo**, en **Herramientas de prueba técnicas**, solo para el estudio: vuelve todo a los datos de ejemplo.
+- La demo online vuelve sola a los datos de ejemplo cuando queda un rato sin uso. Si pasa en el medio, el simulador te avisa.
 
 ## Lo que en la demo no funciona igual que en producción
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable } from "@/modules/auth/service";
+import { restoreDemoAccounts } from "@/lib/demo-accounts";
 import { AuthShell } from "@/components/AuthShell";
 import { ResetPasswordForm } from "@/components/auth/AuthForms";
 
@@ -11,6 +12,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export default async function RestablecerPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : "";
+  await restoreDemoAccounts(); // demo de Vercel: el enlace puede ser de otra copia del servidor
   const usable = await isTokenUsable(token, TOKEN_TYPE.RESTABLECER_CLAVE);
 
   return (

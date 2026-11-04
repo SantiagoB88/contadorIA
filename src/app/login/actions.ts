@@ -8,6 +8,7 @@ import { verifyPassword } from "@/lib/crypto";
 import { getOrigin } from "@/lib/origin";
 import { clearAttempts, createSession, isRateLimited, registerFailedAttempt } from "@/lib/auth";
 import { sendVerificationEmail } from "@/modules/auth/service";
+import { refreshDemoAccounts, restoreDemoAccounts } from "@/lib/demo-accounts";
 
 export type LoginState = { error?: string; info?: string; email?: string };
 
@@ -28,6 +29,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: "Hubo demasiados intentos. Esperá unos minutos y volvé a probar.", email };
   }
 
+  await restoreDemoAccounts(); // demo de Vercel: cuentas creadas en otra copia del servidor (ver demo-accounts.ts)
   const user = await prisma.user.findUnique({ where: { email } });
   // Al pegar una contraseña suelen venir espacios de más: si la exacta no coincide, se prueba sin ellos.
   const valid =
@@ -62,6 +64,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   }
 
   await createSession(user.id);
+  await refreshDemoAccounts();
   await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
   // Con contraseña temporal, lo primero es elegir una propia.
   redirect(user.mustChangePassword ? "/perfil?clave=temporal#clave" : safeNext(String(formData.get("next") ?? "")));

@@ -34,7 +34,7 @@ async function register(page: Page, email: string, password: string, name: strin
   await expect(page.getByText("Tu correo quedó confirmado")).toBeVisible();
 }
 
-test("asociación por CUIT: pedido, aprobación, revocación y suspensión", async ({ page }) => {
+test("asociación por CUIT nuevo: acceso inmediato, aviso al estudio, revocación y suspensión", async ({ page }) => {
   const errors = trackErrors(page);
   const id = uid();
   const email = `asoc.${id}@ejemplo.com`;
@@ -42,7 +42,7 @@ test("asociación por CUIT: pedido, aprobación, revocación y suspensión", asy
   const cuit = fakeCuit();
   await register(page, email, "Prueba1234!", `Usuario ${id}`);
 
-  // El cliente pide asociarse; no ve datos hasta que el estudio aprueba.
+  // CUIT que el estudio no tiene: el cliente lo ve al instante, sin esperar la aprobación.
   await login(page, email, "Prueba1234!");
   await page.goto("/perfil");
   await page.locator("#as-cuit").fill(cuit);
@@ -50,22 +50,17 @@ test("asociación por CUIT: pedido, aprobación, revocación y suspensión", asy
   await page.locator("#as-activity").fill("Pruebas automáticas");
   await page.locator("#as-startDate").fill("2022-03-01");
   await page.getByRole("button", { name: "Enviar solicitud" }).click();
-  await expect(page.getByText(/Solicitud enviada/)).toBeVisible();
+  await expect(page.getByText(/ya podés ver a .* en tu panel/)).toBeVisible();
   // El formulario queda vacío para otra solicitud.
   await expect(page.locator("#as-cuit")).toHaveValue("");
   await page.goto("/dashboard");
-  await expect(page.getByText(name)).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
 
-  // El estudio aprueba.
+  // El estudio ve el alta en "Clientes nuevos".
   await login(page, USERS.admin);
   await page.goto("/admin/accesos");
-  const card = page.locator("section", { hasText: name }).last();
-  await card.getByRole("button", { name: "Aprobar acceso" }).click();
-  await expect(page.getByText(/Solicitud aprobada/)).toBeVisible();
-
-  // Ahora el cliente ve su contribuyente.
-  await login(page, email, "Prueba1234!");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
+  await expect(page.getByRole("heading", { name: /Clientes nuevos/ })).toBeVisible();
+  await expect(page.getByText(new RegExp(`${name} · CUIT`)).first()).toBeVisible();
 
   // El estudio revoca el acceso: el cliente deja de verlo.
   await login(page, USERS.admin);
@@ -117,7 +112,12 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
   await expect(page.getByText(/no es válido|venció|ya se usó/i).first()).toBeVisible();
   await expect(page.getByLabel("Contraseña nueva", { exact: true })).toHaveCount(0);
 
-  await login(page, email, "Nueva12345!");
+  // Ingresa con la nueva desde la pantalla a la que lo llevó el cambio (sin borrar cookies, como una persona).
+  await page.goto("/login");
+  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel("Contraseña").fill("Nueva12345!");
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
   await page.goto("/perfil");
   await page.getByLabel("Nombre y apellido").fill(`Nombre Editado ${id}`);
   await page.getByRole("button", { name: "Guardar datos" }).click();

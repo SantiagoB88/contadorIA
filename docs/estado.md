@@ -261,6 +261,31 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
 
+## Acceso inmediato para clientes nuevos y cuentas de la demo en todas las copias de Vercel ✅ (rama `feat/whatsapp-bot`)
+
+- **Problema reportado en la demo publicada**:
+  - una cuenta creada desde el chat no podía ingresar ("datos incorrectos") o quedaba en un ida y vuelta infinito entre Ingresar y el panel;
+  - además, tenía que esperar que el administrador la aprobara.
+- **Causa**: en Vercel cada copia del servidor tiene su propia base de demo. Ingresar lo atendía una copia donde la cuenta no existía. Reproducido en la compu con dos servidores, cada uno con su base, y un proxy que reparte los pedidos (prueba que antes no se hacía).
+- **Cambios**:
+  - **Acceso inmediato**: si el CUIT no está cargado en el estudio, se crea el contribuyente (sin datos) y la persona entra directo a su panel.
+    - El estudio recibe un correo "Cliente nuevo" y lo ve en Accesos → "Clientes nuevos (últimos 7 días)", donde puede revocar.
+    - Si el CUIT ya es de otro cliente del estudio, sigue esperando la aprobación, para que nadie vea datos ajenos sabiendo un CUIT.
+    - Vale para el chat y para la web.
+  - **Cuentas de la demo en todas las copias** (`src/lib/demo-accounts.ts`, solo en la demo de Vercel):
+    - al crear o cambiar una cuenta, el navegador guarda una copia cifrada (AES-GCM, clave derivada del secreto de la demo) con el usuario, la contraseña cifrada, los contribuyentes, los accesos, los pedidos, el WhatsApp vinculado, los enlaces pendientes y los últimos correos;
+    - cualquier copia del servidor que no la tenga, o que tenga una contraseña anterior, la reconstruye antes de atender;
+    - tolera copias con otros identificadores.
+  - **Restablecer demo**: queda solo en la compu. En Vercel no se puede restablecer todas las copias a la vez, y hacerlo en una sola las desincronizaba.
+  - **Restablecer contraseña**: al terminar lleva a Ingresar con el aviso "Listo, tu contraseña cambió".
+- **Pruebas ejecutadas**:
+  - `npm run verify` 117/117 (con acceso inmediato, aviso al estudio, CUIT ya registrado pendiente con aprobación y aviso).
+  - En el navegador, versión compilada local: 24/24.
+  - Simulación de Vercel con dos copias (Ingresar y Crear cuenta en una, el resto en otra): 20/20.
+    - Incluye alta por chat → ingreso con contraseña temporal → panel → solicitud → Bandeja → respuesta, el registro web con confirmación de correo, recuperar contraseña y la asociación por CUIT.
+    - Restablecer demo no se prueba ahí: en Vercel ya no existe.
+- **Límite conocido**: si Vercel repartiera cada pedido de una misma conversación entre copias al azar, el chat se desordenaría (probado: falla). En lo que se vio en la demo publicada no pasa: el chat, el alta y la aprobación funcionaban en la misma copia. Si cambia de copia, el simulador muestra "La demo se reinició". La solución completa sigue siendo una base compartida.
+
 ## Ingreso con contraseña temporal y mensajes del CUIT ✅ (rama `feat/whatsapp-bot`)
 
 - **Problema reportado en la demo publicada**: con el correo y la contraseña temporal del bot, el ingreso decía que los datos no eran correctos. Causas encontradas:

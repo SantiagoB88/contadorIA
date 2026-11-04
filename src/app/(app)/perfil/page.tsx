@@ -94,7 +94,8 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
             Asociar un CUIT
           </h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
-            Cargalo una sola vez. Vas a ver la información cuando el estudio apruebe la asociación.
+            Cargalo una sola vez. Si el estudio todavía no tiene ese CUIT, lo ves al instante en tu panel; si ya es de otro
+            cliente del estudio, lo confirma el estudio antes de mostrártelo.
           </p>
           <AssociationForm today={todayAR()} />
         </Card>

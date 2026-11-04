@@ -25,6 +25,8 @@
 - [ ] WhatsApp: confirmar el formato del número argentino al responder (la documentación de Meta no lo aclara)
 - [x] Simulador del bot desde el menú de la dashboard, también en la demo de Vercel (base temporal, con aviso de reinicio)
 - [x] Alta completa por el chat con contraseña temporal; aviso de aprobación por WhatsApp
+- [x] Acceso inmediato para CUIT nuevos (aviso al estudio) y cuentas de la demo en todas las copias de Vercel
+- [ ] Demo de Vercel: el chat y las solicitudes siguen viviendo en una copia del servidor; para que sean compartidos hace falta una base compartida
 - [ ] WhatsApp real en un link público: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)
 - [ ] WhatsApp: reintento automático periódico de eventos fallidos (hoy se reintenta al llegar el siguiente mensaje o desde el simulador)

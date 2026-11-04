@@ -12,7 +12,7 @@ import { isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { passwordProblem } from "@/lib/crypto";
 import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
-import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
+import { AUTO_APPROVAL_NOTE, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
 import { verifyPassword } from "@/lib/crypto";
 import { addDaysYmd } from "@/lib/dates";
@@ -289,12 +289,18 @@ async function main() {
     assert.ok(await getAuthorizedTaxpayer(nuevo, ana.id));
     assert.equal((await approveRequest(admin, req.id, "", "")).ok, false);
   });
-  await check("aprobar un CUIT nuevo crea el contribuyente sin datos (información incompleta)", async () => {
+  await check("un CUIT nuevo en el estudio se habilita solo: contribuyente sin datos, acceso inmediato y aviso al estudio", async () => {
     const r = await requestAssociation(nuevo, { cuit: "20123456786", name: "Nuevo Monotributo", activity: "Programación", category: "C", startDate: "2025-03-01" });
     assert.equal(r.ok, true);
+    assert.ok(r.ok && r.approved);
     const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: nuevo.id, cuit: "20123456786" } });
-    assert.equal((await approveRequest(admin, req.id, "C", "")).ok, true);
+    assert.equal(req.status, "APROBADO");
+    assert.equal(req.reviewNote, AUTO_APPROVAL_NOTE);
+    // Ya no hace falta aprobarlo (y no se puede aprobar dos veces).
+    assert.equal((await approveRequest(admin, req.id, "C", "")).ok, false);
     const tp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit: "20123456786", studyId: admin.studyId } });
+    assert.ok(await getAuthorizedTaxpayer(nuevo, tp.id));
+    assert.ok(await prisma.outboxEmail.findFirst({ where: { to: admin.email, subject: { contains: "Cliente nuevo: Nuevo Monotributo" } } }));
     assert.equal(tp.categoryCode, "C");
     const data = await getDashboardData(tp, today);
     assert.equal(data.periods[0].totalCents, null);
@@ -948,11 +954,13 @@ async function main() {
     assert.match(alta.text, /\/registro/);
     assert.match(alta.text, /Nunca te vamos a pedir tu clave fiscal/);
     const token = alta.text.match(/vincular\?t=([\w-]+)/)![1];
-    // La persona crea la cuenta en la web, confirma el correo y pide asociarse a un CUIT nuevo.
+    // La persona crea la cuenta en la web, confirma el correo y pide asociarse a un CUIT que ya es de otro cliente
+    // del estudio: ese caso sí queda pendiente de revisión.
     assert.ok((await registerUser({ name: "Persona WhatsApp", email: newWaEmail, phone: "+54 11 5555-0003", password: "Clave1234" }, botOrigin)).ok);
     assert.equal(await verifyEmail(await lastLink(newWaEmail, "/verificar")), true);
     const persona = await botUser(newWaEmail);
-    assert.ok((await requestAssociation(persona, { cuit: "20-33445566-2", name: "Persona WhatsApp", activity: "Servicios", category: "", startDate: "2024-01-01" })).ok);
+    const pendingReq = await requestAssociation(persona, { cuit: elena.cuit, name: "Persona WhatsApp", activity: "Servicios", category: "", startDate: "2024-01-01" });
+    assert.ok(pendingReq.ok && !pendingReq.approved);
     const linked = await consumeBotInvite(persona, token);
     assert.ok(linked.ok, linked.message);
     assert.equal((await consumeBotInvite(persona, token)).ok, false); // un solo uso
@@ -973,10 +981,13 @@ async function main() {
     assert.ok(await getRequestForUser(persona, alta2.id));
     assert.equal(await getRequestForUser(clienteA, alta2.id), null);
   });
-  await check("2. aprobación en el backoffice → menú completo; un usuario aprobado pero sin vincular no ve nada", async () => {
+  await check("2. con un CUIT nuevo el acceso es inmediato → menú completo; un usuario sin vincular no ve nada", async () => {
     const persona = await botUser(newWaEmail);
     const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: persona.id, status: "PENDIENTE" } });
-    assert.ok((await approveRequest(admin, req.id, "B", "")).ok);
+    assert.ok((await rejectRequest(admin, req.id, "No es titular de ese CUIT")).ok);
+    assert.match((await prisma.outboundMessage.findFirstOrThrow({ where: { address: NUEVO, kind: "AVISO" }, orderBy: { createdAt: "desc" } })).body, /no aprobó tu solicitud/);
+    const own = await requestAssociation(persona, { cuit: "20-33445566-2", name: "Persona WhatsApp", activity: "Servicios", category: "B", startDate: "2024-01-01" });
+    assert.ok(own.ok && own.approved);
     const menu = await say(NUEVO, "menu");
     for (const t of ["Mi resumen", "Facturación", "Categoría y límites", "Deudas y vencimientos", "Documentos", "Mis solicitudes", "Hablar con el estudio", "Mi cuenta"]) {
       assert.ok(hasChoice(NUEVO, t), t);
@@ -1398,15 +1409,20 @@ async function main() {
     assert.equal(user.phone, "+54 9 11 5555 0105");
     assert.equal((await getActiveLink(LUCIA))!.userId, user.id);
     assert.equal((await getActiveLink(LUCIA))!.method, "ALTA_BOT");
-    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: user.id, status: "PENDIENTE" } });
+    // CUIT nuevo en el estudio: acceso inmediato, sin esperar al administrador; el estudio recibe el aviso.
+    assert.match(done.text, /Ya tenés acceso a tu panel con el CUIT 27-28456123-1/);
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: user.id } });
+    assert.equal(req.status, "APROBADO");
     assert.equal(req.cuit, "27284561231");
     assert.equal(req.declaredActivity, "Clases particulares de inglés");
     assert.equal(req.declaredStartDate, "2023-03-01");
+    const tp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit: "27284561231", studyId: admin.studyId } });
+    assert.ok(await getAuthorizedTaxpayer(await asCurrentUser(email), tp.id));
+    assert.ok(await prisma.outboxEmail.findFirst({ where: { to: admin.email, subject: { contains: "Cliente nuevo: Lucía Fernández" } } }));
     assert.ok(await prisma.outboxEmail.findFirst({ where: { to: email, subject: { contains: "Confirmá tu correo" } } }));
-    // Pendiente: sin datos fiscales; puede pedir otra contraseña temporal (la anterior deja de valer).
-    const pending = await say(LUCIA, "menu");
-    assert.match(pending.text, /pendiente de revisión/);
+    assert.match((await say(LUCIA, "menu")).text, /Estás consultando Lucía Fernández/);
     // "Entrar a la web" recuerda los datos y no invalida la contraseña; otra solo si se pide.
+    await tap(LUCIA, "Mi cuenta");
     assert.match((await tap(LUCIA, "Entrar a la web")).text, /la temporal que te di al crear la cuenta/);
     assert.ok(await verifyPassword(temp, (await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash));
     await tap(LUCIA, "Generar otra");
@@ -1415,12 +1431,6 @@ async function main() {
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.ok(await verifyPassword(temp2, after.passwordHash));
     assert.ok(!(await verifyPassword(temp, after.passwordHash)));
-    // El estudio aprueba: llega el aviso al chat y se habilita el menú.
-    assert.ok((await approveRequest(admin, req.id, "A", "")).ok);
-    const notice = await prisma.outboundMessage.findFirstOrThrow({ where: { address: LUCIA, kind: "AVISO" }, orderBy: { createdAt: "desc" } });
-    assert.match(notice.body, /aprobó tu acceso a Lucía Fernández \(CUIT 27-28456123-1\)/);
-    assert.equal(notice.status, "SIMULADO");
-    assert.match((await say(LUCIA, "menu")).text, /Estás consultando Lucía Fernández/);
     // Ya con su contraseña, el asistente no da contraseñas nuevas.
     const lucia = await asCurrentUser(email);
     assert.ok((await changePassword(lucia, temp2, "MiClave2026", "MiClave2026")).ok);
@@ -1430,6 +1440,27 @@ async function main() {
     await say(LUCIA, "menu");
     await tap(LUCIA, "Mi cuenta");
     assert.match((await tap(LUCIA, "Entrar a la web")).text, /no doy contraseñas nuevas por acá/);
+  });
+  await check("30. alta por chat con un CUIT que ya es de otro cliente: queda pendiente y el estudio la aprueba con aviso", async () => {
+    const TERCERO = "+5491155550107";
+    await say(TERCERO, "quiero darme de alta");
+    await tap(TERCERO, "Empezar");
+    await say(TERCERO, "Elena Copia");
+    await say(TERCERO, "elena.copia@ejemplo.com");
+    await say(TERCERO, elena.cuit);
+    await say(TERCERO, "Traducciones");
+    await say(TERCERO, "02/2022");
+    const done = await tap(TERCERO, "Crear mi cuenta");
+    assert.match(done.text, /ya está registrado en el estudio: por seguridad, el acceso lo confirma el estudio/);
+    assert.ok(!done.text.includes("Elena Paz"));
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: "elena.copia@ejemplo.com" } });
+    assert.equal(await getAuthorizedTaxpayer(await asCurrentUser(user.email), elena.id), null);
+    assert.match((await say(TERCERO, "menu")).text, /pendiente de revisión/);
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: user.id, status: "PENDIENTE" } });
+    assert.ok((await approveRequest(admin, req.id, "", "")).ok);
+    const notice = await prisma.outboundMessage.findFirstOrThrow({ where: { address: TERCERO, kind: "AVISO" }, orderBy: { createdAt: "desc" } });
+    assert.match(notice.body, /aprobó tu acceso a Elena Paz/);
+    assert.match((await say(TERCERO, "menu")).text, /Estás consultando Elena Paz/);
   });
   await check("29. alta por chat con un correo que ya tiene cuenta: no la crea ni la revela; se puede usar otro correo", async () => {
     const OTRO = "+5491155550106";
