@@ -1,7 +1,9 @@
 "use client";
 
 import { ActionForm, useActionForm } from "@/components/ActionForm";
+import { useState } from "react";
 import {
+  adminResetPasswordAction,
   approveRequestAction,
   changePasswordAction,
   rejectRequestAction,
@@ -233,5 +235,48 @@ export function UserStatusForm({ userId, active }: { userId: string; active: boo
       </button>
       {state.message && !state.ok && <p className="text-xs text-red-700">{state.message}</p>}
     </ActionForm>
+  );
+}
+
+/** El estudio blanquea la contraseña: muestra una sola vez la temporal para pasársela a la persona. */
+export function AdminResetPasswordForm({ userId, name }: { userId: string; name: string }) {
+  const [state, action] = useActionForm<ActionState>(adminResetPasswordAction, {});
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <ActionForm form={action} confirmMessage={`¿Blanquear la contraseña de ${name}? La actual deja de servir y se cierran sus sesiones.`}>
+        <input type="hidden" name="userId" value={userId} />
+        <button type="submit" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Blanquear clave
+        </button>
+      </ActionForm>
+      {state.message && !state.ok && <p className="text-xs text-red-700">{state.message}</p>}
+      {state.ok && state.tempPassword && (
+        <div className="max-w-xs rounded-lg border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-900" role="status">
+          <p>{state.message}</p>
+          <p className="mt-1 font-mono text-sm font-semibold tracking-wide">{state.tempPassword}</p>
+          <CopyValue key={state.tempPassword} value={state.tempPassword} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyValue({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="mt-1 rounded border border-emerald-400 bg-white px-2 py-1 font-medium"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+        } catch {
+          window.prompt("Copiá la contraseña:", value);
+        }
+      }}
+    >
+      {copied ? "Copiada" : "Copiar contraseña"}
+    </button>
   );
 }

@@ -54,7 +54,8 @@ Después, en la web del estudio, entrá a **Bandeja**: vas a ver la consulta con
 ## Volver a empezar
 
 - **Usar un número nuevo**: empezás de cero, como otra persona.
-- La demo online vuelve sola a los datos de ejemplo cuando queda un rato sin uso. Si pasa en el medio, el simulador te avisa.
+- Tu cuenta y la conversación del simulador se guardan en este navegador: siguen aunque actualices la página o la demo online se reinicie. Lo que cargues después (solicitudes, facturas, documentos) es temporal.
+- Si olvidás la contraseña, el estudio puede blanquearla en **Accesos → Usuarios → Blanquear clave**: te da una temporal para entrar.
 
 ## Lo que en la demo no funciona igual que en producción
 

@@ -133,6 +133,54 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+/** Cambia de cuenta como una persona, sin borrar cookies (en la demo de Vercel las cuentas nuevas viajan en ellas). */
+async function signInAs(page: Page, email: string, password: string) {
+  await page.goto("/login");
+  const other = page.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ });
+  if (await other.isVisible()) {
+    await other.click();
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
+  }
+  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+}
+
+test("el estudio blanquea la contraseña de un cliente y el cliente entra con la temporal", async ({ page }) => {
+  const errors = trackErrors(page);
+  const id = uid();
+  const email = `blanqueo.${id}@ejemplo.com`;
+  const name = `Usuario Blanqueo ${id}`;
+  await register(page, email, "Original123!", name);
+
+  await signInAs(page, USERS.admin, "Demo1234!");
+  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
+  await page.goto("/admin/accesos");
+  const row = page.locator("li", { hasText: email });
+  page.once("dialog", (d) => d.accept());
+  await row.getByRole("button", { name: "Blanquear clave" }).click();
+  const box = row.getByRole("status").filter({ hasText: /Contraseña de .* blanqueada/ });
+  await expect(box).toBeVisible();
+  const temp = (await box.locator("p.font-mono").innerText()).trim();
+  expect(temp).toMatch(/^[A-Za-z0-9]{12}$/);
+
+  // La anterior ya no sirve; con la temporal entra y tiene que elegir otra.
+  await signInAs(page, email, "Original123!");
+  await expect(page.getByRole("alert").filter({ hasText: /./ }).first()).toBeVisible();
+  await page.getByLabel("Contraseña").fill(temp);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.waitForURL(/\/perfil\?clave=temporal/, { waitUntil: "commit" });
+  await page.getByLabel("Contraseña actual").fill(temp);
+  await page.getByLabel("Contraseña nueva", { exact: true }).fill("Elegida2026!");
+  await page.getByLabel("Repetí la contraseña nueva").fill("Elegida2026!");
+  await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+  await expect(page.getByText("Contraseña actualizada.")).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expectHealthyPage(page, "blanqueo");
+  expect(errors).toEqual([]);
+});
+
 test("escalas: no se superponen y una nueva cierra la vigente", async ({ page }) => {
   const errors = trackErrors(page);
   await login(page, USERS.admin);

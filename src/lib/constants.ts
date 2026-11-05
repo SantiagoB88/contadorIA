@@ -143,6 +143,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   PASSWORD_RESET_REQUEST: "Pidió recuperar la contraseña",
   PASSWORD_RESET: "Restableció su contraseña",
   PASSWORD_CHANGE: "Cambió su contraseña",
+  PASSWORD_RESET_BY_ADMIN: "Blanqueó la contraseña de un usuario",
   PROFILE_UPDATE: "Actualizó su perfil",
   ACCESS_REQUEST_CREATE: "Pidió asociarse a un CUIT",
   ACCESS_REQUEST_APPROVE: "Aprobó una asociación",

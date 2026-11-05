@@ -6,13 +6,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSession, requireAdmin, requireUser } from "@/lib/auth";
 import { changePassword, updateProfile } from "@/modules/profile/service";
-import { approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "./service";
+import { adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "./service";
 
 export type ActionState = {
   ok?: boolean;
   message?: string;
   fieldErrors?: Record<string, string>;
   values?: Record<string, string>;
+  tempPassword?: string; // blanqueo de contraseña: se muestra una sola vez al administrador
 };
 
 const str = (formData: FormData, key: string) => String(formData.get(key) ?? "");
@@ -103,5 +104,16 @@ export async function setUserActiveAction(_prev: ActionState, formData: FormData
   const admin = await requireAdmin();
   const result = await setUserActive(admin, str(formData, "userId"), str(formData, "active") === "true");
   if (result.ok) refreshAll();
+  return result;
+}
+
+export async function adminResetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const userId = str(formData, "userId");
+  const result = await adminResetPassword(admin, userId);
+  if (!result.ok) return result;
+  // Demo de Vercel: la contraseña nueva sigue al navegador (si no, otra copia del servidor tendría la anterior).
+  await rememberDemoAccount(userId);
+  refreshAll();
   return result;
 }

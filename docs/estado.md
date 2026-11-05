@@ -1,4 +1,4 @@
-# Estado · 28/10/2026 (entrega 5 + revisión visual y pruebas)
+# Estado · 05/11/2026 (entrega 5 + revisión visual y pruebas)
 
 ## Entrega 1 — Login y primer tablero ✅
 
@@ -260,6 +260,37 @@ Detalle completo, mapa, catálogo y guion de prueba: `docs/whatsapp-bot-interact
   - `npm run typecheck` OK;
   - `next build` OK, en carpeta aparte.
 - **No probado**: con WhatsApp real (Meta) ni en Vercel. En Vercel el bot no funciona sin una base compartida.
+
+## Demo de Vercel resistente a reinicios y blanqueo de contraseña ✅ (rama `feat/whatsapp-bot`)
+
+- **Problemas reportados en la demo publicada**:
+  - al actualizar la página en medio del alta por el chat, se perdía la conversación;
+  - con la cuenta nueva, al pasar a otro módulo pedía ingresar de nuevo y después decía "contraseña incorrecta";
+  - el estudio no podía blanquearle la contraseña a un usuario.
+- **Causas encontradas**:
+  - Vercel recicla seguido las copias del servidor y cada copia nueva arranca con la base de ejemplo. La conversación del simulador vivía solo en la copia que la atendió.
+  - El secreto que firma las sesiones y cifra las cuentas guardadas en el navegador cambiaba en cada publicación: al publicar, se perdían las sesiones y las cuentas creadas en la demo.
+  - Una copia con datos viejos de la cuenta (por ejemplo, el correo sin confirmar) podía pisar lo más nuevo que guardaba el navegador. Lo encontró la prueba nueva de blanqueo con dos copias.
+- **Cambios**:
+  - **Conversación del simulador en el navegador** (`src/modules/bot/simulator-backup.ts`): cada acción devuelve la conversación cifrada (AES-GCM, atada al número). El navegador la guarda y la manda en la siguiente acción, y la copia que atiende la reconstruye si le falta. Una actualización automática vieja no pisa lo que trajo una acción. El aviso "se perdió parte de la conversación" aparece solo si de verdad vuelve más corta.
+  - **Gana lo más nuevo**: `User.updatedAt` nuevo (esquema `whatsapp-6`). Lo que trae el navegador solo se aplica si es posterior a lo que tiene la copia; lo mismo para accesos (`updatedAt`), pedidos de acceso (fecha de revisión) y WhatsApp vinculado (no se revincula uno que la copia desvinculó después).
+    - Cada pedido pone al día la copia con lo que guarda el navegador, así el estudio ve la cuenta como está.
+    - Antes de guardar una cuenta en el navegador, la copia se pone al día.
+  - **Secreto estable entre publicaciones**: `scripts/vercel-prepare.mjs` lo guarda en la caché de compilación de Vercel (`.next/cache`, privada) y lo reusa. Después de publicar, las cuentas creadas en la demo y sus sesiones siguen sirviendo. Los usuarios de ejemplo tienen que volver a ingresar, porque el seed los vuelve a crear.
+  - **Blanquear clave** (Accesos → Usuarios): el administrador genera una contraseña temporal para un usuario de su estudio.
+    - Se muestra una sola vez, con botón Copiar. Vence a las 72 horas y al entrar hay que elegir otra.
+    - Cierra las sesiones e invalida los enlaces de recuperación pendientes.
+    - Avisa por correo, sin la contraseña, y queda en la auditoría.
+    - No se puede blanquear la propia ni la de un usuario suspendido.
+- **Pruebas ejecutadas**:
+  - `npm run verify` 118/118 (nueva: blanqueo por el estudio).
+  - Versión compilada en la compu: 25/25 (nueva: el estudio blanquea la clave y el cliente entra con la temporal).
+  - Simulación de Vercel con dos copias y reinicios (`tests/e2e/reinicios-vercel.spec.ts`, `E2E_REINICIOS=1`): 22/22 de la suite (el webhook y Restablecer demo no aplican ahí).
+    - Incluye alta por el chat con reinicios de las dos copias en el medio y la página actualizada: la conversación sigue.
+    - Después: ingreso con la temporal, cambio de contraseña, cinco módulos con un reinicio antes de cada uno sin que pida ingresar, e ingreso de nuevo con la contraseña elegida.
+    - Con una publicación nueva simulada en el medio (base de ejemplo rearmada, mismo secreto): la sesión y la cuenta siguen.
+  - `npm run test:e2e` en modo desarrollo falla en el recorrido del bot porque OneDrive toca archivos de `.next-e2e` y Next recarga la página sola. No es un error de la app; en la versión compilada pasa.
+- **Límite que sigue**: lo que se carga después del alta (solicitudes, facturas, documentos, adjuntos del chat) vive en la copia que lo atendió y se pierde si Vercel la recicla. Para eso hace falta una base compartida.
 
 ## Acceso inmediato para clientes nuevos y cuentas de la demo en todas las copias de Vercel ✅ (rama `feat/whatsapp-bot`)
 

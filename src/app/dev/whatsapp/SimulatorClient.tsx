@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   simulatorConcurrent,
-  simulatorInstance,
   simulatorReset,
   simulatorResetDemo,
   simulatorRetry,
@@ -148,6 +147,32 @@ function saveOwn(n: string): string {
   return n;
 }
 
+// Demo de Vercel: copia cifrada de la conversación de cada número (ver simulator-backup.ts). Si Vercel reinicia o
+// atiende otra copia del servidor, la conversación sigue. En la compu el servidor no manda copia (null).
+const chatKey = (address: string) => `contadorsmart-sim-chat:${address}`;
+function readBackup(address: string): string | null {
+  try {
+    return window.localStorage.getItem(chatKey(address));
+  } catch {
+    return null;
+  }
+}
+function saveBackup(address: string, backup: string | null | undefined) {
+  if (!backup) return;
+  try {
+    window.localStorage.setItem(chatKey(address), backup);
+  } catch {
+    // sin almacenamiento del navegador: la conversación depende de la copia del servidor
+  }
+}
+function forgetBackup(address: string) {
+  try {
+    window.localStorage.removeItem(chatKey(address));
+  } catch {
+    // nada que borrar
+  }
+}
+
 export function SimulatorClient({ examples, canResetDemo = false }: { examples: Identity[]; canResetDemo?: boolean }) {
   const [own, setOwn] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -165,21 +190,38 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
   const [pending, startTransition] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
 
-  // Demo de Vercel: si cambia la copia de la base que atiende, la demo se reinició y los datos volvieron al inicio.
-  const firstInstance = useRef<string | null | undefined>(undefined);
+  // Si la conversación vuelve con menos mensajes que antes, se perdieron datos (por ejemplo, la demo se reinició y el
+  // navegador no tenía la copia): se avisa en lugar de mostrar un chat cortado sin explicación.
+  const shown = useRef(0);
+  // Cada acción sube la versión: una actualización automática que salió antes no pisa lo que trajo la acción.
+  const version = useRef(0);
   const [restarted, setRestarted] = useState(false);
   const refresh = useCallback(async () => {
     if (!address) return;
+    const started = version.current;
     try {
-      const [list, current] = await Promise.all([simulatorTranscript(address), simulatorInstance()]);
-      if (firstInstance.current === undefined) firstInstance.current = current;
-      else if (current !== firstInstance.current) setRestarted(true);
-      setItems(list);
+      const r = await simulatorTranscript(address, readBackup(address));
+      if (started !== version.current) return;
+      saveBackup(address, r.backup);
+      if (r.items.length < shown.current) setRestarted(true);
+      shown.current = r.items.length;
+      setItems(r.items);
     } catch {
-      // Sin conexión, o la demo se reinició y la sesión ya no vale: se avisa en lugar de fallar en silencio.
-      setRestarted(true);
+      // Sin conexión, o la sesión ya no vale: se avisa en lugar de fallar en silencio.
+      if (started === version.current) setRestarted(true);
     }
   }, [address]);
+
+  useEffect(() => {
+    shown.current = 0;
+  }, [address]);
+
+  /** Guarda la copia de la conversación que devuelve una acción. */
+  const keep = <T extends { backup: string | null }>(r: T): T => {
+    version.current += 1;
+    saveBackup(address!, r.backup);
+    return r;
+  };
 
   useEffect(() => {
     refresh();
@@ -211,19 +253,21 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
     run(async () => {
       if (!value.trim()) return null;
       setText("");
-      return failed(await simulatorSend(address!, value, { fault: fault || undefined }));
+      return failed(keep(await simulatorSend(address!, value, { fault: fault || undefined }, readBackup(address!))));
     });
 
-  const choose = (c: Choice) => run(async () => failed(await simulatorSend(address!, c.title, { choiceId: c.id, fault: fault || undefined })));
+  const choose = (c: Choice) => run(async () => failed(keep(await simulatorSend(address!, c.title, { choiceId: c.id, fault: fault || undefined }, readBackup(address!)))));
 
   const upload = (file: File) =>
     run(async () => {
       const form = new FormData();
       form.set("file", file);
       if (text.trim()) form.set("caption", text.trim());
+      const backup = readBackup(address!);
+      if (backup) form.set("backup", backup);
       setText("");
       if (fileInput.current) fileInput.current.value = "";
-      return failed(await simulatorUpload(address!, form));
+      return failed(keep(await simulatorUpload(address!, form)));
     });
 
   return (
@@ -254,7 +298,6 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
               const n = saveOwn(newOwnNumber());
               setOwn(n);
               setAddress(n);
-              firstInstance.current = undefined;
               setNotice("Número nuevo: empezás de cero, como otra persona.");
             }}
             className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -283,7 +326,7 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
                 onClick={() =>
                   run(async () => {
                     // Si era una opción tocada o un archivo, el reenvío lleva lo mismo.
-                    const r = await simulatorSend(address!, lastInbound!.text, { repeatOf: lastInbound!.providerId });
+                    const r = keep(await simulatorSend(address!, lastInbound!.text, { repeatOf: lastInbound!.providerId }, readBackup(address!)));
                     return r.outcome.status === "duplicado" ? "Evento duplicado: se descartó (no se procesó dos veces)." : `Resultado: ${r.outcome.status}`;
                   })
                 }
@@ -298,8 +341,8 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
                   run(async () => {
                     const value = text;
                     setText("");
-                    const r = await simulatorConcurrent(address!, value);
-                    return `Dos entregas simultáneas del mismo evento: ${r.map((o) => o.status).join(" y ")}.`;
+                    const r = keep(await simulatorConcurrent(address!, value, undefined, readBackup(address!)));
+                    return `Dos entregas simultáneas del mismo evento: ${r.outcomes.map((o) => o.status).join(" y ")}.`;
                   })
                 }
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -309,7 +352,7 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(async () => `Reintentados: ${await simulatorRetry(address!)}.`)}
+                onClick={() => run(async () => `Reintentados: ${keep(await simulatorRetry(address!, readBackup(address!))).count}.`)}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 Reintentar fallidos
@@ -319,7 +362,13 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
                 disabled={pending}
                 onClick={() => {
                   if (window.confirm("¿Reiniciar este número? Se desvincula su WhatsApp y se borra la conversación (solo datos de prueba).")) {
-                    run(() => simulatorReset(address!));
+                    run(async () => {
+                      const message = await simulatorReset(address!);
+                      version.current += 1;
+                      forgetBackup(address!);
+                      shown.current = 0;
+                      return message;
+                    });
                   }
                 }}
                 className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
@@ -404,8 +453,7 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
         </div>
         {restarted && (
           <div className="border-t border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900" role="alert">
-            La demo se reinició o se cortó la conexión. Si se reinició, los datos volvieron a los de ejemplo (por ejemplo, una
-            cuenta creada en la demo ya no existe).{" "}
+            Se cortó la conexión o la demo se reinició y se perdió parte de la conversación.{" "}
             <button type="button" className="font-medium underline" onClick={() => window.location.reload()}>
               Recargar y empezar de nuevo
             </button>

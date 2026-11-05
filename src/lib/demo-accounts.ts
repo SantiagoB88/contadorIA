@@ -35,9 +35,10 @@ type Snapshot = {
     mustChangePassword: boolean;
     tempPasswordExpiresAt: string | null;
     createdAt: string;
+    updatedAt?: string;
   };
   taxpayers: { id: string; studyId: string; cuit: string; name: string; activity: string; categoryCode: string | null; startDate: string }[];
-  accesses: { taxpayerId: string; status: string }[];
+  accesses: { taxpayerId: string; status: string; updatedAt?: string }[];
   requests: {
     id: string;
     cuit: string;
@@ -91,7 +92,7 @@ async function writeBundle(list: Snapshot[]) {
 
 async function snapshot(userId: string): Promise<Snapshot | null> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.role !== "CLIENTE") return null;
+  if (!user) return null;
   const [accesses, requests, links, tokens, emails] = await Promise.all([
     prisma.taxpayerAccess.findMany({ where: { userId }, include: { taxpayer: true } }),
     prisma.accessRequest.findMany({ where: { userId } }),
@@ -113,6 +114,7 @@ async function snapshot(userId: string): Promise<Snapshot | null> {
       mustChangePassword: user.mustChangePassword,
       tempPasswordExpiresAt: user.tempPasswordExpiresAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     },
     taxpayers: accesses.map(({ taxpayer: t }) => ({
       id: t.id,
@@ -123,7 +125,7 @@ async function snapshot(userId: string): Promise<Snapshot | null> {
       categoryCode: t.categoryCode,
       startDate: t.startDate,
     })),
-    accesses: accesses.map((a) => ({ taxpayerId: a.taxpayerId, status: a.status })),
+    accesses: accesses.map((a) => ({ taxpayerId: a.taxpayerId, status: a.status, updatedAt: a.updatedAt.toISOString() })),
     requests: requests.map((r) => ({
       id: r.id,
       cuit: r.cuit,
@@ -148,7 +150,11 @@ export async function rememberDemoAccount(userId: string, onlyIfKnown = false): 
   if (!usesBundledDemo) return;
   try {
     const list = await readBundle();
-    if (onlyIfKnown && !list.some((s) => s.user.id === userId)) return;
+    const known = list.find((s) => s.user.id === userId);
+    if (onlyIfKnown && !known) return;
+    // Primero se pone al día esta copia con lo que trae el navegador: si no, una copia con datos viejos (por ejemplo,
+    // el correo sin confirmar) pisaría lo más nuevo al guardar.
+    if (known) await restore(known).catch(() => undefined);
     const snap = await snapshot(userId);
     if (!snap) return;
     await writeBundle([...list.filter((s) => s.user.id !== userId), snap]);
@@ -211,19 +217,19 @@ async function restore(s: Snapshot) {
     mustChangePassword: u.mustChangePassword,
     tempPasswordExpiresAt: u.tempPasswordExpiresAt ? new Date(u.tempPasswordExpiresAt) : null,
   };
+  // Gana siempre lo más nuevo: lo que trae el navegador solo se aplica si es posterior a lo que tiene esta copia (si
+  // no, un cambio recién hecho acá, como una contraseña nueva, se perdería).
+  const at = (iso: string | null | undefined) => (iso ? new Date(iso) : new Date(0));
+  const updatedAt = at(u.updatedAt);
   const existing = await prisma.user.findUnique({ where: { id: u.id } });
   if (existing) {
-    // La copia del navegador es la más nueva (se actualiza en cada cambio de contraseña o de acceso).
-    const changed =
-      existing.passwordHash !== fields.passwordHash ||
-      (existing.emailVerifiedAt === null) !== (fields.emailVerifiedAt === null) ||
-      existing.active !== fields.active ||
-      existing.mustChangePassword !== fields.mustChangePassword ||
-      (existing.tempPasswordExpiresAt?.toISOString() ?? null) !== u.tempPasswordExpiresAt;
-    if (changed) await prisma.user.update({ where: { id: u.id }, data: fields });
+    if (updatedAt > existing.updatedAt) await prisma.user.update({ where: { id: u.id }, data: { ...fields, updatedAt } });
   } else {
+    // Solo se crean clientes: un usuario del estudio (por ejemplo, un administrador con la contraseña blanqueada) ya
+    // está en la base de ejemplo y se actualiza arriba.
+    if (u.role !== "CLIENTE") return;
     if (await prisma.user.findUnique({ where: { email: u.email } })) return; // otra cuenta con ese correo en esta copia
-    await prisma.user.create({ data: { id: u.id, studyId, email: u.email, role: "CLIENTE", createdAt: new Date(u.createdAt), ...fields } });
+    await prisma.user.create({ data: { id: u.id, studyId, email: u.email, role: "CLIENTE", createdAt: new Date(u.createdAt), updatedAt, ...fields } });
   }
   for (const t of s.taxpayers) {
     if (await prisma.taxpayer.findUnique({ where: { id: t.id } })) continue;
@@ -234,16 +240,18 @@ async function restore(s: Snapshot) {
     const tpId = await taxpayerId(a.taxpayerId);
     if (!tpId) continue;
     const current = await prisma.taxpayerAccess.findUnique({ where: { userId_taxpayerId: { userId: u.id, taxpayerId: tpId } } });
-    if (current?.status === a.status) continue;
+    const changedAt = at(a.updatedAt);
+    if (current && (current.status === a.status || changedAt <= current.updatedAt)) continue;
     await prisma.taxpayerAccess.upsert({
       where: { userId_taxpayerId: { userId: u.id, taxpayerId: tpId } },
-      update: { status: a.status },
-      create: { userId: u.id, taxpayerId: tpId, status: a.status },
+      update: { status: a.status, updatedAt: changedAt },
+      create: { userId: u.id, taxpayerId: tpId, status: a.status, updatedAt: changedAt },
     });
   }
   for (const r of s.requests) {
-    const found = await prisma.accessRequest.findUnique({ where: { id: r.id }, select: { status: true } });
-    if (found?.status === r.status) continue;
+    const found = await prisma.accessRequest.findUnique({ where: { id: r.id }, select: { status: true, reviewedAt: true, createdAt: true } });
+    // Una solicitud solo avanza (pendiente → revisada): se aplica si la del navegador se revisó después.
+    if (found && (found.status === r.status || at(r.reviewedAt ?? r.createdAt) <= (found.reviewedAt ?? found.createdAt))) continue;
     const data = {
       status: r.status,
       reviewNote: r.reviewNote,
@@ -278,6 +286,8 @@ async function restore(s: Snapshot) {
   for (const l of s.links) {
     const activeKey = `${CHANNEL.WHATSAPP}:${l.address}`;
     if (await prisma.channelLink.findUnique({ where: { activeKey } })) continue;
+    // Si esta copia ya tiene ese vínculo (o uno más nuevo) y después se desvinculó, no se vuelve a vincular.
+    if (await prisma.channelLink.findFirst({ where: { userId: u.id, address: l.address, linkedAt: { gte: new Date(l.linkedAt) } } })) continue;
     await prisma.channelLink.create({
       data: { studyId, userId: u.id, channel: CHANNEL.WHATSAPP, address: l.address, status: "ACTIVO", activeKey, method: l.method, linkedAt: new Date(l.linkedAt) },
     });

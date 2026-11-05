@@ -24,8 +24,9 @@ export default async function WhatsAppSimulatorPage() {
         </p>
         {process.env.VERCEL && (
           <p className="mt-2 max-w-3xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Demo online: los datos son temporales. Si la demo queda un rato sin uso, vuelve sola a los datos de ejemplo y
-            hay que empezar el recorrido de nuevo. Conviene hacerlo de corrido.
+            Demo online: tu cuenta y esta conversación quedan guardadas en este navegador, así que siguen aunque actualices
+            la página o la demo se reinicie. Lo demás que cargues (solicitudes, facturas, documentos) es temporal y puede
+            volver a los datos de ejemplo. Usá siempre el mismo navegador.
           </p>
         )}
         <details className="mt-3 max-w-3xl rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" open>

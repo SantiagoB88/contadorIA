@@ -12,7 +12,7 @@ import { isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { passwordProblem } from "@/lib/crypto";
 import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
-import { AUTO_APPROVAL_NOTE, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
+import { AUTO_APPROVAL_NOTE, adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
 import { verifyPassword } from "@/lib/crypto";
 import { addDaysYmd } from "@/lib/dates";
@@ -327,6 +327,26 @@ async function main() {
     assert.equal(await prisma.session.count({ where: { userId: nuevo.id } }), 0);
     assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: nuevo.id } })).active, false);
     assert.equal((await setUserActive(admin, nuevo.id, true)).ok, true);
+  });
+  await check("el estudio blanquea la contraseña: temporal de un uso visible, cierra sesiones y avisa", async () => {
+    assert.equal((await adminResetPassword(admin, admin.id)).ok, false);
+    assert.equal((await adminResetPassword(otherAdmin, nuevo.id)).ok, false); // otro estudio
+    await prisma.session.create({ data: { userId: nuevo.id, tokenHash: "sesion-blanqueo", expiresAt: new Date(Date.now() + 60_000) } });
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: nuevo.id } });
+    const r = await adminResetPassword(admin, nuevo.id);
+    assert.ok(r.ok && /^[A-Za-z0-9]{12}$/.test(r.tempPassword), JSON.stringify(r));
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: nuevo.id } });
+    assert.ok(await verifyPassword(r.tempPassword, after.passwordHash));
+    assert.ok(!(await verifyPassword("OtraClave99", after.passwordHash)));
+    assert.equal(after.mustChangePassword, true);
+    assert.ok(after.tempPasswordExpiresAt && after.tempPasswordExpiresAt > new Date());
+    assert.equal(await prisma.session.count({ where: { userId: nuevo.id } }), 0);
+    const mail = await prisma.outboxEmail.findFirst({ where: { to: nuevo.email }, orderBy: { createdAt: "desc" } });
+    assert.match(mail!.subject, /blanqueó tu contraseña/);
+    assert.ok(!mail!.body.includes(r.tempPassword), "el correo no lleva la contraseña");
+    assert.ok(await prisma.auditEvent.findFirst({ where: { action: "PASSWORD_RESET_BY_ADMIN", entityId: nuevo.id, actorId: admin.id } }));
+    // Para no cambiar las pruebas que siguen, vuelve a la contraseña que tenía.
+    await prisma.user.update({ where: { id: nuevo.id }, data: { passwordHash: before.passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null } });
   });
 
   console.log("Perfil");

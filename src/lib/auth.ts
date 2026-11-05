@@ -65,13 +65,11 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     // Se valida la firma y, en la base, que el usuario siga activo y no haya cambiado la contraseña.
     const claims = readSession(token, await demoSecret());
     if (!claims) return null;
-    // Una cuenta creada en la demo puede no estar en esta copia del servidor, o tener una contraseña anterior
-    // (se cambió en otra copia): se trae lo último que guarda el navegador (ver demo-accounts.ts).
-    let user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
-    if (!user || passwordVersion(user.passwordHash) !== claims.pwv) {
-      await restoreDemoAccounts();
-      user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
-    }
+    // Las cuentas creadas en la demo pueden no estar en esta copia del servidor, o estar con datos anteriores (otra
+    // contraseña, el correo sin confirmar): antes de atender se trae lo último que guarda el navegador, también para
+    // lo que ve el estudio (ver demo-accounts.ts). Solo actualiza lo que cambió.
+    await restoreDemoAccounts();
+    const user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
     if (!user || !user.active || passwordVersion(user.passwordHash) !== claims.pwv) return null;
     return {
       id: user.id,

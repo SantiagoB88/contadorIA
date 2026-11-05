@@ -5,7 +5,7 @@ import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
-import { ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
+import { AdminResetPasswordForm, ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
 import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
 import { listStudyLinks } from "@/modules/bot/links";
 import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
@@ -167,7 +167,10 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
       <Card className="p-0">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="font-semibold text-navy">Usuarios</h2>
-          <p className="mt-1 text-sm text-slate-600">Suspender cierra las sesiones abiertas y bloquea el ingreso.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Suspender cierra las sesiones abiertas y bloquea el ingreso. Blanquear clave genera una contraseña temporal para
+            pasarle a la persona (vence en 72 horas y al entrar elige la suya).
+          </p>
         </div>
         <ul className="divide-y divide-slate-100">
           {users.map((u) => (
@@ -186,6 +189,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
                 <Badge tone={u.active ? "success" : "danger"}>{u.active ? "Activo" : "Suspendido"}</Badge>
                 {whatsappByUser.get(u.id) && <Badge tone="info">WhatsApp {whatsappByUser.get(u.id)!.masked}</Badge>}
                 {whatsappByUser.get(u.id) && <AdminUnlinkForm linkId={whatsappByUser.get(u.id)!.id} />}
+                {u.id !== admin.id && u.active && <AdminResetPasswordForm userId={u.id} name={u.name} />}
                 {u.id !== admin.id && <UserStatusForm userId={u.id} active={u.active} />}
               </div>
             </li>

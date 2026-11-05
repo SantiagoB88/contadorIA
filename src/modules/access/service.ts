@@ -1,6 +1,8 @@
 import { notifyAccessReviewed } from "@/modules/bot/notify";
 import { prisma } from "@/lib/db";
-import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
+import { ACCESS_STATUS, REQUEST_STATUS, ROLES, TOKEN_TYPE } from "@/lib/constants";
+import { hashPassword } from "@/lib/crypto";
+import { newTempPassword, TEMP_PASSWORD_HOURS } from "@/modules/auth/service";
 import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { mail } from "@/providers/mail";
 import { isValidYmd, todayAR } from "@/lib/dates";
@@ -323,4 +325,46 @@ export async function setUserActive(admin: CurrentUser, userId: string, active: 
     }),
   ]);
   return { ok: true, message: active ? `${user.name} fue reactivado.` : `${user.name} fue suspendido y se cerraron sus sesiones.` };
+}
+
+export type PasswordResetResult = { ok: true; message: string; tempPassword: string } | { ok: false; message: string };
+
+/**
+ * El estudio blanquea la contraseña de un usuario (por ejemplo, la olvidó y no tiene acceso al correo): se genera una
+ * contraseña temporal que el estudio le pasa por su cuenta. Vence a las 72 horas, al entrar hay que cambiarla y se
+ * cierran las sesiones abiertas. Se le avisa por correo al usuario (sin la contraseña) y queda en la auditoría.
+ */
+export async function adminResetPassword(admin: CurrentUser, userId: string): Promise<PasswordResetResult> {
+  assertAdmin(admin);
+  if (userId === admin.id) return { ok: false, message: "Tu propia contraseña la cambiás desde Mi perfil." };
+  const user = await prisma.user.findFirst({ where: { id: userId, studyId: admin.studyId } });
+  if (!user) return { ok: false, message: "El usuario no existe en tu estudio." };
+  if (!user.active) return { ok: false, message: "El usuario está suspendido: reactivalo antes de blanquear la contraseña." };
+
+  const tempPassword = newTempPassword();
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await hashPassword(tempPassword),
+        mustChangePassword: true,
+        tempPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_HOURS * 60 * 60 * 1000),
+      },
+    }),
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+    prisma.authToken.updateMany({ where: { userId: user.id, type: TOKEN_TYPE.RESTABLECER_CLAVE, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.auditEvent.create({
+      data: { studyId: admin.studyId, actorId: admin.id, action: "PASSWORD_RESET_BY_ADMIN", entity: "User", entityId: user.id, detail: user.email },
+    }),
+  ]);
+  await mail.send({
+    to: user.email,
+    subject: "El estudio blanqueó tu contraseña",
+    body: `Hola, ${user.name}:\n\nEl estudio blanqueó la contraseña de tu cuenta de ContadorSmart. Te va a pasar una contraseña temporal: vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.\n\nSi no lo pediste, comunicate con el estudio.`,
+  });
+  return {
+    ok: true,
+    tempPassword,
+    message: `Contraseña de ${user.name} blanqueada. Pasale esta contraseña temporal (se muestra una sola vez; vence en ${TEMP_PASSWORD_HOURS} horas y al entrar tiene que elegir otra).`,
+  };
 }

@@ -41,6 +41,8 @@ model User {
   mustChangePassword    Boolean   @default(false)
   tempPasswordExpiresAt DateTime?
   createdAt        DateTime         @default(now())
+  // Última modificación: en la demo de Vercel decide qué copia de la cuenta es la más nueva (ver demo-accounts.ts).
+  updatedAt        DateTime         @default(now()) @updatedAt
   sessions         Session[]
   accesses         TaxpayerAccess[]
   authTokens       AuthToken[]
