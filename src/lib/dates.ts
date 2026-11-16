@@ -8,10 +8,13 @@ const MONTHS_LONG = [
 ];
 
 export function todayAR(): string {
+  return ymdAR(new Date());
+}
+
+/** Fecha (YYYY-MM-DD, hora de Argentina) de un instante. */
+export function ymdAR(date: Date): string {
   // en-CA produce el formato YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(
-    new Date(),
-  );
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

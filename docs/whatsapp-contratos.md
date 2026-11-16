@@ -58,7 +58,7 @@ Archivo: `src/modules/bot/engine.ts`. No sabe nada de WhatsApp.
 |---|---|---|
 | 1. Estado de mi alta | `AccessRequest`, `getAccessibleTaxpayers` | No revela si un CUIT existe |
 | 2. Facturación | `getDashboardData` (el mismo del tablero) | Muestra el período, la fecha de actualización y "información incompleta" o "datos parciales" cuando corresponde |
-| 3. Margen de categoría | `getDashboardData().margin` | Se presenta como orientativo; sin datos completos, "No se puede calcular" |
+| 3. Hasta el límite de la categoría | `getDashboardData().margin` + `limitText` (`src/modules/dashboard/limit-text.ts`) | Mismo texto que la web; orientativo; sin datos completos, "No se puede calcular" |
 | 4. Deudas y vencimientos | `getDebtSummary` + `debtStateText` | Sin revisión del estudio, nunca dice "sin deuda" |
 | 5. Nueva solicitud | `createRequest` (canal `WHATSAPP`, idempotente) | Aparece en la Bandeja |
 | 6. Mis solicitudes | `listRequestsForUser`, `getRequestForUser`, `addMessage` | Para un cliente, la consulta excluye las notas internas |

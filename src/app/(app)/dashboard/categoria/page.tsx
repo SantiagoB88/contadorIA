@@ -153,9 +153,9 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500">Margen</dt>
+            <dt className="text-slate-500">Cuánto podés facturar hasta el límite</dt>
             <dd className="text-slate-800">
-              Límite de la categoría registrada − ingresos computables.
+              Límite anual de la categoría registrada − lo facturado en los últimos 12 meses.
               {margin.available && (
                 <>
                   {" "}
@@ -193,7 +193,7 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
         </div>
         {!category.scale ? (
           <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            No hay una escala vigente a la fecha de corte. Sin escala no se calcula el margen ni se sugiere una categoría.
+            No hay una escala vigente a la fecha de corte. Sin escala no se calcula cuánto podés facturar hasta el límite ni se sugiere una categoría.
           </p>
         ) : (
           <div className="mt-4 overflow-x-auto">

@@ -68,8 +68,8 @@ test("alta por chat y uso del panel con reinicios de Vercel en el medio", async 
   await chat(page, email, /CUIT/);
   await chat(page, fakeCuit(), /A qué te dedicás/);
   await recycle(page, "0");
-  await chat(page, "Servicios de prueba", /mes y año/);
-  await chat(page, "05/2023", /Revisá tus datos/);
+  // Ya no se pregunta desde cuándo factura: después de la actividad viene el resumen.
+  await chat(page, "Servicios de prueba", /Revisá tus datos/);
   await tap(page, "Crear mi cuenta", /Creamos tu cuenta/);
   const credentials = (await outTexts(page)).filter((t) => t.includes("Contraseña temporal")).pop()!;
   const temp = credentials.match(/Contraseña temporal: (\S+)/)![1];

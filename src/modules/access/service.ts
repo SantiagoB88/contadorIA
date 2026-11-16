@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ACCESS_STATUS, REQUEST_STATUS, ROLES, TOKEN_TYPE } from "@/lib/constants";
 import { hashPassword } from "@/lib/crypto";
 import { newTempPassword, TEMP_PASSWORD_HOURS } from "@/modules/auth/service";
+import { categoryBaseDate } from "@/modules/fiscal/category";
 import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { mail } from "@/providers/mail";
 import { isValidYmd, todayAR } from "@/lib/dates";
@@ -26,7 +27,7 @@ export type AssociationInput = {
   name: string;
   activity: string;
   category: string;
-  startDate: string;
+  startDate?: string; // opcional: el alta no la pide; si viene, tiene que ser válida
 };
 
 export async function requestAssociation(user: CurrentUser, input: AssociationInput): Promise<ServiceResult> {
@@ -40,8 +41,9 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
   if (name.length < 2 || name.length > 120) fieldErrors.name = "Ingresá el nombre o razón social (2 a 120 caracteres).";
   if (activity.length < 2 || activity.length > 120) fieldErrors.activity = "Ingresá la actividad (2 a 120 caracteres).";
   if (category && !/^[A-K]$/.test(category)) fieldErrors.category = "Elegí una categoría de la A a la K.";
-  if (!isValidYmd(input.startDate) || input.startDate > todayAR()) {
-    fieldErrors.startDate = "Ingresá una fecha válida y no futura.";
+  const startDate = input.startDate?.trim() || null;
+  if (startDate && (!isValidYmd(startDate) || startDate > todayAR())) {
+    fieldErrors.startDate = "Ingresá una fecha válida y no futura, o dejala vacía.";
   }
   if (Object.keys(fieldErrors).length > 0) return { ok: false, message: "Revisá los campos marcados.", fieldErrors };
 
@@ -59,7 +61,7 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
   }
 
   const known = await prisma.taxpayer.findUnique({ where: { studyId_cuit: { studyId: user.studyId, cuit } } });
-  if (!known) return selfOnboard(user, { cuit, name, activity, category, startDate: input.startDate });
+  if (!known) return selfOnboard(user, { cuit, name, activity, category, startDate });
 
   const request = await prisma.accessRequest.create({
     data: {
@@ -69,7 +71,7 @@ export async function requestAssociation(user: CurrentUser, input: AssociationIn
       declaredName: name,
       declaredActivity: activity,
       declaredCategory: category || null,
-      declaredStartDate: input.startDate,
+      declaredStartDate: startDate,
       status: REQUEST_STATUS.PENDIENTE,
     },
   });
@@ -92,7 +94,7 @@ export const AUTO_APPROVAL_NOTE = "Alta automática: CUIT nuevo en el estudio";
 /** CUIT nuevo en el estudio: crea el contribuyente sin datos, habilita el acceso y avisa al estudio. */
 async function selfOnboard(
   user: CurrentUser,
-  input: { cuit: string; name: string; activity: string; category: string; startDate: string },
+  input: { cuit: string; name: string; activity: string; category: string; startDate: string | null },
 ): Promise<ServiceResult> {
   const taxpayer = await prisma.$transaction(async (tx) => {
     const created = await tx.taxpayer.create({
@@ -107,7 +109,7 @@ async function selfOnboard(
     });
     if (created.categoryCode) {
       await tx.categoryHistory.create({
-        data: { taxpayerId: created.id, code: created.categoryCode, validFrom: created.startDate, reason: "Categoría declarada en el alta", createdById: user.id },
+        data: { taxpayerId: created.id, code: created.categoryCode, validFrom: categoryBaseDate(created), reason: "Categoría declarada en el alta", createdById: user.id },
       });
     }
     await tx.taxpayerAccess.create({ data: { userId: user.id, taxpayerId: created.id, status: ACCESS_STATUS.APROBADO } });
@@ -198,7 +200,7 @@ export async function approveRequest(
           data: {
             taxpayerId: taxpayer.id,
             code: taxpayer.categoryCode,
-            validFrom: taxpayer.startDate,
+            validFrom: categoryBaseDate(taxpayer),
             reason: "Categoría inicial al aprobar el alta",
             createdById: admin.id,
           },

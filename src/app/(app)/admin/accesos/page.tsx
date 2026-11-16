@@ -116,7 +116,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
                     </p>
                     <p className="mt-1 text-sm text-slate-600">
                       Declara: {r.declaredActivity} · categoría {r.declaredCategory ?? "no informada"} · inicio{" "}
-                      {formatDateAR(r.declaredStartDate)}
+                      {r.declaredStartDate ? formatDateAR(r.declaredStartDate) : "no informado"}
                     </p>
                   </div>
                   {match ? (

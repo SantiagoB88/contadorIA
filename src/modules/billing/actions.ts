@@ -37,6 +37,7 @@ function readDraft(formData: FormData): DraftInput {
     docNumber: str(formData, "docNumber"),
     taxCondition: str(formData, "taxCondition"),
     saveRecipient: formData.get("saveRecipient") === "on",
+    recipientAlias: str(formData, "recipientAlias"),
     items: Array.from({ length: count }, (_, i) => ({
       description: descriptions[i] ?? "",
       quantity: quantities[i] ?? "",

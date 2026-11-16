@@ -63,7 +63,7 @@ export async function addInvoiceAction(_prev: FormState, formData: FormData): Pr
   const today = todayAR();
   if (!isValidYmd(raw.issueDate)) fieldErrors.issueDate = "Ingresá una fecha válida.";
   else if (raw.issueDate > today) fieldErrors.issueDate = "La fecha no puede ser futura.";
-  else if (raw.issueDate < taxpayer.startDate)
+  else if (taxpayer.startDate && raw.issueDate < taxpayer.startDate)
     fieldErrors.issueDate = `La fecha es anterior al inicio de actividad (${formatDateAR(taxpayer.startDate)}).`;
 
   const amountCents = parseAmountToCents(raw.amount);

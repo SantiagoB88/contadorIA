@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { CATEGORY_CODES, ROLES } from "@/lib/constants";
-import { formatDateAR, isValidYmd, todayAR } from "@/lib/dates";
+import { formatDateAR, isValidYmd, todayAR, ymdAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 import type { ServiceResult } from "@/modules/access/service";
 import { findScaleForDate } from "./scales";
@@ -24,10 +24,18 @@ function rowAt<T extends HistoryRow>(rows: T[], date: string): T | null {
 export type CategoryAt = { code: string | null; since: string | null };
 
 /**
+ * Desde cuándo rige la categoría con la que se dio de alta un contribuyente: el inicio de actividad o, si no se
+ * informó, el día en que se cargó en ContadorSmart (fecha real del registro; nunca una fecha de inicio inventada).
+ */
+export function categoryBaseDate(taxpayer: { startDate: string | null; createdAt: Date }): string {
+  return taxpayer.startDate ?? ymdAR(taxpayer.createdAt);
+}
+
+/**
  * Categoría registrada en una fecha. Sin historial (datos anteriores a la entrega 4) se usa la categoría actual.
  */
 export async function getCategoryAt(
-  taxpayer: { id: string; categoryCode: string | null; startDate: string },
+  taxpayer: { id: string; categoryCode: string | null; startDate: string | null },
   date: string,
 ): Promise<CategoryAt> {
   const rows = await prisma.categoryHistory.findMany({ where: { taxpayerId: taxpayer.id } });
@@ -66,7 +74,7 @@ export async function setCategory(
   if (code !== "" && !(CATEGORY_CODES as readonly string[]).includes(code)) fieldErrors.categoryCode = "Elegí una categoría válida.";
   if (!isValidYmd(validFrom)) fieldErrors.validFrom = "Ingresá una fecha válida.";
   else if (validFrom > today) fieldErrors.validFrom = "La fecha no puede ser futura.";
-  else if (validFrom < taxpayer.startDate) {
+  else if (taxpayer.startDate && validFrom < taxpayer.startDate) {
     fieldErrors.validFrom = `No puede ser anterior al inicio de actividad (${formatDateAR(taxpayer.startDate)}).`;
   }
   if (reason.length < 3) fieldErrors.reason = "Indicá el motivo del cambio (queda en la auditoría).";
@@ -95,7 +103,7 @@ export async function setCategory(
         data: {
           taxpayerId: taxpayer.id,
           code: taxpayer.categoryCode,
-          validFrom: taxpayer.startDate,
+          validFrom: categoryBaseDate(taxpayer),
           reason: "Categoría registrada antes del historial",
           createdById: admin.id,
         },

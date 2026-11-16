@@ -28,6 +28,12 @@
 - [x] Acceso inmediato para CUIT nuevos (aviso al estudio) y cuentas de la demo en todas las copias de Vercel
 - [x] Demo de Vercel: la conversación del simulador y la cuenta sobreviven a reinicios y a publicaciones nuevas
 - [x] Blanquear clave desde Accesos (contraseña temporal de 72 horas)
+- [x] Testing con usuarios: alta sin fecha de inicio, receptores CUIT → datos → alias, configuración y pedido de ayuda, Mi resumen sin derivación, texto del límite
+- [ ] Facturación recurrente (propuesta en docs/propuesta-facturacion-recurrente.md, con preguntas)
+- [ ] Ingresos Brutos (alcance a definir: docs/propuesta-ingresos-brutos.md)
+- [ ] Integración con ARCA: padrón (ws_sr_constancia_inscripcion) y emisión (WSFEv1) con certificado del estudio y delegación (docs/arca-integracion.md)
+- [ ] Solicitudes por WhatsApp: dos eventos idénticos exactamente a la vez pueden dar un error de clave duplicada en lugar de devolver la misma solicitud (el pedido de ayuda ya lo maneja)
+- [ ] Revisar `src/app/(app)/loading.tsx` (archivo local sin commitear): con él, la navegación a Movimientos no terminaba en la versión compilada
 - [ ] Demo de Vercel: solicitudes, facturas y documentos cargados después del alta siguen viviendo en una copia del servidor; para que sean compartidos hace falta una base compartida
 - [ ] WhatsApp real en un link público: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)

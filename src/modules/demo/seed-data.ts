@@ -190,7 +190,7 @@ export async function seedDemo(options: { reset?: boolean } = {}) {
     taxpayers[p.key] = tp.id;
     if (p.category) {
       await prisma.categoryHistory.create({
-        data: { taxpayerId: tp.id, code: p.category, validFrom: tp.startDate, reason: "Categoría inicial (datos de demo)", createdById: admin.id },
+        data: { taxpayerId: tp.id, code: p.category, validFrom: tp.startDate!, reason: "Categoría inicial (datos de demo)", createdById: admin.id },
       });
     }
 

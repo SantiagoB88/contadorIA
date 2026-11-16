@@ -20,8 +20,9 @@ Esta demo muestra cómo funciona el asistente de WhatsApp de ContadorSmart. Todo
    - nombre y apellido;
    - correo;
    - CUIT;
-   - a qué te dedicás;
-   - desde qué mes y año facturás (por ejemplo `05/2023`).
+   - a qué te dedicás.
+
+   La fecha de inicio de actividad no se pide acá: la cargás después desde tu panel, o el asistente te la pide cuando emitas tu primera factura.
 
    Si cargás algo mal (un correo incompleto, un CUIT con el último número equivocado), te lo dice y te lo vuelve a pedir.
 
@@ -44,7 +45,9 @@ En la pestaña de la web (usuario del estudio), entrá a **Accesos**: arriba apa
 ## 5. Recorrer todo con datos cargados
 
 En **Quién escribe** elegí **Ana Gómez · clienta de ejemplo**. Ana ya tiene facturación, vencimientos y documentos cargados. Probá:
-- **Mi resumen**: facturación del período, margen de categoría y próximo vencimiento.
+- **Mi resumen**: facturación del período, cuánto podés facturar hasta el límite de tu categoría y próximo vencimiento.
+- **Mi cuenta → Mi configuración**: qué tenés listo y cuál es el próximo paso. **Necesito ayuda** pide que el estudio te llame.
+- **Facturación → Nuevo receptor**: primero el CUIT, después la razón social y al final cómo querés guardarlo (podés ponerle otro nombre).
 - **Facturación → Preparar factura**: guiada paso a paso. Al final muestra un resumen y se confirma con un botón. Es una factura simulada.
 - **Deudas y vencimientos → Informar un pago**: adjuntá cualquier PDF o foto con el clip 📎.
 - **Hablar con el estudio**: mandá una consulta.

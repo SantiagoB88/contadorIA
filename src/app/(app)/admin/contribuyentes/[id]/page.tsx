@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StartDateForm } from "@/components/taxpayers/StartDateForm";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -60,7 +61,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
       </div>
       <PageHeader
         title={taxpayer.name}
-        subtitle={`CUIT ${formatCuit(taxpayer.cuit)} · ${taxpayer.activity} · Inicio de actividad ${formatDateAR(taxpayer.startDate)}`}
+        subtitle={`CUIT ${formatCuit(taxpayer.cuit)} · ${taxpayer.activity} · Inicio de actividad ${taxpayer.startDate ? formatDateAR(taxpayer.startDate) : "sin informar"}`}
       >
         <Link
           href={`/dashboard?c=${taxpayer.id}`}
@@ -69,6 +70,16 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
           Ver tablero del cliente
         </Link>
       </PageHeader>
+
+      <Card>
+        <h2 className="font-semibold text-navy">Inicio de actividad</h2>
+        <p className="mt-1 mb-4 text-sm text-slate-600">
+          {taxpayer.startDate
+            ? "Cargada. Si no coincide con la constancia de ARCA, corregila acá (queda en la auditoría)."
+            : "Sin informar: el alta no la pide. Hace falta para emitir y para saber si hay 12 meses de historial."}
+        </p>
+        <StartDateForm taxpayerId={taxpayer.id} current={taxpayer.startDate} compact from="admin" />
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

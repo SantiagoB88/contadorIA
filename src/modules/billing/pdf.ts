@@ -17,7 +17,7 @@ type PdfInvoice = {
   recipientTaxCondition: string | null;
   amountCents: bigint;
   items: { description: string; quantityMilli: number; unitPriceCents: bigint; subtotalCents: bigint }[];
-  taxpayer: { name: string; cuit: string; activity: string; startDate: string };
+  taxpayer: { name: string; cuit: string; activity: string; startDate: string | null };
 };
 
 const WATERMARK = "SIMULACIÓN SIN VALIDEZ FISCAL";
@@ -116,7 +116,7 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Uint8Array> 
     `CUIT ${formatCuit(invoice.taxpayer.cuit)}`,
     "Responsable Monotributo",
     `Actividad: ${invoice.taxpayer.activity}`,
-    `Inicio de actividades: ${formatDateAR(invoice.taxpayer.startDate)}`,
+    `Inicio de actividades: ${invoice.taxpayer.startDate ? formatDateAR(invoice.taxpayer.startDate) : "sin informar"}`,
   ];
   const rightCol = [invoice.recipientName, doc2, TAX_CONDITION_LABEL[invoice.recipientTaxCondition ?? ""] ?? ""];
   const colWidth = (right - margin) / 2 - 10;

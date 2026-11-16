@@ -93,7 +93,7 @@ async function upgradeEntrega4() {
     const taxpayers = await tx.taxpayer.findMany({ where: { categoryCode: { not: null }, categoryHistory: { none: {} } } });
     for (const t of taxpayers) {
       await tx.categoryHistory.create({
-        data: { taxpayerId: t.id, code: t.categoryCode, validFrom: t.startDate, reason: "Categoría registrada antes del historial" },
+        data: { taxpayerId: t.id, code: t.categoryCode, validFrom: t.startDate ?? t.createdAt.toISOString().slice(0, 10), reason: "Categoría registrada antes del historial" },
       });
     }
 

@@ -2,8 +2,10 @@ import { prisma } from "@/lib/db";
 import { APP_MODE, INVOICE_SOURCE, INVOICE_STATUS, STATUS_LABEL, TAX_CONDITION_LABEL } from "@/lib/constants";
 import { formatARS, formatQuantity, parseAmountToCents, parseQuantityMilli } from "@/lib/money";
 import { addDaysYmd, formatDateAR, todayAR } from "@/lib/dates";
-import { cuitProblem, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { lookupCuit } from "@/providers/padron";
 import { getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
+import { setStartDate } from "@/modules/taxpayers/start-date";
 import {
   deleteDraft,
   emitInvoice,
@@ -11,9 +13,12 @@ import {
   getAuthorizedInvoice,
   listInvoices,
   listRecipients,
+  findSavedRecipient,
+  recipientLabel,
   MAX_DAYS_BACK,
   MAX_ITEMS,
   saveDraft,
+  START_DATE_MISSING_TO_EMIT,
   type DraftInput,
 } from "@/modules/billing/service";
 import { activeTaxpayer, chooseTaxpayer, showMenu } from "./flows-home";
@@ -28,12 +33,12 @@ import { actions, on, textSteps } from "./registry";
 type Item = { description: string; quantity: string; unitPrice: string };
 type Recipient =
   | { mode: "existente"; id: string; label: string }
-  | { mode: "nuevo"; name: string; docType: string; docNumber: string; taxCondition: string; save: boolean };
+  | { mode: "nuevo"; name: string; docType: string; docNumber: string; taxCondition: string; save: boolean; alias?: string | null };
 type InvoiceDraft = {
   taxpayerId: string;
   draftId?: string;
   recipient?: Recipient;
-  newRecipient?: { name?: string; taxCondition?: string; docType?: string };
+  newRecipient?: Record<string, unknown>;
   items: Item[];
   current?: Partial<Item>;
   issueDate?: string;
@@ -85,7 +90,7 @@ on("f.receptor", async (ctx, v) => {
     recipients.length ? "¿A quién le facturás? Elegí un receptor guardado o agregá uno." : "Todavía no tenés receptores guardados. Agregá uno.",
     "Elegir receptor",
     [
-      ...slice.map((r) => ({ title: r.name, desc: `${TAX_CONDITION_LABEL[r.taxCondition] ?? r.taxCondition}${r.docNumber ? ` · ${r.docType} ${r.docNumber}` : ""}`, a: "f.rsel", v: r.id })),
+      ...slice.map((r) => ({ title: recipientLabel(r), desc: `${TAX_CONDITION_LABEL[r.taxCondition] ?? r.taxCondition}${r.docNumber ? ` · ${r.docType} ${r.docNumber}` : ""}`, a: "f.rsel", v: r.id })),
       ...(recipients.length > (page + 1) * per ? [{ title: T.more, a: "f.receptor", v: String(page + 1) }] : []),
       ...(recipients.length > per ? [{ title: "Buscar receptor", a: "f.buscar" }] : []),
       { title: "Nuevo receptor", a: "f.rnuevo" },
@@ -100,7 +105,7 @@ on("f.rsel", async (ctx, id) => {
   // El receptor tiene que ser de este contribuyente.
   const r = id ? (await listRecipients(d.taxpayerId)).find((x) => x.id === id) : null;
   if (!r) return showMenu(ctx);
-  d.recipient = { mode: "existente", id: r.id, label: r.name };
+  d.recipient = { mode: "existente", id: r.id, label: recipientLabel(r) };
   return afterRecipient(ctx);
 });
 
@@ -112,7 +117,7 @@ on("f.buscar", async (ctx) => {
 textSteps["f.buscar"] = async (ctx, text) => {
   const d = inv(ctx);
   const q = text.trim().toLowerCase();
-  const found = (await listRecipients(d.taxpayerId)).filter((r) => r.name.toLowerCase().includes(q) || (r.docNumber ?? "").includes(q.replace(/\D/g, "") || "§"));
+  const found = (await listRecipients(d.taxpayerId)).filter((r) => recipientLabel(r).toLowerCase().includes(q) || (r.docNumber ?? "").includes(q.replace(/\D/g, "") || "§"));
   ctx.conv.step = null;
   if (found.length === 0) {
     ctx.buttons(`No encontré receptores con "${text.trim()}".`, [
@@ -123,84 +128,236 @@ textSteps["f.buscar"] = async (ctx, text) => {
     return;
   }
   ctx.list("Encontré estos receptores:", "Elegir receptor", [
-    ...found.slice(0, 8).map((r) => ({ title: r.name, desc: r.docNumber ? `${r.docType} ${r.docNumber}` : undefined, a: "f.rsel", v: r.id })),
+    ...found.slice(0, 8).map((r) => ({ title: recipientLabel(r), desc: r.docNumber ? `${r.docType} ${r.docNumber}` : undefined, a: "f.rsel", v: r.id })),
     { title: T.back, a: "f.receptor", v: "0" },
   ]);
 };
+
+// Receptor nuevo (orden pedido en el testing): CUIT → validación → datos fiscales (del padrón si hay consulta
+// conectada; si no, a mano) → nombre para guardarlo → confirmación. Para consumidor final sin CUIT: DNI o sin
+// identificar. La razón social es el dato fiscal; el alias solo identifica al receptor dentro de ContadorSmart.
+type NewRecipient = {
+  docType?: string;
+  docNumber?: string;
+  name?: string;
+  taxCondition?: string;
+  source?: string; // de dónde salió la razón social (solo si la dio una consulta real)
+  alias?: string | null;
+  save?: boolean;
+};
+const nr = (ctx: Ctx) => (inv(ctx).newRecipient ??= {}) as NewRecipient;
+const backToList = { title: T.back, a: "f.receptor", v: "0" };
 
 on("f.rnuevo", async (ctx) => {
   if (!inFlow(ctx)) return showMenu(ctx);
   inv(ctx).newRecipient = {};
   inv(ctx).lastPrompt = "f.rnuevo";
-  ctx.buttons("Escribí el nombre o razón social del receptor.", [{ title: T.back, a: "f.receptor", v: "0" }]);
+  ctx.buttons("Escribí el CUIT del receptor (11 números, con o sin guiones). Si es un consumidor final sin CUIT, tocá Sin CUIT.", [
+    { title: "Sin CUIT", a: "f.rsincuit" },
+    backToList,
+  ]);
+  ctx.expect("f.rcuit");
+});
+
+textSteps["f.rcuit"] = async (ctx, text) => {
+  const d = inv(ctx);
+  const cuit = normalizeCuit(text);
+  if (!isValidCuit(cuit)) {
+    // Solo se valida el formato y el dígito verificador: eso no confirma que el CUIT esté inscripto.
+    ctx.say(`Ese CUIT no es válido: ${cuitProblem(cuit)} Revisalo y escribilo de nuevo.`);
+    ctx.expect("f.rcuit");
+    return;
+  }
+  ctx.conv.step = null;
+  // Ya guardado para este contribuyente: se ofrece reutilizarlo en lugar de duplicarlo.
+  const saved = await findSavedRecipient(d.taxpayerId, "CUIT", cuit);
+  if (saved) {
+    ctx.buttons(`Ya tenés guardado a ${recipientLabel(saved)} con el CUIT ${formatCuit(cuit)}.`, [
+      { title: "Usar ese receptor", a: "f.rsel", v: saved.id },
+      { title: "Escribir otro CUIT", a: "f.rnuevo" },
+      backToList,
+    ]);
+    return;
+  }
+  d.newRecipient = { docType: "CUIT", docNumber: cuit };
+  const found = await lookupCuit(cuit);
+  if (found.status === "ENCONTRADO") {
+    Object.assign(nr(ctx), { name: found.legalName, source: found.source, taxCondition: found.taxCondition ?? undefined });
+    ctx.say(
+      `Datos de ${found.source} para el CUIT ${formatCuit(cuit)}:\n• Razón social: ${found.legalName}${
+        found.taxCondition ? `\n• Condición frente al IVA: ${TAX_CONDITION_LABEL[found.taxCondition] ?? found.taxCondition}` : ""
+      }`,
+    );
+    return found.taxCondition && TAX_CONDITION_LABEL[found.taxCondition] ? askHowToSave(ctx) : askTaxCondition(ctx);
+  }
+  ctx.say(
+    found.status === "NO_ENCONTRADO"
+      ? `${found.source} no tiene datos para el CUIT ${formatCuit(cuit)}. Revisá el número; si es correcto, cargá los datos a mano.`
+      : `No pude consultar la razón social: ${found.reason}. El CUIT tiene un formato válido, pero eso no confirma que esté inscripto.`,
+  );
+  ctx.buttons("Escribí la razón social tal como figura en la constancia de inscripción del receptor.", [
+    { title: "Escribir otro CUIT", a: "f.rnuevo" },
+    backToList,
+  ]);
+  ctx.expect("f.rrazon");
+};
+
+textSteps["f.rrazon"] = async (ctx, text) => {
+  const name = text.trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 120) {
+    ctx.say("La razón social tiene que tener entre 2 y 120 caracteres. Probá de nuevo.");
+    ctx.expect("f.rrazon");
+    return;
+  }
+  ctx.conv.step = null;
+  nr(ctx).name = name;
+  return askTaxCondition(ctx);
+};
+
+function askTaxCondition(ctx: Ctx) {
+  const n = nr(ctx);
+  // Con CUIT se puede facturar a cualquier condición; sin CUIT, solo a consumidor final.
+  const options = Object.entries(TAX_CONDITION_LABEL).filter(([value]) => n.docType === "CUIT" || value === "CONSUMIDOR_FINAL");
+  ctx.list(`¿Cuál es la condición frente al IVA de ${n.name}?`, "Elegir condición", [
+    ...options.map(([value, label]) => ({ title: label, a: "f.riva", v: value })),
+    backToList,
+  ]);
+}
+
+on("f.riva", async (ctx, v) => {
+  const n = inv(ctx).newRecipient as NewRecipient | undefined;
+  if (!inFlow(ctx) || !n?.name || !n.docType || !v || !TAX_CONDITION_LABEL[v]) return showMenu(ctx);
+  if (n.docType !== "CUIT" && v !== "CONSUMIDOR_FINAL") return askTaxCondition(ctx);
+  n.taxCondition = v;
+  return askHowToSave(ctx);
+});
+
+on("f.rsincuit", async (ctx) => {
+  if (!inFlow(ctx)) return showMenu(ctx);
+  inv(ctx).newRecipient = { taxCondition: "CONSUMIDOR_FINAL" };
+  ctx.buttons("Sin CUIT solo se puede facturar a un consumidor final. ¿Cómo se identifica?", [
+    { title: "DNI", a: "f.rdoc", v: "DNI" },
+    { title: "Sin identificar", a: "f.rdoc", v: "SIN_IDENTIFICAR" },
+    backToList,
+  ]);
+});
+on("f.rdoc", async (ctx, v) => {
+  if (!inFlow(ctx) || (v !== "DNI" && v !== "SIN_IDENTIFICAR")) return showMenu(ctx);
+  const n = nr(ctx);
+  n.docType = v;
+  n.taxCondition = "CONSUMIDOR_FINAL";
+  if (v === "DNI") {
+    ctx.buttons("Escribí el DNI (7 u 8 números).", [backToList]);
+    ctx.expect("f.rnum");
+    return;
+  }
+  n.docNumber = "";
+  ctx.buttons("¿A nombre de quién va la factura? Escribí el nombre y apellido (o Consumidor final).", [backToList]);
   ctx.expect("f.rnombre");
 });
+textSteps["f.rnum"] = async (ctx, text) => {
+  const d = inv(ctx);
+  // Conversación empezada con el recorrido anterior (pedía el CUIT en este paso): sigue con el nuevo.
+  if ((d.newRecipient as NewRecipient | undefined)?.docType === "CUIT") return textSteps["f.rcuit"](ctx, text);
+  const digits = text.replace(/\D/g, "");
+  if (!/^\d{7,8}$/.test(digits)) {
+    ctx.say("El DNI tiene que tener 7 u 8 números.");
+    ctx.expect("f.rnum");
+    return;
+  }
+  ctx.conv.step = null;
+  const saved = await findSavedRecipient(d.taxpayerId, "DNI", digits);
+  if (saved) {
+    ctx.buttons(`Ya tenés guardado a ${recipientLabel(saved)} con el DNI ${digits}.`, [
+      { title: "Usar ese receptor", a: "f.rsel", v: saved.id },
+      { title: "Cargar otro", a: "f.rnuevo" },
+      backToList,
+    ]);
+    return;
+  }
+  nr(ctx).docNumber = digits;
+  ctx.buttons("¿A nombre de quién va la factura? Escribí el nombre y apellido.", [backToList]);
+  ctx.expect("f.rnombre");
+};
 textSteps["f.rnombre"] = async (ctx, text) => {
-  const name = text.trim();
+  // Conversación empezada con el recorrido anterior (pedía el nombre antes del documento): se retoma con el nuevo
+  // orden, sin trabar a la persona.
+  if (!nr(ctx).docType) {
+    ctx.say("Cambiamos el orden para cargar receptores: primero el CUIT y después los datos.");
+    return actions["f.rnuevo"](ctx);
+  }
+  const name = text.trim().replace(/\s+/g, " ");
   if (name.length < 2 || name.length > 120) {
     ctx.say("El nombre tiene que tener entre 2 y 120 caracteres. Probá de nuevo.");
     ctx.expect("f.rnombre");
     return;
   }
-  inv(ctx).newRecipient = { name };
   ctx.conv.step = null;
-  // Solo las condiciones que admite el facturador.
-  ctx.list(`¿Cuál es la condición frente al IVA de ${name}?`, "Elegir condición", [
-    ...Object.entries(TAX_CONDITION_LABEL).map(([value, label]) => ({ title: label, a: "f.riva", v: value })),
-    { title: T.back, a: "f.receptor", v: "0" },
-  ]);
+  nr(ctx).name = name;
+  return askHowToSave(ctx);
 };
-on("f.riva", async (ctx, v) => {
-  const d = inv(ctx);
-  if (!inFlow(ctx) || !d.newRecipient?.name || !v || !TAX_CONDITION_LABEL[v]) return showMenu(ctx);
-  d.newRecipient.taxCondition = v;
-  if (v !== "CONSUMIDOR_FINAL") {
-    // Para responsables inscriptos, monotributistas y exentos el facturador exige CUIT.
-    d.newRecipient.docType = "CUIT";
-    ctx.buttons("Escribí el CUIT del receptor (11 números, con o sin guiones).", [{ title: T.back, a: "f.receptor", v: "0" }]);
-    ctx.expect("f.rnum");
-    return;
-  }
-  ctx.buttons("¿Cómo se identifica el consumidor final?", [
-    { title: "CUIT", a: "f.rdoc", v: "CUIT" },
-    { title: "DNI", a: "f.rdoc", v: "DNI" },
-    { title: "Sin identificar", a: "f.rdoc", v: "SIN_IDENTIFICAR" },
-  ]);
-});
-on("f.rdoc", async (ctx, v) => {
-  const d = inv(ctx);
-  if (!inFlow(ctx) || !d.newRecipient?.name || !v) return showMenu(ctx);
-  d.newRecipient.docType = v;
-  if (v === "SIN_IDENTIFICAR") return askSaveRecipient(ctx, "");
-  ctx.buttons(v === "CUIT" ? "Escribí el CUIT (11 números)." : "Escribí el DNI (7 u 8 números).", [{ title: T.back, a: "f.receptor", v: "0" }]);
-  ctx.expect("f.rnum");
-});
-textSteps["f.rnum"] = async (ctx, text) => {
-  const d = inv(ctx);
-  const docType = d.newRecipient?.docType;
-  const digits = text.replace(/\D/g, "");
-  const valid = docType === "CUIT" ? isValidCuit(normalizeCuit(text)) : /^\d{7,8}$/.test(digits);
-  if (!valid) {
-    ctx.say(docType === "CUIT" ? `Ese CUIT no es válido: ${cuitProblem(normalizeCuit(text))}` : "El DNI tiene que tener 7 u 8 números.");
-    ctx.expect("f.rnum");
-    return;
-  }
-  ctx.conv.step = null;
-  return askSaveRecipient(ctx, docType === "CUIT" ? normalizeCuit(text) : digits);
-};
-async function askSaveRecipient(ctx: Ctx, docNumber: string) {
-  const d = inv(ctx);
-  (d.newRecipient as Record<string, string>).docNumber = docNumber;
-  ctx.buttons(`¿Guardamos a ${d.newRecipient!.name} para la próxima factura?`, [
-    { title: "Guardar receptor", a: "f.rguardar", v: "1" },
-    { title: "Solo esta vez", a: "f.rguardar", v: "0" },
+
+function askHowToSave(ctx: Ctx) {
+  const n = nr(ctx);
+  ctx.buttons(`¿Cómo guardamos a ${n.name} para las próximas facturas?`, [
+    { title: n.docType === "CUIT" ? "Con la razón social" : "Con ese nombre", a: "f.rguardar", v: "nombre" },
+    { title: "Con otro nombre", a: "f.ralias" },
+    { title: "Solo esta vez", a: "f.rguardar", v: "no" },
   ]);
 }
+on("f.ralias", async (ctx) => {
+  if (!inFlow(ctx) || !nr(ctx).name) return showMenu(ctx);
+  ctx.buttons(`Escribí cómo querés verlo en tu lista (por ejemplo "Cliente del alquiler"). En la factura sigue saliendo ${nr(ctx).name}.`, [
+    { title: T.back, a: "f.rcomo" },
+  ]);
+  ctx.expect("f.raliastxt");
+});
+on("f.rcomo", async (ctx) => (inFlow(ctx) && nr(ctx).name ? askHowToSave(ctx) : showMenu(ctx)));
+textSteps["f.raliastxt"] = async (ctx, text) => {
+  const alias = text.trim().replace(/\s+/g, " ");
+  if (alias.length < 2 || alias.length > 60) {
+    ctx.say("Ese nombre tiene que tener entre 2 y 60 caracteres. Probá de nuevo.");
+    ctx.expect("f.raliastxt");
+    return;
+  }
+  ctx.conv.step = null;
+  Object.assign(nr(ctx), { alias, save: true });
+  return confirmRecipient(ctx);
+};
 on("f.rguardar", async (ctx, v) => {
-  const d = inv(ctx);
-  const n = d.newRecipient as { name?: string; taxCondition?: string; docType?: string; docNumber?: string } | undefined;
+  const n = inv(ctx).newRecipient as NewRecipient | undefined;
   if (!inFlow(ctx) || !n?.name || !n.taxCondition || !n.docType) return showMenu(ctx);
-  d.recipient = { mode: "nuevo", name: n.name, docType: n.docType, docNumber: n.docNumber ?? "", taxCondition: n.taxCondition, save: v === "1" };
+  Object.assign(n, { alias: null, save: v !== "no" });
+  return confirmRecipient(ctx);
+});
+
+function confirmRecipient(ctx: Ctx) {
+  const n = nr(ctx);
+  const doc = n.docType === "SIN_IDENTIFICAR" ? "sin identificar" : `${n.docType} ${n.docType === "CUIT" ? formatCuit(n.docNumber!) : n.docNumber}`;
+  ctx.say(
+    `Receptor:\n• ${n.docType === "CUIT" ? "Razón social" : "Nombre"}: ${n.name}${n.source ? ` (dato de ${n.source})` : ""}\n• Documento: ${doc}\n• Condición frente al IVA: ${
+      TAX_CONDITION_LABEL[n.taxCondition!] ?? n.taxCondition
+    }\n• ${n.save ? `Se guarda como: ${n.alias ?? n.name}` : "No se guarda (solo esta factura)"}`,
+  );
+  ctx.buttons("¿Está bien?", [
+    { title: "Confirmar y seguir", a: "f.rok" },
+    { title: "Corregir", a: "f.rnuevo" },
+    { title: T.cancel, a: "f.cancelar" },
+  ]);
+}
+on("f.rok", async (ctx) => {
+  const d = inv(ctx);
+  const n = d.newRecipient as NewRecipient | undefined;
+  if (!inFlow(ctx) || !n?.name || !n.taxCondition || !n.docType) return showMenu(ctx);
+  d.recipient = {
+    mode: "nuevo",
+    name: n.name,
+    docType: n.docType,
+    docNumber: n.docNumber ?? "",
+    taxCondition: n.taxCondition,
+    save: Boolean(n.save),
+    alias: n.alias ?? null,
+  };
   delete d.newRecipient;
   return afterRecipient(ctx);
 });
@@ -354,6 +511,7 @@ function draftInput(d: InvoiceDraft): DraftInput {
     docNumber: r.mode === "nuevo" ? r.docNumber : "",
     taxCondition: r.mode === "nuevo" ? r.taxCondition : "",
     saveRecipient: r.mode === "nuevo" ? r.save : false,
+    recipientAlias: r.mode === "nuevo" ? (r.alias ?? "") : "",
     items: d.items,
   };
 }
@@ -417,6 +575,20 @@ on("f.emitir", async (ctx) => {
     ctx.say(T.noLongerAccess);
     return showMenu(ctx);
   }
+  // La fecha de inicio de actividad va impresa en la factura y ya no se pide en el alta: se pide acá si falta.
+  const tp = await getAuthorizedTaxpayer(ctx.user, d.taxpayerId);
+  if (tp && !tp.startDate) {
+    d.lastPrompt = "f.resumen";
+    ctx.buttons(
+      `${START_DATE_MISSING_TO_EMIT}\n\nEscribí la fecha de inicio de actividad de ${tp.name} como figura en la constancia de inscripción de ARCA (por ejemplo 15/03/2022).`,
+      [
+        { title: "Guardar borrador", a: "f.guardarb" },
+        { title: "Ver resumen", a: "f.resumen" },
+      ],
+    );
+    ctx.expect("f.inicio");
+    return;
+  }
   // La clave sale del evento: si el mismo mensaje se reintenta, no se emite dos veces.
   const result = await emitInvoice(ctx.user, d.draftId, `wa-${ctx.eventRef}`, false);
   const invoice = await getAuthorizedInvoice(ctx.user, d.draftId);
@@ -441,6 +613,21 @@ on("f.emitir", async (ctx) => {
     { title: T.menu, a: "menu" },
   ]);
 });
+
+textSteps["f.inicio"] = async (ctx, text) => {
+  const d = inv(ctx);
+  if (!inFlow(ctx) || !d.draftId) return showMenu(ctx);
+  const result = await setStartDate(ctx.user, d.taxpayerId, text);
+  if (!result.ok) {
+    ctx.say(`${Object.values(result.fieldErrors ?? {})[0] ?? result.message} Escribila de nuevo (dd/mm/aaaa).`);
+    ctx.expect("f.inicio");
+    return;
+  }
+  ctx.conv.step = null;
+  // Se vuelve al resumen: la emisión se confirma de nuevo, a propósito.
+  ctx.say(result.message);
+  return showSummary(ctx);
+};
 
 on("f.guardarb", async (ctx) => {
   const d = inv(ctx);

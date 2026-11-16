@@ -8,6 +8,7 @@ import { listRequestsForUser } from "@/modules/requests/service";
 import { activeTaxpayer, chooseTaxpayer, showMenu } from "./flows-home";
 import { paginate, type Ctx } from "./core";
 import { monthName, T } from "./copy";
+import { limitHeadline, limitPeriod, limitText } from "@/modules/dashboard/limit-text";
 import { on, textSteps } from "./registry";
 
 // Consultas: Mi resumen, Categoría y límites, Deudas y vencimientos, Ver documentos.
@@ -28,12 +29,20 @@ async function needTaxpayer(ctx: Ctx, action: string) {
   return tp;
 }
 
+// Mismo texto que la web (src/modules/dashboard/limit-text.ts): antes decía "margen", que confundía.
 function marginLine(m: MarginInfo) {
-  if (!m.available) return `Margen por ingresos: no se puede calcular (${m.reason})`;
-  const value = m.marginCents >= 0n ? `margen disponible ${formatARS(m.marginCents)}` : `excedido en ${formatARS(-m.marginCents)}`;
-  return `Margen por ingresos (orientativo), período ${formatDateAR(m.referenceFrom)} al ${formatDateAR(m.referenceTo)}: ${value} · ${percent(
-    m.percentTenths,
-  )} del límite de la categoría ${m.categoryCode} · nivel ${LEVEL[m.level] ?? m.level}`;
+  return limitText(m);
+}
+
+/** Cómo queda respecto del límite, en pocas palabras (para comparar en la simulación). */
+function limitShort(m: Extract<MarginInfo, { available: true }>) {
+  const state =
+    m.marginCents > 0n
+      ? `te quedan ${formatARS(m.marginCents)} hasta el límite`
+      : m.marginCents === 0n
+        ? "justo en el límite"
+        : `superás el límite por ${formatARS(-m.marginCents)}`;
+  return `${state} (${percent(m.percentTenths)} del límite, ${LEVEL[m.level] ?? m.level})`;
 }
 
 function ymOffset(delta: number) {
@@ -111,7 +120,7 @@ on(
     ctx.list("¿Qué querés hacer?", "Ver opciones", [
       { title: "Ver movimientos", desc: "Comprobantes de este período", a: "r.mov", v: `${period.from}|${period.to}` },
       { title: "Ver vencimientos", a: "d.prox" },
-      { title: "Consultar al estudio", a: "s.nueva", v: "crear|FACTURACION" },
+      // Sin "Consultar al estudio": ya está en el menú principal (Hablar con el estudio), pedido del testing.
       { title: "Cambiar período", a: "m.resumen" },
       { title: T.menu, a: "menu" },
     ]);
@@ -158,12 +167,13 @@ on(
       `Categoría registrada: ${data.category.code ?? "sin cargar"}${data.category.since ? ` (desde el ${formatDateAR(data.category.since)})` : ""}`,
       `Período utilizado: ${formatDateAR(rolling.from)} al ${formatDateAR(rolling.to)}`,
       `Ingresos computables: ${rolling.totalCents === null ? "información incompleta" : formatARS(rolling.totalCents)}`,
-      m.available ? `Límite de la escala aplicada (${m.scaleName}${m.scaleStatus === "DEMO" ? ", ficticia" : ""}): ${formatARS(m.limitCents)}` : "",
+      m.available ? `Límite de la categoría ${m.categoryCode} (${m.scaleName}${m.scaleStatus === "DEMO" ? ", ficticia" : ""}): ${formatARS(m.limitCents)}` : "",
       m.available
-        ? m.marginCents >= 0n
-          ? `Margen: ${formatARS(m.marginCents)} (${percent(m.percentTenths)} del límite)`
-          : `Exceso: ${formatARS(-m.marginCents)} (${percent(m.percentTenths)} del límite)`
-        : `Margen: no se puede calcular (${m.reason})`,
+        ? `${limitHeadline(m)} (${percent(m.percentTenths)} del límite)${m.note ? ` ${m.note}` : ""}`
+        : `Hasta el límite de tu categoría: no se puede calcular (${m.reason})`,
+      m.available && m.topCode && m.topLimitCents !== null && m.topCode !== m.categoryCode
+        ? `Máximo del monotributo (categoría ${m.topCode}): ${formatARS(m.topLimitCents)}`
+        : "",
       data.coverage
         ? `Datos ${data.coverage.complete ? "completos" : "parciales"} · actualizado ${formatDateTimeAR(data.coverage.updatedAt)}`
         : "Sin datos de facturación cargados.",
@@ -172,7 +182,7 @@ on(
     ctx.say(lines.join("\n"));
     ctx.list("¿Qué querés hacer?", "Ver opciones", [
       { title: "Ver detalle", desc: "Escala aplicada y categoría orientativa", a: "k.detalle" },
-      { title: "Simular un importe", desc: "Cómo cambiaría el margen", a: "k.simular" },
+      { title: "Simular un importe", desc: "Cuánto te quedaría hasta el límite", a: "k.simular" },
       { title: "Consultar mi categoría", desc: "Mandar una consulta al estudio", a: "s.nueva", v: "crear|CATEGORIA" },
       { title: T.menu, a: "menu" },
     ]);
@@ -189,7 +199,7 @@ on(
     const scale = data.category.scale;
     const s = data.category.suggestion;
     if (!scale) {
-      ctx.say("No hay una escala vigente cargada por el estudio: sin escala no se calcula el margen.");
+      ctx.say("No hay una escala vigente cargada por el estudio: sin escala no se puede calcular cuánto te queda hasta el límite.");
     } else {
       const limits = scale.limits.map((l) => `${l.code === data.category.code ? "▶ " : ""}${l.code}: ${formatARS(l.annualLimitCents)}`).join("\n");
       ctx.say(
@@ -249,11 +259,9 @@ textSteps["k.monto"] = async (ctx, text) => {
     ctx.say("No pude simular con los datos disponibles. Consultá al estudio.");
   } else {
     ctx.say(
-      `Si sumás ${formatARS(amount)} a los ingresos del período ${formatDateAR(now.referenceFrom)} al ${formatDateAR(now.referenceTo)}:\n• Hoy: ${
-        now.marginCents >= 0n ? `margen ${formatARS(now.marginCents)}` : `exceso ${formatARS(-now.marginCents)}`
-      } (${percent(now.percentTenths)}, ${LEVEL[now.level]})\n• Con ese importe: ${
-        sim.marginCents >= 0n ? `margen ${formatARS(sim.marginCents)}` : `exceso ${formatARS(-sim.marginCents)}`
-      } (${percent(sim.percentTenths)}, ${LEVEL[sim.level]})\n\nEsta simulación no crea una factura ni modifica tu categoría, y no es una recomendación. Ante cualquier decisión, consultá al estudio.`,
+      `Si sumás ${formatARS(amount)} a ${limitPeriod(now)}, contra el límite de tu categoría ${now.categoryCode} (${formatARS(
+        now.limitCents,
+      )}):\n• Hoy: ${limitShort(now)}\n• Con ese importe: ${limitShort(sim)}\n\nEsta simulación no crea una factura ni modifica tu categoría, y no es una recomendación. Ante cualquier decisión, consultá al estudio.`,
     );
   }
   ctx.buttons("¿Qué querés hacer?", [

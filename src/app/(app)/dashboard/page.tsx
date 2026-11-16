@@ -12,6 +12,7 @@ import { getDebtSummary } from "@/modules/fiscal/obligations";
 import { listRequestsForUser } from "@/modules/requests/service";
 import { RequestList } from "@/components/requests/RequestViews";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
+import { StartDateForm } from "@/components/taxpayers/StartDateForm";
 
 export const metadata = { title: "Inicio · ContadorSmart" };
 
@@ -134,6 +135,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <Badge tone="warning">Sin datos cargados</Badge>
         )}
       </div>
+
+      {taxpayer.startDate && first(sp.inicio) === "guardado" && (
+        <Notice tone="info" title="Fecha de inicio guardada">
+          Inicio de actividad: {formatDateAR(taxpayer.startDate)}. Si no es correcta, pedile al estudio que la corrija.
+        </Notice>
+      )}
+
+      {!taxpayer.startDate && (
+        <Notice tone="info" title="Falta la fecha de inicio de actividad">
+          <p>
+            No la pedimos al darte de alta. Hace falta para emitir facturas (va impresa en el comprobante) y para saber si
+            ya tenés 12 meses de historial. La encontrás en tu constancia de inscripción de ARCA.
+          </p>
+          <div className="mt-3">
+            <StartDateForm taxpayerId={taxpayer.id} compact />
+          </div>
+        </Notice>
+      )}
 
       {!data.coverage && (
         <Notice tone="warning" title="Información incompleta">

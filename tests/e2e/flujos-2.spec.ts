@@ -252,3 +252,89 @@ test("cada total del tablero coincide con sus movimientos", async ({ page }) => 
     await expect(page.locator("tfoot").getByText(total)).toBeVisible();
   }
 });
+
+test("cliente nuevo sin fecha de inicio: la carga en su panel, ve su configuración y pide ayuda (el estudio la ve una sola vez)", async ({ page }) => {
+  const errors = trackErrors(page);
+  const id = uid();
+  const email = `mejoras.${id}@ejemplo.com`;
+  const name = `Contribuyente Mejoras ${id}`;
+  await register(page, email, "Prueba1234!", `Usuario ${id}`);
+  await signInAs(page, email, "Prueba1234!");
+  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
+  await page.goto("/perfil");
+  // La asociación ya no exige la fecha de inicio.
+  await page.locator("#as-cuit").fill(fakeCuit());
+  await page.locator("#as-name").fill(name);
+  await page.locator("#as-activity").fill("Pruebas");
+  await page.getByRole("button", { name: "Enviar solicitud" }).click();
+  await expect(page.getByText(/ya podés ver a .* en tu panel/)).toBeVisible();
+
+  // Configuración: estado real y próximo paso; ARCA nunca figura como lista.
+  await page.goto("/perfil");
+  const setup = page.locator("section, div", { has: page.getByRole("heading", { name: "Tu configuración" }) }).first();
+  await expect(setup.getByText(/Próximo paso:/)).toBeVisible();
+  await expect(setup.getByText("Conexión con ARCA", { exact: true })).toBeVisible();
+  await expect(setup.getByText("Todavía no disponible", { exact: true })).toBeVisible();
+
+  // Panel: falta la fecha de inicio, se carga ahí y el aviso desaparece.
+  await page.goto("/dashboard");
+  await expect(page.getByText("Falta la fecha de inicio de actividad")).toBeVisible();
+  await page.getByLabel("Fecha de inicio de actividad").fill("2023-03-15");
+  await page.getByRole("button", { name: "Guardar fecha" }).click();
+  await expect(page.getByText("Fecha de inicio guardada")).toBeVisible();
+  await expect(page.getByText(/Inicio de actividad: 15\/03\/2023/)).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page.getByText("Falta la fecha de inicio de actividad")).toHaveCount(0);
+
+  // Pedido de ayuda: confirma la recepción sin prometer horario; después muestra el pedido abierto.
+  await page.goto("/perfil");
+  await page.getByLabel("¿Con qué necesitás ayuda?").selectOption("WEB");
+  await page.getByRole("button", { name: "Solicitar una llamada" }).click();
+  await expect(page.getByText(/Recibimos tu pedido de ayuda/)).toBeVisible();
+  await page.goto("/perfil");
+  await expect(page.getByText(/Ya pediste ayuda el/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Solicitar una llamada" })).toHaveCount(0);
+
+  await signInAs(page, USERS.admin, "Demo1234!");
+  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
+  await page.goto("/admin/solicitudes");
+  // La Bandeja tiene una lista (celular) y una tabla (pantalla grande): se cuenta en la lista.
+  await expect(page.locator("li", { hasText: name }).filter({ hasText: "Pide una llamada: Entrar a la web" })).toHaveCount(1);
+  await expectHealthyPage(page, "configuración");
+  expect(errors).toEqual([]);
+});
+
+test("receptor nuevo en la web: CUIT primero, razón social y alias separados, sin duplicar", async ({ page }) => {
+  const errors = trackErrors(page);
+  const cuit = fakeCuit();
+  const legal = `Razón Social E2E ${uid()}`;
+  const alias = `Alias E2E ${uid()}`;
+  await login(page, USERS.clienteA);
+  for (let i = 0; i < 2; i++) {
+    await page.goto("/facturas/nueva");
+    await page.getByLabel("Uno nuevo").check();
+    // El documento va primero en el formulario.
+    const order = await page.evaluate(() =>
+      ["docNumber", "recipientName", "recipientAlias"].map((id) => document.getElementById(id)!.getBoundingClientRect().top),
+    );
+    expect(order[0]).toBeLessThan(order[1]);
+    expect(order[1]).toBeLessThan(order[2]);
+    await expect(page.getByText(/La consulta automática de la razón social en ARCA todavía no está conectada/)).toBeVisible();
+    await page.locator("#docNumber").fill(cuit);
+    await page.getByLabel("Razón social").fill(legal);
+    await page.getByLabel("Condición frente al IVA").selectOption("RESPONSABLE_INSCRIPTO");
+    await page.getByLabel(/Guardar este receptor/).check();
+    await page.getByLabel("Nombre para guardarlo (opcional)").fill(alias);
+    await page.locator("#d-1").fill("Servicio E2E");
+    await page.getByLabel("Precio unitario").fill("1000");
+    await page.getByRole("button", { name: "Guardar borrador y revisar" }).click();
+    await page.waitForURL(/\/facturas\/c/, { waitUntil: "commit" });
+    // En el comprobante va la razón social, no el alias.
+    await expect(page.getByText(legal).first()).toBeVisible();
+  }
+  await page.goto("/facturas/nueva");
+  await page.getByLabel("Uno guardado").check();
+  const options = await page.getByLabel("Receptor", { exact: true }).locator("option").allInnerTexts();
+  expect(options.filter((o) => o.includes(`${alias} (${legal})`))).toHaveLength(1);
+  expect(errors).toEqual([]);
+});

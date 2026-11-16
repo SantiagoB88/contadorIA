@@ -107,8 +107,8 @@ test("alta por chat → acceso inmediato → ingreso con contraseña temporal �
   await chat(page, email, /CUIT/);
   await chat(page, "20-12345678-0", /tendría que ser 6/);
   await chat(page, fakeCuit(), /A qué te dedicás/);
-  await chat(page, "Servicios de prueba", /mes y año/);
-  await chat(page, "05/2023", /Revisá tus datos/);
+  // Ya no se pregunta desde cuándo factura: después de la actividad viene el resumen.
+  await chat(page, "Servicios de prueba", /Revisá tus datos/);
   await tap(page, "Crear mi cuenta", /Creamos tu cuenta y vinculamos este WhatsApp/);
   await expect(page.getByRole("button", { name: "Copiar contraseña" })).toBeVisible();
   const credentials = await page.locator('[data-dir="out"]').filter({ hasText: "Contraseña temporal" }).last().innerText();

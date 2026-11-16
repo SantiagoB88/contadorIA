@@ -80,15 +80,17 @@ export function AssociationForm({ today }: { today: string }) {
         <Input
           id="as-startDate"
           name="startDate"
-          label="Inicio de actividad"
+          label="Inicio de actividad (opcional)"
           type="date"
           max={today}
           defaultValue={v.startDate}
           error={e.startDate}
+          hint="Si no la tenés a mano, cargala después desde tu panel. Hace falta para emitir facturas."
         />
       </div>
       <p className="text-xs text-slate-500">
-        No te pedimos la clave fiscal. El estudio verifica que el CUIT sea tuyo antes de mostrarte información.
+        No te pedimos la clave fiscal. Si el CUIT es nuevo para el estudio, ves tu panel enseguida y el estudio recibe el
+        aviso; si ya es de un cliente del estudio, el estudio confirma que sea tuyo antes de mostrarte datos.
       </p>
       <SubmitButton pendingText="Enviando…">Enviar solicitud</SubmitButton>
     </ActionForm>

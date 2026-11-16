@@ -117,7 +117,7 @@ test.describe("facturador", () => {
     await page.getByRole("button", { name: "Guardar borrador y revisar" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Revisá" }).first()).toBeVisible();
     await expect(page.getByLabel("Uno nuevo")).toBeChecked();
-    await expect(page.getByLabel("Nombre o razón social")).toBeVisible();
+    await expect(page.getByLabel("Razón social")).toBeVisible();
 
     await page.getByLabel("Uno guardado").check();
     await page.getByLabel("Receptor", { exact: true }).selectOption({ index: 1 });

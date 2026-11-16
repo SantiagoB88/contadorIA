@@ -8,7 +8,11 @@ import { todayAR } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
 import { alertLevel, getDashboardData, periodRanges } from "@/modules/dashboard/metrics";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
-import { isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { cuitCheckDigit, isValidCuit, normalizeCuit } from "@/lib/cuit";
+import { parseStartDate, setStartDate } from "@/modules/taxpayers/start-date";
+import { setPadronForTests } from "@/providers/padron";
+import { limitDetail, limitHeadline, limitText } from "@/modules/dashboard/limit-text";
+import { getSetup, requestHelp } from "@/modules/profile/setup";
 import { passwordProblem } from "@/lib/crypto";
 import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
@@ -23,12 +27,15 @@ import {
   emitInvoice,
   formatInvoiceNumber,
   getAuthorizedInvoice,
+  findSavedRecipient,
+  listRecipients,
   saveDraft,
+  START_DATE_MISSING_TO_EMIT,
   type DraftInput,
 } from "@/modules/billing/service";
 import { buildInvoicePdf } from "@/modules/billing/pdf";
 import { COUNTED_INVOICE_STATUSES } from "@/lib/constants";
-import { computeMargin, getInvoices, suggestCategory, type PeriodMetric, type ScaleInfo } from "@/modules/dashboard/metrics";
+import { computeMargin, coverageFor, getInvoices, suggestCategory, type PeriodMetric, type ScaleInfo } from "@/modules/dashboard/metrics";
 import { createScaleVersion, findScaleForDate, listScales, type ScaleInput } from "@/modules/fiscal/scales";
 import { getCategoryAt, setCategory } from "@/modules/fiscal/category";
 import { createObligation, getDebtSummary, updateObligationStatus } from "@/modules/fiscal/obligations";
@@ -1271,12 +1278,14 @@ async function main() {
     await tap(ANA_WA, "Preparar factura");
     await tap(ANA_WA, "Sí, continuar");
     await tap(ANA_WA, "Nuevo receptor");
-    await say(ANA_WA, "Cliente WhatsApp SRL");
-    await tap(ANA_WA, "Consumidor final");
+    // Consumidor final sin CUIT: DNI → nombre → cómo guardarlo → confirmación.
+    await tap(ANA_WA, "Sin CUIT");
     await tap(ANA_WA, "DNI");
     assert.match((await say(ANA_WA, "123")).text, /7 u 8 números/);
     await say(ANA_WA, "30111222");
-    const concept = await tap(ANA_WA, "Solo esta vez");
+    await say(ANA_WA, "Cliente WhatsApp SRL");
+    assert.match((await tap(ANA_WA, "Solo esta vez")).text, /No se guarda/);
+    const concept = await tap(ANA_WA, "Confirmar y seguir");
     if (/ya usaste/.test(concept.text)) await tap(ANA_WA, "Escribir otro concepto");
     await say(ANA_WA, "Diseño de logo por WhatsApp");
     await tap(ANA_WA, "Otra cantidad");
@@ -1404,10 +1413,10 @@ async function main() {
     assert.match((await say(LUCIA, "20-12345678-0")).text, /no es válido: el último número .* tendría que ser 6/);
     assert.match((await say(LUCIA, "12-12345678-0")).text, /tiene que empezar con 20, 23, 24, 27, 30, 33, 34/);
     assert.match((await say(LUCIA, "27-28456123-1")).text, /A qué te dedicás/);
-    await say(LUCIA, "Clases de inglés");
-    assert.match((await say(LUCIA, "13/2023")).text, /No pude interpretar la fecha/);
-    const summary = await say(LUCIA, "03/2023");
-    assert.match(summary.text, /Revisá tus datos[\s\S]*27-28456123-1[\s\S]*marzo 2023/);
+    // Ya no se pregunta desde cuándo factura: después de la actividad viene el resumen.
+    const summary = await say(LUCIA, "Clases de inglés");
+    assert.match(summary.text, /Revisá tus datos[\s\S]*27-28456123-1[\s\S]*Clases de inglés/);
+    assert.ok(!/Facturás desde|desde cuándo/i.test(summary.text), summary.text);
     // Un "sí" escrito no crea nada.
     assert.match((await say(LUCIA, "sí")).text, /No tomo un "sí" escrito/);
     assert.equal(await prisma.user.count(), users);
@@ -1435,8 +1444,9 @@ async function main() {
     assert.equal(req.status, "APROBADO");
     assert.equal(req.cuit, "27284561231");
     assert.equal(req.declaredActivity, "Clases particulares de inglés");
-    assert.equal(req.declaredStartDate, "2023-03-01");
+    assert.equal(req.declaredStartDate, null); // no se inventa una fecha
     const tp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit: "27284561231", studyId: admin.studyId } });
+    assert.equal(tp.startDate, null);
     assert.ok(await getAuthorizedTaxpayer(await asCurrentUser(email), tp.id));
     assert.ok(await prisma.outboxEmail.findFirst({ where: { to: admin.email, subject: { contains: "Cliente nuevo: Lucía Fernández" } } }));
     assert.ok(await prisma.outboxEmail.findFirst({ where: { to: email, subject: { contains: "Confirmá tu correo" } } }));
@@ -1514,6 +1524,323 @@ async function main() {
     const r = await send(ANA_WA, { text: "x", choiceId: `${state.token}.1` });
     assert.match(r.text, /no está disponible/);
     assert.ok(!r.text.includes("Solicitud privada de Bruno"));
+  });
+
+  console.log("Mejoras del primer testing con usuarios");
+  const LUCIA_EMAIL = "lucia.alta@ejemplo.com";
+  const LUCIA_WA = "+5491155550105";
+  const lucia = await asCurrentUser(LUCIA_EMAIL);
+  const luciaTp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit: "27284561231", studyId: admin.studyId } });
+  /** CUIT con dígito verificador válido a partir de los primeros 10 números. */
+  const validCuit = (first10: string) => {
+    for (let n = Number(first10); ; n++) {
+      const body = String(n).padStart(10, "0");
+      const d = cuitCheckDigit(body);
+      if (d !== null) return body + d;
+    }
+  };
+
+  await check("M1. alta por chat iniciada con el recorrido anterior (esperando la fecha): se completa sin trabarse y conserva el dato", async () => {
+    const OLD = "+5491155550190";
+    await say(OLD, "hola, quiero darme de alta");
+    await tap(OLD, "Empezar");
+    await say(OLD, "Marta Vieja");
+    await say(OLD, "marta.vieja@ejemplo.com");
+    await say(OLD, validCuit("2733445566"));
+    await say(OLD, "Peluquería");
+    // Se simula una conversación guardada antes del cambio: esperando "desde cuándo facturás".
+    const row = await prisma.botConversation.findUniqueOrThrow({ where: { channel_address: { channel: "WHATSAPP", address: OLD } } });
+    const state = JSON.parse(row.state);
+    state.step = "g.desde";
+    state.data.lastPrompt = "g.desde";
+    await prisma.botConversation.update({ where: { id: row.id }, data: { state: JSON.stringify(state) } });
+    const summary = await say(OLD, "03/2022");
+    assert.match(summary.text, /Revisá tus datos[\s\S]*Facturás desde: marzo 2022/);
+    await tap(OLD, "Crear mi cuenta");
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: "marta.vieja@ejemplo.com" } });
+    const req = await prisma.accessRequest.findFirstOrThrow({ where: { userId: user.id } });
+    assert.equal(req.declaredStartDate, "2022-03-01");
+    // Otra conversación vieja en el mismo paso, con una respuesta que no es fecha: sigue igual al resumen.
+    const OLD2 = "+5491155550191";
+    await say(OLD2, "hola, quiero darme de alta");
+    await tap(OLD2, "Empezar");
+    await say(OLD2, "Nora Vieja");
+    await say(OLD2, "nora.vieja@ejemplo.com");
+    await say(OLD2, validCuit("2744556677"));
+    await say(OLD2, "Costura");
+    const row2 = await prisma.botConversation.findUniqueOrThrow({ where: { channel_address: { channel: "WHATSAPP", address: OLD2 } } });
+    const state2 = JSON.parse(row2.state);
+    state2.step = "g.desde";
+    await prisma.botConversation.update({ where: { id: row2.id }, data: { state: JSON.stringify(state2) } });
+    const s2 = await say(OLD2, "no me acuerdo");
+    assert.match(s2.text, /Ya no hace falta la fecha de inicio[\s\S]*Revisá tus datos/);
+    assert.ok(!/Facturás desde/.test(s2.text));
+  });
+
+  await check("M2. asociación web sin fecha de inicio: se acepta; una fecha futura se rechaza", async () => {
+    const someone = await asCurrentUser("cliente.b@contadorsmart.local");
+    const cuit = validCuit("2055667788");
+    const bad = await requestAssociation(someone, { cuit, name: "Sin Fecha", activity: "Pruebas", category: "", startDate: "2999-01-01" });
+    assert.equal(bad.ok, false);
+    const ok = await requestAssociation(someone, { cuit, name: "Sin Fecha", activity: "Pruebas", category: "" });
+    assert.ok(ok.ok, JSON.stringify(ok));
+    const tp = await prisma.taxpayer.findFirstOrThrow({ where: { cuit, studyId: someone.studyId } });
+    assert.equal(tp.startDate, null);
+  });
+
+  await check("M3. fecha de inicio faltante: cobertura, cálculo del límite y categoría orientativa lo explican (sin inventar una fecha)", () => {
+    const rolling: PeriodMetric = { key: "movil12", label: "", description: "", from: "2025-11-01", to: "2026-10-31", totalCents: 100n, invoiceCount: 1, coverage: "COMPLETA" };
+    const scale: ScaleInfo = { id: "s", name: "Escala", status: "VIGENTE", source: "x", validFrom: "2025-01-01", validTo: null, limits: [{ code: "A", annualLimitCents: 1000n }, { code: "K", annualLimitCents: 5000n }] };
+    const m = computeMargin("A", null, rolling, scale);
+    assert.ok(m.available && /Falta la fecha de inicio/.test(m.note ?? ""));
+    const s = suggestCategory(null, rolling, scale);
+    assert.ok(!s.available && /Falta la fecha de inicio/.test(s.reason));
+    // Sin fecha no se supone nada: el período entero tiene que estar cubierto.
+    assert.equal(coverageFor({ fromDate: "2026-01-01", complete: true, source: "x", updatedAt: new Date() }, null, "2025-11-01", "2026-10-31"), "PARCIAL");
+  });
+
+  await check("M4. fecha de inicio: el cliente la carga si falta; corregirla es del estudio; validaciones", async () => {
+    assert.equal(parseStartDate("15/03/2022"), "2022-03-15");
+    assert.equal(parseStartDate("31/02/2022"), null);
+    const future = await setStartDate(lucia, luciaTp.id, "01/01/2999");
+    assert.equal(future.ok, false);
+    assert.equal((await setStartDate(clienteA, luciaTp.id, "01/03/2023")).ok, false); // contribuyente ajeno
+    assert.ok((await setStartDate(lucia, luciaTp.id, "01/03/2023")).ok);
+    assert.equal((await prisma.taxpayer.findUniqueOrThrow({ where: { id: luciaTp.id } })).startDate, "2023-03-01");
+    const again = await setStartDate(lucia, luciaTp.id, "01/04/2023");
+    assert.ok(!again.ok && /la corrija/.test(again.message));
+    assert.ok((await setStartDate(admin, luciaTp.id, "15/03/2023")).ok); // el estudio corrige
+    assert.ok(await prisma.auditEvent.findFirst({ where: { action: "TAXPAYER_START_DATE", entityId: luciaTp.id, actorId: admin.id } }));
+    // Vuelve a quedar sin fecha para la prueba siguiente.
+    await prisma.taxpayer.update({ where: { id: luciaTp.id }, data: { startDate: null } });
+  });
+
+  await check("M5. emitir sin fecha de inicio: se pide en ese momento (web y bot) y después se emite con confirmación", async () => {
+    const draft = await saveDraft(lucia, luciaTp.id, {
+      issueDate: todayAR(),
+      recipientMode: "nuevo",
+      recipientId: "",
+      recipientName: "Consumidor Final",
+      docType: "SIN_IDENTIFICAR",
+      docNumber: "",
+      taxCondition: "CONSUMIDOR_FINAL",
+      saveRecipient: false,
+      items: [{ description: "Clase", quantity: "1", unitPrice: "1000" }],
+    });
+    assert.ok(draft.ok && draft.invoiceId, JSON.stringify(draft));
+    const blocked = await emitInvoice(lucia, draft.invoiceId!, "m5-web-emision-sin-fecha", false);
+    assert.ok(!blocked.ok && blocked.message === START_DATE_MISSING_TO_EMIT, JSON.stringify(blocked));
+    await deleteDraft(lucia, draft.invoiceId!);
+    // Por el bot: al confirmar pide la fecha, la guarda y vuelve al resumen; la emisión se confirma de nuevo.
+    await say(LUCIA_WA, "menu");
+    await tap(LUCIA_WA, "Facturación");
+    await tap(LUCIA_WA, "Preparar factura");
+    await tap(LUCIA_WA, "Sí, continuar");
+    await tap(LUCIA_WA, "Nuevo receptor");
+    await tap(LUCIA_WA, "Sin CUIT");
+    await tap(LUCIA_WA, "Sin identificar");
+    await say(LUCIA_WA, "Consumidor final");
+    await tap(LUCIA_WA, "Solo esta vez");
+    await tap(LUCIA_WA, "Confirmar y seguir");
+    await say(LUCIA_WA, "Clase de inglés");
+    await tap(LUCIA_WA, "1");
+    await say(LUCIA_WA, "5000");
+    await tap(LUCIA_WA, "Continuar");
+    await tap(LUCIA_WA, /^Hoy/);
+    const ask = await tap(LUCIA_WA, "Confirmar simulación");
+    assert.match(ask.text, /falta la fecha de inicio de actividad/i);
+    assert.match((await say(LUCIA_WA, "32/13/2020")).text, /fecha completa/);
+    const back = await say(LUCIA_WA, "01/03/2023");
+    assert.match(back.text, /Listo: inicio de actividad 01\/03\/2023[\s\S]*Borrador guardado/);
+    const emitted = await tap(LUCIA_WA, "Confirmar simulación");
+    assert.match(emitted.text, /Factura simulada .* emitida/);
+  });
+
+  await check("M6. receptor nuevo por el bot: CUIT primero, padrón no conectado → razón social a mano, alias aparte, sin duplicados", async () => {
+    const cuit = validCuit("3071234567");
+    await useTaxpayer(ANA_WA, "Ana Gómez");
+    await tap(ANA_WA, "Facturación");
+    await tap(ANA_WA, "Preparar factura");
+    await tap(ANA_WA, "Sí, continuar");
+    const first = await tap(ANA_WA, "Nuevo receptor");
+    assert.match(first.text, /CUIT del receptor/);
+    assert.match((await say(ANA_WA, "20-12345678-0")).text, /no es válido/);
+    const manual = await say(ANA_WA, cuit);
+    assert.match(manual.text, /No pude consultar la razón social: la consulta al padrón de ARCA todavía no está conectada/);
+    assert.match(manual.text, /no confirma que esté inscripto/);
+    const cond = await say(ANA_WA, "Inmobiliaria Real SA");
+    assert.match(cond.text, /condición frente al IVA de Inmobiliaria Real SA/);
+    const how = await tap(ANA_WA, "Responsable inscripto");
+    assert.match(how.text, /¿Cómo guardamos a Inmobiliaria Real SA/);
+    await tap(ANA_WA, "Con otro nombre");
+    assert.match((await say(ANA_WA, "x")).text, /entre 2 y 60/);
+    const confirm = await say(ANA_WA, "Alquiler local");
+    assert.match(confirm.text, /Razón social: Inmobiliaria Real SA\n[\s\S]*Se guarda como: Alquiler local/);
+    assert.ok(!/dato de/.test(confirm.text)); // no se presenta como dato de ARCA
+    await tap(ANA_WA, "Confirmar y seguir");
+    const c = await say(ANA_WA, "Alquiler noviembre");
+    if (/ya usaste/.test(c.text)) {
+      await tap(ANA_WA, "Escribir otro concepto");
+      await say(ANA_WA, "Alquiler noviembre");
+    }
+    await tap(ANA_WA, "1");
+    await say(ANA_WA, "250000");
+    await tap(ANA_WA, "Continuar");
+    const summary = await tap(ANA_WA, /^Hoy/);
+    assert.match(summary.text, /Receptor: Inmobiliaria Real SA/); // en la factura va la razón social, no el alias
+    const saved = await prisma.invoiceRecipient.findMany({ where: { taxpayerId: ana.id, docNumber: cuit } });
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].name, "Inmobiliaria Real SA");
+    assert.equal(saved[0].alias, "Alquiler local");
+    await tap(ANA_WA, "Guardar borrador");
+    // Mismo CUIT otra vez: ofrece reutilizarlo en lugar de duplicarlo.
+    await tap(ANA_WA, "Menú");
+    await tap(ANA_WA, "Facturación");
+    await tap(ANA_WA, "Preparar factura");
+    await tap(ANA_WA, "Sí, continuar");
+    await tap(ANA_WA, "Nuevo receptor");
+    const dup = await say(ANA_WA, cuit);
+    assert.match(dup.text, /Ya tenés guardado a Alquiler local \(Inmobiliaria Real SA\)/);
+    await tap(ANA_WA, "Usar ese receptor");
+    assert.equal(await prisma.invoiceRecipient.count({ where: { taxpayerId: ana.id, docNumber: cuit } }), 1);
+    // En la web, guardar otra vez el mismo CUIT reutiliza el receptor guardado.
+    const web = await saveDraft(clienteA, ana.id, {
+      issueDate: todayAR(),
+      recipientMode: "nuevo",
+      recipientId: "",
+      recipientName: "Inmobiliaria Real SA",
+      docType: "CUIT",
+      docNumber: cuit,
+      taxCondition: "RESPONSABLE_INSCRIPTO",
+      saveRecipient: true,
+      recipientAlias: "Otro alias",
+      items: [{ description: "Alquiler", quantity: "1", unitPrice: "1000" }],
+    });
+    assert.ok(web.ok);
+    assert.equal(await prisma.invoiceRecipient.count({ where: { taxpayerId: ana.id, docNumber: cuit } }), 1);
+    const bad = await saveDraft(clienteA, ana.id, {
+      issueDate: todayAR(),
+      recipientMode: "nuevo",
+      recipientId: "",
+      recipientName: "Alguien",
+      docType: "DNI",
+      docNumber: "30111222",
+      taxCondition: "CONSUMIDOR_FINAL",
+      saveRecipient: true,
+      recipientAlias: "x",
+      items: [{ description: "Algo", quantity: "1", unitPrice: "1000" }],
+    });
+    assert.ok(!bad.ok && bad.fieldErrors?.recipientAlias);
+    // Aislamiento: otro cliente no ve ni puede usar ese receptor.
+    assert.ok(!(await listRecipients(bruno.id)).some((r) => r.docNumber === cuit));
+    assert.equal(await findSavedRecipient(bruno.id, "CUIT", cuit), null);
+    const foreign = await saveDraft(clienteB, bruno.id, {
+      issueDate: todayAR(),
+      recipientMode: "existente",
+      recipientId: saved[0].id,
+      recipientName: "",
+      docType: "",
+      docNumber: "",
+      taxCondition: "",
+      saveRecipient: false,
+      items: [{ description: "Algo", quantity: "1", unitPrice: "1000" }],
+    });
+    assert.ok(!foreign.ok && foreign.fieldErrors?.recipientId);
+    await say(ANA_WA, "menu");
+  });
+
+  await check("M7. consulta al padrón con dobles de prueba: datos encontrados se muestran con su fuente; si falla, recorrido manual", async () => {
+    const cuit = validCuit("3070000001");
+    setPadronForTests({ lookup: async () => ({ status: "ENCONTRADO", legalName: "Prueba Padrón SRL", taxCondition: "MONOTRIBUTO", source: "Doble de prueba" }) });
+    try {
+      await useTaxpayer(ANA_WA, "Ana Gómez");
+      await tap(ANA_WA, "Facturación");
+      await tap(ANA_WA, "Preparar factura");
+      await tap(ANA_WA, "Sí, continuar");
+      await tap(ANA_WA, "Nuevo receptor");
+      const found = await say(ANA_WA, cuit);
+      assert.match(found.text, /Datos de Doble de prueba[\s\S]*Razón social: Prueba Padrón SRL[\s\S]*¿Cómo guardamos/);
+      const confirm = await tap(ANA_WA, "Con la razón social");
+      assert.match(confirm.text, /Prueba Padrón SRL \(dato de Doble de prueba\)[\s\S]*Monotributista/);
+      setPadronForTests({ lookup: async () => { throw new Error("timeout"); } });
+      await tap(ANA_WA, "Corregir");
+      const failed = await say(ANA_WA, validCuit("3070000099"));
+      assert.match(failed.text, /el servicio de ARCA no respondió[\s\S]*Escribí la razón social/);
+    } finally {
+      setPadronForTests(null);
+      await say(ANA_WA, "menu");
+    }
+  });
+
+  await check("M8. Mi resumen: sin 'Consultar al estudio' (sigue en el menú principal) y con el texto del límite", async () => {
+    await useTaxpayer(ANA_WA, "Ana Gómez");
+    await tap(ANA_WA, "Mi resumen");
+    const r = await tap(ANA_WA, "Este mes");
+    assert.ok(!hasChoice(ANA_WA, "Consultar al estudio"), r.text);
+    assert.ok(hasChoice(ANA_WA, "Cambiar período") && hasChoice(ANA_WA, "Menú"));
+    assert.match(r.text, /Podés facturar .* más antes de alcanzar el límite|Superaste el límite|Llegaste justo al límite|no se puede calcular/);
+    assert.ok(!/[Mm]argen/.test(r.text), r.text);
+    await say(ANA_WA, "menu");
+    assert.ok(hasChoice(ANA_WA, "Hablar con el estudio"));
+    const talk = await tap(ANA_WA, "Hablar con el estudio");
+    assert.ok(talk.replies.length > 0);
+    await say(ANA_WA, "menu");
+  });
+
+  await check("M9. texto del límite: por debajo, justo en el límite y por encima (sin importes negativos)", () => {
+    const scale: ScaleInfo = { id: "s", name: "Escala", status: "VIGENTE", source: "x", validFrom: "2025-01-01", validTo: null, limits: [{ code: "A", annualLimitCents: 1_000_000n }, { code: "K", annualLimitCents: 9_000_000n }] };
+    const at = (total: bigint) => {
+      const m = computeMargin("A", "2020-01-01", { key: "movil12", label: "", description: "", from: "2025-11-01", to: "2026-10-31", totalCents: total, invoiceCount: 1, coverage: "COMPLETA" }, scale);
+      assert.ok(m.available);
+      return m;
+    };
+    const below = at(400_000n);
+    assert.equal(limitHeadline(below), `Podés facturar ${formatARS(600_000n)} más antes de alcanzar el límite de tu categoría A.`);
+    assert.match(limitDetail(below), /últimos 12 meses \(del 01\/11\/2025 al 31\/10\/2026\)[\s\S]*máximo del monotributo \(categoría K\)/);
+    const exact = at(1_000_000n);
+    assert.match(limitHeadline(exact), /Llegaste justo al límite/);
+    const above = at(1_250_000n);
+    assert.equal(limitHeadline(above), `Superaste el límite de tu categoría A por ${formatARS(250_000n)}.`);
+    assert.ok(!limitText(above).includes("-$") && !limitText(above).includes("$ -"));
+    const top = computeMargin("K", "2020-01-01", { key: "movil12", label: "", description: "", from: "2025-11-01", to: "2026-10-31", totalCents: 1n, invoiceCount: 1, coverage: "COMPLETA" }, scale);
+    assert.ok(top.available && /la categoría más alta/.test(limitDetail(top)));
+  });
+
+  await check("M10. configuración y pedido de ayuda: estado real, una sola solicitud aunque se repita, visible para el estudio", async () => {
+    // Lucía con contraseña temporal (como recién creada por el chat).
+    await prisma.user.update({ where: { id: lucia.id }, data: { mustChangePassword: true, tempPasswordExpiresAt: new Date(Date.now() + 3_600_000) } });
+    const setup = await getSetup(lucia);
+    const item = (k: string) => setup.items.find((i) => i.key === k)!;
+    assert.equal(item("clave").status, "PENDIENTE"); // sigue con la temporal
+    assert.equal(item("arca").status, "NO_DISPONIBLE"); // nunca se informa como vinculada
+    assert.equal(setup.nextStep?.key, "clave");
+    // Por el bot: el mismo estado y el próximo paso.
+    await say(LUCIA_WA, "menu");
+    await tap(LUCIA_WA, "Mi cuenta");
+    const conf = await tap(LUCIA_WA, "Mi configuración");
+    assert.match(conf.text, /Tu configuración:[\s\S]*Conexión con ARCA: todavía no disponible[\s\S]*Próximo paso: Tu contraseña/);
+    // Pedido de ayuda por el bot, y un segundo toque no crea otro.
+    await tap(LUCIA_WA, "Necesito ayuda");
+    const ok = await tap(LUCIA_WA, "Configurar mi cuenta");
+    assert.match(ok.text, /Recibimos tu pedido de ayuda[\s\S]*no podemos asegurarte un horario/);
+    await say(LUCIA_WA, "menu");
+    await tap(LUCIA_WA, "Mi cuenta");
+    await tap(LUCIA_WA, "Necesito ayuda");
+    assert.match((await tap(LUCIA_WA, "Entrar a la web")).text, /Ya tenés un pedido de ayuda abierto/);
+    assert.equal(await prisma.serviceRequest.count({ where: { createdById: lucia.id, topic: "AYUDA" } }), 1);
+    // Desde la web, dos clics a la vez: una sola solicitud.
+    const [a, b] = await Promise.all([requestHelp(clienteB, "WEB", "WEB", botOrigin), requestHelp(clienteB, "WEB", "WEB", botOrigin)]);
+    assert.ok(a.ok && b.ok && a.requestId === b.requestId);
+    assert.equal(await prisma.serviceRequest.count({ where: { createdById: clienteB.id, topic: "AYUDA" } }), 1);
+    // El estudio la ve en la Bandeja con su motivo; no lleva contraseñas.
+    const inbox = await listInbox(admin, {});
+    const help = inbox.rows.find((r) => r.id === a.requestId);
+    assert.ok(help && help.topic === "AYUDA" && /Pide una llamada: Entrar a la web/.test(help.subject));
+    const body = (await prisma.requestMessage.findFirstOrThrow({ where: { requestId: a.requestId } })).body;
+    assert.ok(!/contraseña:|clave fiscal:/i.test(body), body);
+    assert.equal((await requestHelp(admin, "WEB", "WEB", botOrigin)).ok, false);
+    // Otro cliente no ve el pedido de ayuda ajeno.
+    assert.equal(await getRequestForUser(clienteA, a.requestId), null);
   });
 
   console.log(`\n${passed} verificaciones OK`);

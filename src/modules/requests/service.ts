@@ -129,8 +129,9 @@ export async function createRequest(user: CurrentUser, input: NewRequestInput, f
   const subject = input.subject.trim();
   const body = input.body.trim();
   const fieldErrors: Record<string, string> = {};
-  // "Alta o acceso" se puede pedir sin contribuyente habilitado (por ejemplo, con la asociación pendiente).
-  const withoutTaxpayer = input.topic === "ALTA" && !input.taxpayerId;
+  // "Alta o acceso" y el pedido de ayuda se pueden hacer sin contribuyente habilitado (por ejemplo, con la asociación
+  // pendiente o recién creada la cuenta).
+  const withoutTaxpayer = (input.topic === "ALTA" || input.topic === "AYUDA") && !input.taxpayerId;
   const taxpayer = withoutTaxpayer ? null : await getAuthorizedTaxpayer(user, input.taxpayerId);
   if (!taxpayer && !withoutTaxpayer) fieldErrors.taxpayerId = "Elegí un contribuyente habilitado.";
   if (withoutTaxpayer && files.length > 0) fieldErrors.files = "Sin un contribuyente habilitado todavía no se pueden adjuntar archivos.";

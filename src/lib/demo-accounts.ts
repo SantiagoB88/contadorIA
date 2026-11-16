@@ -37,7 +37,7 @@ type Snapshot = {
     createdAt: string;
     updatedAt?: string;
   };
-  taxpayers: { id: string; studyId: string; cuit: string; name: string; activity: string; categoryCode: string | null; startDate: string }[];
+  taxpayers: { id: string; studyId: string; cuit: string; name: string; activity: string; categoryCode: string | null; startDate: string | null }[];
   accesses: { taxpayerId: string; status: string; updatedAt?: string }[];
   requests: {
     id: string;
@@ -45,7 +45,7 @@ type Snapshot = {
     declaredName: string;
     declaredActivity: string;
     declaredCategory: string | null;
-    declaredStartDate: string;
+    declaredStartDate: string | null;
     status: string;
     reviewNote: string | null;
     reviewedAt: string | null;

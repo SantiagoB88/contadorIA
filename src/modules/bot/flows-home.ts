@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { REQUEST_STATUS } from "@/lib/constants";
+import { CHANNEL, REQUEST_STATUS } from "@/lib/constants";
+import { getSetup, HELP_REASONS, requestHelp, SETUP_STATUS_LABEL, type SetupStatus } from "@/modules/profile/setup";
 import { formatDateTimeAR } from "@/lib/dates";
 import { maskPhone } from "@/lib/phone";
 import {
@@ -107,6 +108,8 @@ export async function showPending(ctx: Ctx) {
     { title: T.pendingStatus, desc: "Cómo va tu pedido de acceso", a: "p.estado" },
     { title: T.pendingAsk, desc: "Mandale un mensaje al estudio", a: "p.consultar" },
     { title: "Entrar a la web", desc: "Correo y contraseña", a: "c.clave" },
+    { title: "Mi configuración", desc: "Qué tenés listo y qué falta", a: "c.config" },
+    { title: "Necesito ayuda", desc: "Pedir que el estudio me llame", a: "c.ayuda" },
     { title: T.pendingFix, a: "p.corregir" },
     { title: T.help, a: "help" },
   ]);
@@ -122,7 +125,7 @@ export async function showMenu(ctx: Ctx) {
   const rows = [
     {
       title: "Mi resumen",
-      desc: "Facturación, margen y próximos vencimientos",
+      desc: "Facturación, límite y próximos vencimientos",
       a: "m.resumen",
     },
     {
@@ -132,7 +135,7 @@ export async function showMenu(ctx: Ctx) {
     },
     {
       title: "Categoría y límites",
-      desc: "Margen, escala y simulación",
+      desc: "Cuánto podés facturar y simulación",
       a: "m.cat",
     },
     {
@@ -301,6 +304,8 @@ on(
   "m.cuenta",
   async (ctx) => {
     ctx.list("Mi cuenta. ¿Qué querés hacer?", "Ver opciones", [
+      { title: "Mi configuración", desc: "Qué tenés listo y qué falta", a: "c.config" },
+      { title: "Necesito ayuda", desc: "Pedir que el estudio me llame", a: "c.ayuda" },
       { title: "Ver mis datos", a: "c.datos" },
       { title: "Entrar a la web", desc: "Correo y contraseña", a: "c.clave" },
       { title: "Cambiar contribuyente", a: "m.cambiar" },
@@ -315,7 +320,53 @@ on(
         a: "c.corregir",
       },
       { title: "Desvincular WhatsApp", a: "c.desvincular" },
-      { title: "Ayuda", a: "help" },
+      { title: T.menu, a: "menu" },
+    ]);
+  },
+  { noTaxpayer: true },
+);
+
+// ───────────── Configuración y pedido de ayuda (mismo estado que la web: src/modules/profile/setup.ts) ─────────────
+
+const SETUP_ICON: Record<SetupStatus, string> = { LISTO: "✅", PENDIENTE: "⏳", OPCIONAL: "➖", NO_DISPONIBLE: "ℹ️" };
+
+on(
+  "c.config",
+  async (ctx) => {
+    const setup = await getSetup(ctx.user);
+    const lines = setup.items.map((i) => `${SETUP_ICON[i.status]} ${i.label}: ${SETUP_STATUS_LABEL[i.status].toLowerCase()}. ${i.detail}`);
+    const next = setup.nextStep
+      ? `\n\nPróximo paso: ${setup.nextStep.label}. ${setup.nextStep.detail}${setup.nextStep.href ? `\n${ctx.origin}${setup.nextStep.href}` : ""}`
+      : "\n\nNo tenés pasos pendientes.";
+    ctx.say(`Tu configuración:\n${lines.join("\n")}${next}`);
+    ctx.buttons("¿Qué hacemos?", [
+      { title: "Entrar a la web", a: "c.clave" },
+      setup.help ? { title: T.menu, a: "menu" } : { title: "Necesito ayuda", a: "c.ayuda" },
+      { title: T.menu, a: "menu" },
+    ].filter((b, i, all) => all.findIndex((x) => x.a === b.a) === i));
+  },
+  { readOnly: true, noTaxpayer: true },
+);
+
+on(
+  "c.ayuda",
+  async (ctx) => {
+    ctx.list(
+      "Pedile al estudio que te llame para acompañarte. ¿Con qué necesitás ayuda? (No hace falta que escribas nada más; nunca mandes contraseñas ni tu clave fiscal por acá.)",
+      "Elegir",
+      [...Object.entries(HELP_REASONS).map(([value, label]) => ({ title: label, a: "c.ayuda.ok", v: value })), { title: T.cancel, a: "menu" }],
+    );
+  },
+  { noTaxpayer: true },
+);
+
+on(
+  "c.ayuda.ok",
+  async (ctx, v) => {
+    const result = await requestHelp(ctx.user, v ?? "", CHANNEL.WHATSAPP, ctx.origin);
+    ctx.say(result.message);
+    ctx.buttons("¿Algo más?", [
+      { title: "Mis solicitudes", a: "m.sol" },
       { title: T.menu, a: "menu" },
     ]);
   },

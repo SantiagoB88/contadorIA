@@ -71,8 +71,10 @@ export type MarginInfo =
       referenceTo: string;
       limitCents: bigint;
       incomeCents: bigint;
-      marginCents: bigint; // positivo = margen disponible; negativo = exceso
+      marginCents: bigint; // positivo = lo que queda hasta el límite; 0 = justo en el límite; negativo = exceso
       percentTenths: number; // 963 = 96,3 %
+      topCode: string | null; // categoría más alta de la escala (su límite es el máximo del régimen)
+      topLimitCents: bigint | null;
       level: AlertLevel;
       note: string | null;
     }
@@ -90,7 +92,7 @@ export type DashboardData = {
   coverage: { source: string; fromDate: string; complete: boolean; updatedAt: Date } | null;
 };
 
-type TaxpayerInput = { id: string; studyId: string; categoryCode: string | null; startDate: string };
+type TaxpayerInput = { id: string; studyId: string; categoryCode: string | null; startDate: string | null };
 type CoverageRow = { fromDate: string; complete: boolean; source: string; updatedAt: Date } | null;
 
 /**
@@ -128,10 +130,11 @@ export function periodRanges(cutDate: string) {
   };
 }
 
-export function coverageFor(coverage: CoverageRow, taxpayerStart: string, from: string, to: string): CoverageState {
+export function coverageFor(coverage: CoverageRow, taxpayerStart: string | null, from: string, to: string): CoverageState {
   if (!coverage) return "SIN_DATOS";
-  // Antes del inicio de actividad no hay nada que facturar: no cuenta como dato faltante.
-  const effectiveFrom = taxpayerStart > from ? taxpayerStart : from;
+  // Antes del inicio de actividad no hay nada que facturar: no cuenta como dato faltante. Sin fecha de inicio no se
+  // supone nada: el período entero tiene que estar cubierto.
+  const effectiveFrom = taxpayerStart && taxpayerStart > from ? taxpayerStart : from;
   if (effectiveFrom > to) return "COMPLETA";
   if (coverage.complete && coverage.fromDate <= effectiveFrom) return "COMPLETA";
   if (coverage.fromDate > to) return "SIN_DATOS";
@@ -243,7 +246,7 @@ export async function getDashboardData(taxpayer: TaxpayerInput, cutDate: string)
 
 export function computeMargin(
   categoryCode: string | null,
-  startDate: string,
+  startDate: string | null,
   rolling: PeriodMetric,
   scale: ScaleInfo | null,
 ): MarginInfo {
@@ -261,14 +264,15 @@ export function computeMargin(
     return {
       available: false,
       categoryCode,
-      reason: "Información incompleta: faltan datos de los últimos 12 meses, así que no se puede calcular el margen.",
+      reason: "Información incompleta: faltan datos de los últimos 12 meses, así que no se puede calcular cuánto podés facturar hasta el límite.",
     };
   }
 
   const income = rolling.totalCents;
-  const note =
-    startDate > rolling.from
-      ? "La actividad empezó hace menos de 12 meses: el margen es solo orientativo. Consultá con el estudio."
+  const note = !startDate
+    ? "Falta la fecha de inicio de actividad: si empezaste hace menos de 12 meses, este cálculo es solo orientativo."
+    : startDate > rolling.from
+      ? "La actividad empezó hace menos de 12 meses: este cálculo es solo orientativo. Consultá con el estudio."
       : null;
 
   return {
@@ -282,6 +286,8 @@ export function computeMargin(
     incomeCents: income,
     marginCents: limit.annualLimitCents - income,
     percentTenths: percentTenths(income, limit.annualLimitCents),
+    topCode: scale.limits.at(-1)?.code ?? null,
+    topLimitCents: scale.limits.at(-1)?.annualLimitCents ?? null,
     level: alertLevel(income, limit.annualLimitCents),
     note,
   };
@@ -291,12 +297,15 @@ export function computeMargin(
  * Categoría orientativa por ingresos: la menor categoría de la escala cuyo límite cubre los ingresos de 12 meses.
  * Si falta historial, la actividad es reciente o no hay escala, no se sugiere nada (no se anualiza).
  */
-export function suggestCategory(startDate: string, rolling: PeriodMetric, scale: ScaleInfo | null): CategorySuggestion {
+export function suggestCategory(startDate: string | null, rolling: PeriodMetric, scale: ScaleInfo | null): CategorySuggestion {
   if (!scale || scale.limits.length === 0) {
     return { available: false, reason: "No hay una escala vigente a la fecha de corte." };
   }
   if (rolling.coverage !== "COMPLETA" || rolling.totalCents === null) {
     return { available: false, reason: "Faltan datos de los últimos 12 meses." };
+  }
+  if (!startDate) {
+    return { available: false, reason: "Falta la fecha de inicio de actividad: no se puede saber si hay 12 meses de historial." };
   }
   if (startDate > rolling.from) {
     return { available: false, reason: "La actividad tiene menos de 12 meses: no hay historial suficiente." };
@@ -315,7 +324,7 @@ export async function getInvoices(taxpayerId: string, from: string, to: string) 
 }
 
 /** Cobertura de datos de un rango cualquiera (para explicar el detalle de movimientos). */
-export async function rangeCoverage(taxpayer: { id: string; startDate: string }, from: string, to: string): Promise<CoverageState> {
+export async function rangeCoverage(taxpayer: { id: string; startDate: string | null }, from: string, to: string): Promise<CoverageState> {
   const coverage = await prisma.dataCoverage.findUnique({ where: { taxpayerId: taxpayer.id } });
   return coverageFor(coverage, taxpayer.startDate, from, to);
 }

@@ -100,6 +100,7 @@ export const SR_STATUS_LABEL: Record<string, string> = {
 
 export const SR_TOPIC_LABEL: Record<string, string> = {
   ALTA: "Alta o acceso",
+  AYUDA: "Ayuda con la configuración (pedido de llamada)",
   FACTURACION: "Facturación",
   CATEGORIA: "Categoría y límites",
   DEUDAS: "Deudas y vencimientos",
@@ -144,6 +145,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   PASSWORD_RESET: "Restableció su contraseña",
   PASSWORD_CHANGE: "Cambió su contraseña",
   PASSWORD_RESET_BY_ADMIN: "Blanqueó la contraseña de un usuario",
+  TAXPAYER_START_DATE: "Cargó la fecha de inicio de actividad",
   PROFILE_UPDATE: "Actualizó su perfil",
   ACCESS_REQUEST_CREATE: "Pidió asociarse a un CUIT",
   ACCESS_REQUEST_APPROVE: "Aprobó una asociación",

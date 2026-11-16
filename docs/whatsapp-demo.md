@@ -31,8 +31,8 @@ En el simulador se tocan los botones de cada mensaje y, en las listas, el botón
 
 **3. Consultas iguales a la web** (sigue Bruno)
 
-- **Mi resumen → Este año**: mismos importes que el tablero, con período, margen orientativo, próximo vencimiento y cobertura.
-- **Categoría y límites**: límite de la categoría C, margen o exceso y **Simular un importe** (escribí `150000`).
+- **Mi resumen → Este año**: mismos importes que el tablero, con período, cuánto se puede facturar hasta el límite (orientativo), próximo vencimiento y cobertura.
+- **Categoría y límites**: límite de la categoría C, cuánto queda o por cuánto se superó, y **Simular un importe** (escribí `150000`).
 - **Deudas y vencimientos → Deudas registradas**: cuotas impagas con importes y "No incluye intereses".
 
 **4. Factura guiada** (sigue Bruno; es una simulación sin validez fiscal)
@@ -40,7 +40,7 @@ En el simulador se tocan los botones de cada mensaje y, en las listas, el botón
 **Facturación → Preparar factura → Sí, continuar**, y después:
 
 1. Receptor y concepto:
-   - elegí un receptor guardado o **Nuevo receptor**;
+   - elegí un receptor guardado o **Nuevo receptor**: primero el CUIT (la consulta a ARCA no está conectada, así que pide la razón social), después la condición y cómo guardarlo;
    - elegí un concepto ya usado o escribilo;
    - cantidad y precio (probá `abc`: lo rechaza).
 2. **Continuar → Hoy** → resumen con el total calculado por el servidor.

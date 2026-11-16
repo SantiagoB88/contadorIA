@@ -9,8 +9,17 @@ import { AssociationForm, ChangePasswordForm, ProfileForm } from "@/components/a
 import { LinkCodeForm, UnlinkMyWhatsAppForm } from "@/components/bot/WhatsAppForms";
 import { getUserLink } from "@/modules/bot/links";
 import { maskPhone } from "@/lib/phone";
+import { getSetup, HELP_REASONS, SETUP_STATUS_LABEL, type SetupStatus } from "@/modules/profile/setup";
+import { HelpRequestForm } from "@/components/profile/HelpRequestForm";
 
 export const metadata = { title: "Mi perfil · ContadorSmart" };
+
+const SETUP_TONE: Record<SetupStatus, "success" | "warning" | "neutral" | "info"> = {
+  LISTO: "success",
+  PENDIENTE: "warning",
+  OPCIONAL: "neutral",
+  NO_DISPONIBLE: "info",
+};
 
 const REQUEST_BADGE = {
   PENDIENTE: { label: "Pendiente de validación", tone: "warning" },
@@ -34,9 +43,64 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
     prisma.accessRequest.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 20 }),
   ]);
 
+  const setup = isClient ? await getSetup(user) : null;
+
   return (
     <div className="space-y-6">
       <PageHeader title="Mi perfil" subtitle={`${user.email} · ${user.studyName}`} />
+
+      {setup && (
+        <Card>
+          <h2 id="configuracion" className="font-semibold text-navy">
+            Tu configuración
+          </h2>
+          {setup.nextStep ? (
+            <p className="mt-1 text-sm text-slate-700">
+              <strong>Próximo paso:</strong> {setup.nextStep.label}. {setup.nextStep.detail}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-700">No tenés pasos pendientes.</p>
+          )}
+          <ul className="mt-4 divide-y divide-slate-100 text-sm">
+            {setup.items.map((item) => (
+              <li key={item.key} className="flex flex-wrap items-start justify-between gap-2 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-navy">{item.label}</p>
+                  <p className="text-slate-600">
+                    {item.detail}{" "}
+                    {item.href && item.status !== "LISTO" && (
+                      <Link href={item.href} className="font-medium text-brand-700 hover:underline">
+                        Ir
+                      </Link>
+                    )}
+                  </p>
+                </div>
+                <Badge tone={SETUP_TONE[item.status]}>{SETUP_STATUS_LABEL[item.status]}</Badge>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <h3 id="ayuda" className="text-sm font-semibold text-slate-800">
+              Necesito ayuda
+            </h3>
+            {setup.help ? (
+              <p className="mt-1 text-sm text-slate-700">
+                Ya pediste ayuda el {formatDateTimeAR(setup.help.createdAt)}: el estudio te va a contactar.{" "}
+                <Link href={`/solicitudes/${setup.help.id}`} className="font-medium text-brand-700 hover:underline">
+                  Ver el pedido
+                </Link>
+              </p>
+            ) : (
+              <>
+                <p className="mt-1 mb-3 text-sm text-slate-600">
+                  Si te trabaste, pedí que el estudio te llame para acompañarte. No escribas contraseñas ni tu clave fiscal.
+                </p>
+                <HelpRequestForm reasons={HELP_REASONS} />
+              </>
+            )}
+          </div>
+        </Card>
+      )}
 
       {isClient && (
         <Card>

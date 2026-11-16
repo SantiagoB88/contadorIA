@@ -38,6 +38,7 @@ export function InvoiceForm({
   invoiceId,
   today,
   minDate,
+  padronAvailable = false,
 }: {
   taxpayerId: string;
   recipients: Recipient[];
@@ -45,6 +46,7 @@ export function InvoiceForm({
   invoiceId?: string;
   today: string;
   minDate: string;
+  padronAvailable?: boolean;
 }) {
   const [state, action] = useActionForm<DraftFormState>(saveDraftAction, {});
   const v = state.values ?? initial;
@@ -130,40 +132,8 @@ export function InvoiceForm({
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label htmlFor="recipientName" className={labelClass}>
-                Nombre o razón social
-              </label>
-              <input
-                id="recipientName"
-                name="recipientName"
-                maxLength={120}
-                defaultValue={v.recipientName}
-                aria-invalid={!!e.recipientName}
-                className={inputClass}
-              />
-              <FieldError id="recipientName-error" message={e.recipientName} />
-            </div>
-            <div>
-              <label htmlFor="taxCondition" className={labelClass}>
-                Condición frente al IVA
-              </label>
-              <select
-                id="taxCondition"
-                name="taxCondition"
-                defaultValue={v.taxCondition || "CONSUMIDOR_FINAL"}
-                aria-invalid={!!e.taxCondition}
-                className={inputClass}
-              >
-                {TAX_CONDITIONS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <FieldError id="taxCondition-error" message={e.taxCondition} />
-            </div>
-            <div className="grid grid-cols-[8rem_1fr] gap-2">
+            {/* Orden pedido en el testing: primero el documento, después los datos fiscales y al final cómo guardarlo. */}
+            <div className="grid grid-cols-[8rem_1fr] gap-2 sm:col-span-2 sm:max-w-md">
               <div>
                 <label htmlFor="docType" className={labelClass}>
                   Documento
@@ -203,10 +173,70 @@ export function InvoiceForm({
                 <FieldError id="docNumber-error" message={e.docNumber} />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-              <input type="checkbox" name="saveRecipient" defaultChecked={v.saveRecipient} className="h-4 w-4 accent-brand-600" />
-              Guardar este receptor para próximas facturas
-            </label>
+            {docType === "CUIT" && !padronAvailable && (
+              <p className="text-xs text-slate-600 sm:col-span-2">
+                La consulta automática de la razón social en ARCA todavía no está conectada: escribila como figura en la
+                constancia de inscripción. Validamos el formato del CUIT, no que esté inscripto.
+              </p>
+            )}
+            <div className="sm:col-span-2">
+              <label htmlFor="recipientName" className={labelClass}>
+                {docType === "CUIT" ? "Razón social" : "Nombre y apellido"}
+              </label>
+              <input
+                id="recipientName"
+                name="recipientName"
+                maxLength={120}
+                defaultValue={v.recipientName}
+                aria-invalid={!!e.recipientName}
+                aria-describedby="recipientName-hint"
+                className={inputClass}
+              />
+              <p id="recipientName-hint" className="mt-1 text-xs text-slate-500">
+                Es el dato fiscal que va en la factura.
+              </p>
+              <FieldError id="recipientName-error" message={e.recipientName} />
+            </div>
+            <div>
+              <label htmlFor="taxCondition" className={labelClass}>
+                Condición frente al IVA
+              </label>
+              <select
+                id="taxCondition"
+                name="taxCondition"
+                defaultValue={v.taxCondition || "CONSUMIDOR_FINAL"}
+                aria-invalid={!!e.taxCondition}
+                className={inputClass}
+              >
+                {TAX_CONDITIONS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <FieldError id="taxCondition-error" message={e.taxCondition} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="saveRecipient" defaultChecked={v.saveRecipient} className="h-4 w-4 accent-brand-600" />
+                Guardar este receptor para próximas facturas (si ya lo tenés guardado con ese documento, se usa el mismo)
+              </label>
+              <div className="max-w-md">
+                <label htmlFor="recipientAlias" className={labelClass}>
+                  Nombre para guardarlo (opcional)
+                </label>
+                <input
+                  id="recipientAlias"
+                  name="recipientAlias"
+                  maxLength={60}
+                  placeholder="Si lo dejás vacío, se guarda con la razón social"
+                  defaultValue={v.recipientAlias}
+                  aria-invalid={!!e.recipientAlias}
+                  className={inputClass}
+                />
+                <FieldError id="recipientAlias-error" message={e.recipientAlias} />
+              </div>
+            </div>
           </div>
         )}
       </fieldset>

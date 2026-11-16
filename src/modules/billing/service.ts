@@ -36,6 +36,7 @@ export type DraftInput = {
   docNumber: string;
   taxCondition: string;
   saveRecipient: boolean;
+  recipientAlias?: string; // cómo guardarlo (opcional); la razón social sigue siendo recipientName
   items: DraftItemInput[];
 };
 
@@ -60,12 +61,16 @@ export async function getAuthorizedInvoice(user: CurrentUser, invoiceId: string)
   return taxpayer ? invoice : null;
 }
 
-function dateProblem(issueDate: string, taxpayerStart: string): string | null {
+/** Mensaje cuando falta el inicio de actividad al emitir (bot y web lo explican igual). */
+export const START_DATE_MISSING_TO_EMIT =
+  "Para emitir falta la fecha de inicio de actividad, que va impresa en la factura. Cargala y volvé a confirmar: el borrador queda guardado.";
+
+function dateProblem(issueDate: string, taxpayerStart: string | null): string | null {
   const today = todayAR();
   if (!isValidYmd(issueDate)) return "Ingresá una fecha válida.";
   if (issueDate > today) return "La fecha no puede ser futura.";
   if (issueDate < addDaysYmd(today, -MAX_DAYS_BACK)) return `La fecha puede ser hasta ${MAX_DAYS_BACK} días anterior a hoy.`;
-  if (issueDate < taxpayerStart) return `La fecha es anterior al inicio de actividad (${formatDateAR(taxpayerStart)}).`;
+  if (taxpayerStart && issueDate < taxpayerStart) return `La fecha es anterior al inicio de actividad (${formatDateAR(taxpayerStart)}).`;
   return null;
 }
 
@@ -73,12 +78,13 @@ type ValidDraft = {
   issueDate: string;
   recipient: { id: string | null; name: string; docType: string; docNumber: string | null; taxCondition: string };
   saveRecipient: boolean;
+  alias: string | null;
   items: { description: string; quantityMilli: number; unitPriceCents: bigint; subtotalCents: bigint }[];
   totalCents: bigint;
 };
 
 async function validateDraft(
-  taxpayer: { id: string; studyId: string; startDate: string },
+  taxpayer: { id: string; studyId: string; startDate: string | null },
   input: DraftInput,
 ): Promise<{ ok: true; data: ValidDraft } | { ok: false; fieldErrors: Record<string, string> }> {
   const e: Record<string, string> = {};
@@ -127,6 +133,8 @@ async function validateDraft(
     }
     recipient = { id: null, name, docType, docNumber, taxCondition };
   }
+  const alias = input.recipientAlias?.trim().replace(/\s+/g, " ") || null;
+  if (alias && (alias.length < 2 || alias.length > 60)) e.recipientAlias = "El nombre para guardarlo tiene que tener entre 2 y 60 caracteres.";
 
   // Conceptos (se ignoran las filas totalmente vacías)
   // El índice es el de la fila en el formulario, para que el error aparezca al lado del campo correcto.
@@ -152,7 +160,7 @@ async function validateDraft(
   if (totalCents > MAX_TOTAL_CENTS) e.items = "El total es demasiado alto para un comprobante.";
 
   if (Object.keys(e).length > 0 || !recipient) return { ok: false, fieldErrors: e };
-  return { ok: true, data: { issueDate: input.issueDate, recipient, saveRecipient: input.saveRecipient, items, totalCents } };
+  return { ok: true, data: { issueDate: input.issueDate, recipient, saveRecipient: input.saveRecipient, alias, items, totalCents } };
 }
 
 function summary(items: { description: string }[]): string {
@@ -186,16 +194,25 @@ export async function saveDraft(
   const id = await prisma.$transaction(async (tx) => {
     let recipientId = d.recipient.id;
     if (!recipientId && d.saveRecipient) {
-      const saved = await tx.invoiceRecipient.create({
-        data: {
-          studyId: taxpayer.studyId,
-          taxpayerId: taxpayer.id,
-          name: d.recipient.name,
-          docType: d.recipient.docType,
-          docNumber: d.recipient.docNumber,
-          taxCondition: d.recipient.taxCondition,
-        },
-      });
+      // Mismo documento ya guardado para este contribuyente: se reutiliza, no se duplica.
+      const existing = d.recipient.docNumber
+        ? await tx.invoiceRecipient.findFirst({
+            where: { taxpayerId: taxpayer.id, docType: d.recipient.docType, docNumber: d.recipient.docNumber },
+          })
+        : null;
+      const saved =
+        existing ??
+        (await tx.invoiceRecipient.create({
+          data: {
+            studyId: taxpayer.studyId,
+            taxpayerId: taxpayer.id,
+            name: d.recipient.name,
+            alias: d.alias,
+            docType: d.recipient.docType,
+            docNumber: d.recipient.docNumber,
+            taxCondition: d.recipient.taxCondition,
+          },
+        }));
       recipientId = saved.id;
     }
 
@@ -274,7 +291,7 @@ export async function duplicateAsDraft(user: CurrentUser, invoiceId: string): Pr
     data: {
       studyId: source.studyId,
       taxpayerId: source.taxpayerId,
-      issueDate: today < source.taxpayer.startDate ? source.taxpayer.startDate : today,
+      issueDate: source.taxpayer.startDate && today < source.taxpayer.startDate ? source.taxpayer.startDate : today,
       recipientId: source.recipientId,
       recipientName: source.recipientName,
       recipientDocType: source.recipientDocType,
@@ -406,6 +423,10 @@ export async function emitInvoice(
   if (invoice.status !== INVOICE_STATUS.BORRADOR) {
     return { ok: false, message: `La factura no está en borrador. ${resultMessage(invoice.status, invoice)}` };
   }
+  // La fecha de inicio de actividad va impresa en la factura: es la etapa en la que hace falta (no se pide en el alta).
+  if (!invoice.taxpayer.startDate) {
+    return { ok: false, message: START_DATE_MISSING_TO_EMIT };
+  }
   const dp = dateProblem(invoice.issueDate, invoice.taxpayer.startDate);
   if (dp) return { ok: false, message: `No se puede emitir: ${dp} Editá el borrador.` };
   if (invoice.items.length === 0 || invoice.amountCents <= 0n) {
@@ -524,6 +545,17 @@ export async function listInvoices(taxpayerId: string, filters: InvoiceFilters, 
   return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
+/** Cómo se muestra un receptor guardado: el alias (si tiene) y entre paréntesis la razón social. */
+export function recipientLabel(r: { name: string; alias: string | null }): string {
+  return r.alias && r.alias !== r.name ? `${r.alias} (${r.name})` : r.name;
+}
+
+/** Receptor ya guardado con ese documento para el contribuyente (para ofrecer reutilizarlo en lugar de duplicarlo). */
+export async function findSavedRecipient(taxpayerId: string, docType: string, docNumber: string) {
+  return prisma.invoiceRecipient.findFirst({ where: { taxpayerId, docType, docNumber } });
+}
+
 export async function listRecipients(taxpayerId: string) {
-  return prisma.invoiceRecipient.findMany({ where: { taxpayerId }, orderBy: { name: "asc" }, take: 200 });
+  const rows = await prisma.invoiceRecipient.findMany({ where: { taxpayerId }, take: 200 });
+  return rows.sort((a, b) => recipientLabel(a).localeCompare(recipientLabel(b), "es"));
 }

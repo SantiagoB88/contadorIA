@@ -82,7 +82,7 @@ model AccessRequest {
   declaredName      String
   declaredActivity  String
   declaredCategory  String?
-  declaredStartDate String // YYYY-MM-DD
+  declaredStartDate String? // YYYY-MM-DD; opcional desde que el alta no la pide
   status            String // PENDIENTE | APROBADO | RECHAZADO
   reviewNote        String?
   reviewedById      String?
@@ -131,7 +131,9 @@ model Taxpayer {
   activity        String
   regime          String            @default("MONOTRIBUTO")
   categoryCode    String? // categoría registrada (la carga el estudio)
-  startDate       String // YYYY-MM-DD
+  // Inicio de actividad (YYYY-MM-DD). Opcional: no se pide en el alta y se completa después (el cliente si falta, o
+  // el estudio). Sin este dato no se inventa una fecha: cada cálculo explica la limitación.
+  startDate       String?
   createdAt       DateTime          @default(now())
   accesses        TaxpayerAccess[]
   invoices        Invoice[]
@@ -277,7 +279,8 @@ model InvoiceRecipient {
   id           String    @id @default(cuid())
   studyId      String
   taxpayerId   String
-  name         String
+  name         String // nombre o razón social del receptor (dato fiscal, va en el comprobante)
+  alias        String? // cómo lo identifica el cliente dentro de ContadorSmart; nunca reemplaza la razón social
   docType      String // CUIT | DNI | SIN_IDENTIFICAR
   docNumber    String?
   taxCondition String

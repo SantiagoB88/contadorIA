@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { DOC_TYPE_LABEL } from "@/lib/constants";
 import { addDaysYmd, todayAR } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
-import { listRecipients, MAX_DAYS_BACK } from "@/modules/billing/service";
+import { listRecipients, MAX_DAYS_BACK, recipientLabel } from "@/modules/billing/service";
 import { InvoiceForm } from "@/components/billing/InvoiceForm";
 import { Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
@@ -26,7 +26,7 @@ export default async function NuevaFacturaPage({ searchParams }: { searchParams:
 
   const recipients = await listRecipients(taxpayer.id);
   const today = todayAR();
-  const minDate = [addDaysYmd(today, -MAX_DAYS_BACK), taxpayer.startDate].sort().at(-1)!;
+  const minDate = [addDaysYmd(today, -MAX_DAYS_BACK), taxpayer.startDate ?? ""].sort().at(-1)!;
 
   return (
     <div className="space-y-6">
@@ -45,7 +45,7 @@ export default async function NuevaFacturaPage({ searchParams }: { searchParams:
           taxpayerId={taxpayer.id}
           recipients={recipients.map((r) => ({
             id: r.id,
-            label: `${r.name}${r.docNumber ? ` · ${DOC_TYPE_LABEL[r.docType] ?? r.docType} ${r.docNumber}` : ""}`,
+            label: `${recipientLabel(r)}${r.docNumber ? ` · ${DOC_TYPE_LABEL[r.docType] ?? r.docType} ${r.docNumber}` : ""}`,
           }))}
           initial={{
             issueDate: today,

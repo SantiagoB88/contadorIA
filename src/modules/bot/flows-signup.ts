@@ -13,7 +13,8 @@ import type { Ctx } from "./core";
 import { monthName, T } from "./copy";
 import { actions, on, textSteps } from "./registry";
 
-// Alta de un cliente nuevo desde el chat: nombre y apellido, correo, CUIT, actividad y fecha de inicio.
+// Alta de un cliente nuevo desde el chat: nombre y apellido, correo, CUIT y actividad. La fecha de inicio de
+// actividad ya no se pide acá: se completa después, cuando hace falta (ver src/modules/taxpayers/start-date.ts).
 // Al confirmar (solo con el botón) se crea la cuenta, queda vinculado este número y se pide el acceso al CUIT,
 // que el estudio aprueba o rechaza en Accesos. Nunca se pide la clave fiscal ni una contraseña: se da una contraseña
 // temporal para entrar a la web, que vence y hay que cambiar al primer ingreso.
@@ -24,7 +25,8 @@ const inSignup = (ctx: Ctx) => ctx.conv.flow === "alta";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const firstName = (name: string) => name.trim().split(/\s+/)[0];
 
-/** Pasos que esperan texto durante el alta (la persona todavía no está vinculada). */
+/** Pasos que esperan texto durante el alta (la persona todavía no está vinculada). "g.desde" queda para las altas
+ * que empezaron antes del cambio y estaban en ese paso. */
 export const SIGNUP_STEPS = new Set(["g.nombre", "g.correo", "g.cuit", "g.actividad", "g.desde"]);
 
 on("g.registro", async (ctx) => {
@@ -32,7 +34,7 @@ on("g.registro", async (ctx) => {
   ctx.conv.flow = "alta";
   ctx.conv.data = { lastPrompt: "g.registro" } satisfies Signup;
   ctx.buttons(
-    "Te creo la cuenta acá mismo. Te voy a pedir:\n• nombre y apellido\n• correo electrónico\n• CUIT\n• a qué te dedicás\n• desde cuándo facturás\n\nNunca te voy a pedir tu clave fiscal ni una contraseña.",
+    "Te creo la cuenta acá mismo. Te voy a pedir:\n• nombre y apellido\n• correo electrónico\n• CUIT\n• a qué te dedicás\n\nNunca te voy a pedir tu clave fiscal ni una contraseña.",
     [
       { title: "Empezar", a: "g.alta" },
       { title: "Prefiero la web", a: "g.web" },
@@ -67,7 +69,6 @@ const askName = (ctx: Ctx) => ask(ctx, "g.nombre", "¿Cuál es tu nombre y apell
 const askEmail = (ctx: Ctx) => ask(ctx, "g.correo", "¿Cuál es tu correo electrónico? Lo usás para entrar a la web.");
 const askCuit = (ctx: Ctx) => ask(ctx, "g.cuit", "¿Cuál es tu CUIT? (11 números, con o sin guiones)");
 const askActivity = (ctx: Ctx) => ask(ctx, "g.actividad", "¿A qué te dedicás? Por ejemplo: diseño gráfico, clases particulares, venta de ropa.");
-const askStart = (ctx: Ctx) => ask(ctx, "g.desde", "¿Desde qué mes y año facturás como monotributista? Escribilo como mes/año, por ejemplo 03/2022.");
 
 on("g.alta", async (ctx) => {
   if (!inSignup(ctx)) return actions["g.registro"](ctx);
@@ -126,31 +127,28 @@ textSteps["g.actividad"] = async (ctx, text) => {
     return;
   }
   data(ctx).activity = activity;
-  return next(ctx, askStart);
+  return next(ctx, showSummary);
 };
 
+// Compatibilidad: una alta empezada antes del cambio que quedó esperando "desde cuándo facturás". Si la persona
+// igual la escribe (mes/año), se conserva como antes; si escribe otra cosa, no se la traba: sigue al resumen.
 textSteps["g.desde"] = async (ctx, text) => {
   const m = text.trim().match(/^(\d{1,2})\s*[/.-]\s*(\d{4})$/);
   const month = m ? Number(m[1]) : 0;
   const year = m ? Number(m[2]) : 0;
   const ym = m ? `${year}-${String(month).padStart(2, "0")}` : "";
-  if (!m || month < 1 || month > 12 || year < 1990 || ym > todayAR().slice(0, 7)) {
-    ctx.say("No pude interpretar la fecha. Escribí mes/año, por ejemplo 03/2022 (no puede ser futura).");
-    ctx.expect("g.desde");
-    return;
-  }
-  data(ctx).start = `${ym}-01`;
+  if (m && month >= 1 && month <= 12 && year >= 1990 && ym <= todayAR().slice(0, 7)) data(ctx).start = `${ym}-01`;
+  else ctx.say("Ya no hace falta la fecha de inicio para crear la cuenta: la podés cargar después. Sigamos.");
   return next(ctx, showSummary);
 };
 
 async function showSummary(ctx: Ctx) {
   const d = data(ctx);
-  if (!inSignup(ctx) || !d.name || !d.email || !d.cuit || !d.activity || !d.start) return showWelcome(ctx);
+  if (!inSignup(ctx) || !d.name || !d.email || !d.cuit || !d.activity) return showWelcome(ctx);
   d.lastPrompt = "g.resumen";
+  const since = d.start ? `\n• Facturás desde: ${monthName(d.start.slice(0, 7))}` : "";
   ctx.say(
-    `Revisá tus datos:\n• Nombre: ${d.name}\n• Correo: ${d.email}\n• CUIT: ${formatCuit(d.cuit)}\n• Actividad: ${d.activity}\n• Facturás desde: ${monthName(
-      d.start.slice(0, 7),
-    )}\n\nAl confirmar creamos tu cuenta y vinculamos este WhatsApp.`,
+    `Revisá tus datos:\n• Nombre: ${d.name}\n• Correo: ${d.email}\n• CUIT: ${formatCuit(d.cuit)}\n• Actividad: ${d.activity}${since}\n\nAl confirmar creamos tu cuenta y vinculamos este WhatsApp.`,
   );
   ctx.buttons("¿Creamos la cuenta?", [
     { title: "Crear mi cuenta", a: "g.crear" },
@@ -167,7 +165,6 @@ on("g.corregir", async (ctx) => {
     { title: "Correo", a: "g.fix", v: "correo" },
     { title: "CUIT", a: "g.fix", v: "cuit" },
     { title: "Actividad", a: "g.fix", v: "actividad" },
-    { title: "Fecha de inicio", a: "g.fix", v: "inicio" },
     { title: "Volver al resumen", a: "g.resumen" },
   ]);
 });
@@ -178,13 +175,14 @@ on("g.fix", async (ctx, v) => {
   if (v === "correo") return askEmail(ctx);
   if (v === "cuit") return askCuit(ctx);
   if (v === "actividad") return askActivity(ctx);
-  return askStart(ctx);
+  data(ctx).editing = false;
+  return showSummary(ctx);
 });
 
 /** Confirmación: crea la cuenta, vincula el número y pide el acceso al CUIT. */
 on("g.crear", async (ctx) => {
   const d = data(ctx);
-  if (!inSignup(ctx) || !d.name || !d.email || !d.cuit || !d.activity || !d.start) return showWelcome(ctx);
+  if (!inSignup(ctx) || !d.name || !d.email || !d.cuit || !d.activity) return showWelcome(ctx);
   const created = await registerFromChannel({ name: d.name, email: d.email, phone: formatPhone(ctx.address) }, ctx.origin);
   if (!created.ok) {
     if (created.reason === "EMAIL_EN_USO") {
@@ -225,15 +223,22 @@ on("g.crear", async (ctx) => {
       `• Contraseña temporal: ${created.tempPassword}`,
       `Vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.`,
       "",
-      `Te mandamos un correo para confirmar tu dirección.${APP_MODE === "DEMO" ? ` (Demo: los correos se ven en ${ctx.origin}/dev/correos)` : ""}`,
+      `Te mandamos un correo para confirmar tu dirección.${APP_MODE === "DEMO" ? ` (Demo: los correos no salen; se ven en ${ctx.origin}/dev/correos)` : ""}`,
+      "",
+      "Próximo paso: entrá a la web con esos datos y elegí tu contraseña. Lo que te falte configurar lo ves en Mi perfil → Tu configuración, o acá en Mi cuenta → Mi configuración.",
     ].join("\n"),
   );
   if (association.ok && association.approved) {
-    ctx.buttons("¿Seguimos?", [{ title: T.menuButton, a: "menu" }]);
+    ctx.buttons("¿Seguimos?", [
+      { title: T.menuButton, a: "menu" },
+      { title: "Mi configuración", a: "c.config" },
+      { title: "Necesito ayuda", a: "c.ayuda" },
+    ]);
   } else {
     ctx.buttons("Mientras tanto podés:", [
       { title: T.pendingStatus, a: "p.estado" },
       { title: T.pendingAsk, a: "p.consultar" },
+      { title: "Necesito ayuda", a: "c.ayuda" },
     ]);
   }
 });

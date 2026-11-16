@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { DOC_TYPE_LABEL, INVOICE_SOURCE, INVOICE_STATUS } from "@/lib/constants";
 import { addDaysYmd, todayAR } from "@/lib/dates";
 import { formatQuantity } from "@/lib/money";
-import { getAuthorizedInvoice, listRecipients, MAX_DAYS_BACK } from "@/modules/billing/service";
+import { getAuthorizedInvoice, listRecipients, MAX_DAYS_BACK, recipientLabel } from "@/modules/billing/service";
 import { InvoiceForm } from "@/components/billing/InvoiceForm";
 import { Card, PageHeader } from "@/components/ui";
 
@@ -26,7 +26,7 @@ export default async function EditarFacturaPage({ params }: { params: Promise<{ 
 
   const recipients = await listRecipients(invoice.taxpayerId);
   const today = todayAR();
-  const minDate = [addDaysYmd(today, -MAX_DAYS_BACK), invoice.taxpayer.startDate].sort().at(-1)!;
+  const minDate = [addDaysYmd(today, -MAX_DAYS_BACK), invoice.taxpayer.startDate ?? ""].sort().at(-1)!;
   const savedRecipient = invoice.recipientId && recipients.some((r) => r.id === invoice.recipientId);
 
   return (
@@ -43,7 +43,7 @@ export default async function EditarFacturaPage({ params }: { params: Promise<{ 
           invoiceId={invoice.id}
           recipients={recipients.map((r) => ({
             id: r.id,
-            label: `${r.name}${r.docNumber ? ` · ${DOC_TYPE_LABEL[r.docType] ?? r.docType} ${r.docNumber}` : ""}`,
+            label: `${recipientLabel(r)}${r.docNumber ? ` · ${DOC_TYPE_LABEL[r.docType] ?? r.docType} ${r.docNumber}` : ""}`,
           }))}
           initial={{
             issueDate: invoice.issueDate,

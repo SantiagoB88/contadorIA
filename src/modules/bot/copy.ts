@@ -18,7 +18,7 @@ export const T = {
   guestRegister: "Quiero registrarme",
   guestAbout: "Conocer el servicio",
   about:
-    "Con este asistente, una vez que tu cuenta está vinculada, podés:\n• Ver tu facturación y tu margen de categoría (orientativo).\n• Consultar deudas y vencimientos que cargó el estudio.\n• Preparar facturas en modo demo (sin validez fiscal).\n• Mandar y seguir solicitudes al estudio, con archivos.\n\nLa información la carga y revisa el estudio. No hay conexión con ARCA.",
+    "Con este asistente, una vez que tu cuenta está vinculada, podés:\n• Ver tu facturación y cuánto podés facturar hasta el límite de tu categoría (orientativo).\n• Consultar deudas y vencimientos que cargó el estudio.\n• Preparar facturas en modo demo (sin validez fiscal).\n• Mandar y seguir solicitudes al estudio, con archivos.\n\nLa información la carga y revisa el estudio. No hay conexión con ARCA.",
   registerSteps: (origin: string, inviteUrl: string) =>
     `Para darte de alta no te pedimos datos por acá: se hace en la web, de forma segura.\n\n1. Creá tu cuenta: ${origin}/registro\n2. Confirmá tu correo y, en Mi perfil, cargá tu CUIT. El estudio revisa la solicitud.\n3. Con la sesión iniciada, abrí este enlace para vincular este WhatsApp (vence en 24 horas):\n${inviteUrl}\n\nNunca te vamos a pedir tu clave fiscal ni tu contraseña por WhatsApp.`,
   haveAccountSteps: (inviteUrl: string) =>

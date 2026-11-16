@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, type Tone } from "@/components/ui";
+import { LIMIT_TITLE, limitDetail, limitHeadline } from "@/modules/dashboard/limit-text";
 import { formatARS } from "@/lib/money";
 import { formatDateAR } from "@/lib/dates";
 import type { AlertLevel, MarginInfo, MonthBar, PeriodMetric } from "@/modules/dashboard/metrics";
@@ -63,7 +64,7 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
     return (
       <Card>
         <div className="flex items-start justify-between gap-2">
-          <h2 className="font-semibold text-navy">Margen de categoría</h2>
+          <h2 className="font-semibold text-navy">{LIMIT_TITLE}</h2>
           <Badge tone="warning">No disponible</Badge>
         </div>
         <p className="mt-1 text-sm text-slate-600">
@@ -83,9 +84,9 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="font-semibold text-navy">Margen de categoría</h2>
+          <h2 className="font-semibold text-navy">{LIMIT_TITLE}</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Categoría registrada <strong>{margin.categoryCode}</strong> · {formatDateAR(margin.referenceFrom)} al{" "}
+            Categoría registrada <strong>{margin.categoryCode}</strong> · últimos 12 meses: {formatDateAR(margin.referenceFrom)} al{" "}
             {formatDateAR(margin.referenceTo)}
           </p>
         </div>
@@ -93,10 +94,13 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
       </div>
 
       <div className="mt-5">
-        <p className="text-sm text-slate-600">{exceeded ? "Exceso sobre el límite" : "Margen disponible"}</p>
+        <p className="text-sm text-slate-600">
+          {exceeded ? "Superaste el límite por" : margin.marginCents === 0n ? "Llegaste justo al límite" : "Podés facturar todavía"}
+        </p>
         <p className={`tabular text-3xl font-semibold tracking-tight ${exceeded ? "text-red-700" : "text-navy"}`}>
           {formatARS(exceeded ? -margin.marginCents : margin.marginCents)}
         </p>
+        <p className="mt-1 text-sm text-slate-700">{limitHeadline(margin)}</p>
       </div>
 
       <div className="mt-4">
@@ -133,6 +137,7 @@ export function MarginCard({ margin, detailHref }: { margin: MarginInfo; detailH
         </div>
       </dl>
 
+      <p className="mt-4 text-sm text-slate-600">{limitDetail(margin)}</p>
       {margin.note && <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900">{margin.note}</p>}
       <p className="mt-4 text-xs text-slate-500">
         Es una referencia por ingresos. No reemplaza la recategorización oficial, que considera otros parámetros.

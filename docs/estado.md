@@ -1,4 +1,77 @@
-# Estado · 05/11/2026 (entrega 5 + revisión visual y pruebas)
+# Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
+
+## Mejoras del primer testing con usuarios ✅ (rama `feat/whatsapp-bot`, sin publicar)
+
+Pedido: feedback de transcripciones de WhatsApp (Rodrigo y tester). Detalle de cada punto, decisiones y pendientes abajo.
+
+- **1. Alta sin "¿Desde cuándo facturás?"**
+  - El bot ya no la pregunta.
+  - La asociación web la deja opcional.
+  - `Taxpayer.startDate` y `AccessRequest.declaredStartDate` ahora aceptan vacío (esquema `mejoras-testing-1`). Los datos existentes se conservan.
+  - Sin la fecha no se inventa ninguna:
+    - la cobertura exige el período completo;
+    - el cálculo del límite avisa que es orientativo;
+    - la categoría orientativa no se sugiere;
+    - el PDF dice "sin informar".
+  - Se pide donde hace falta, al **emitir**, porque va impresa en la factura:
+    - la web explica el bloqueo;
+    - el bot la pide ahí mismo y vuelve al resumen para confirmar de nuevo.
+  - Se carga desde el panel: el cliente si falta, el estudio en la ficha del contribuyente. Queda en la auditoría (`src/modules/taxpayers/start-date.ts`).
+  - Una alta empezada antes del cambio que quedó en ese paso sigue sin trabarse: si la persona escribe la fecha, se conserva.
+- **2. Receptores**
+  - Orden nuevo en el bot: CUIT → validación → datos fiscales → "¿Cómo lo guardamos?" (con la razón social, con otro nombre o solo esta vez) → confirmación.
+  - Para consumidor final hay un camino "Sin CUIT" (DNI o sin identificar).
+  - **Alias** separado de la razón social (`InvoiceRecipient.alias`): en la lista se ve "Alias (Razón social)" y en la factura va la razón social.
+  - Mismo CUIT o DNI ya guardado: se ofrece reutilizarlo; en la web se reutiliza solo.
+  - Web: primero el documento, después razón social y condición, y al final el nombre para guardarlo.
+  - Consulta de razón social: conector `src/providers/padron.ts`. **No hay integración con ARCA**: responde "no disponible" y se pide a mano, aclarando que validar el formato no confirma la inscripción. Probado con dobles (encontrado y falla).
+- **3. Acceso web y configuración**
+  - "Tu configuración" en Mi perfil y "Mi configuración" en el bot, con el mismo estado real y el **próximo paso**:
+    - contraseña propia;
+    - correo;
+    - WhatsApp;
+    - acceso al CUIT;
+    - fecha de inicio;
+    - ARCA "todavía no disponible".
+  - "Necesito ayuda / Solicitar una llamada" (Mi cuenta, alta pendiente y final del alta en el bot; Mi perfil en la web):
+    - usa las solicitudes con el tema nuevo `AYUDA`;
+    - una sola abierta por persona, aunque haya doble clic simultáneo;
+    - el estudio la ve en la Bandeja;
+    - no promete horario ni guarda contraseñas.
+  - El final del alta por chat indica el próximo paso.
+  - Se corrigió un texto que ya no era cierto ("el estudio verifica que el CUIT sea tuyo antes de mostrarte información").
+  - Detalle y decisiones pendientes de la etapa fiscal: `docs/arca-integracion.md`.
+- **4. Mi resumen**: se quitó "Consultar al estudio" de ese recorrido. Sigue en el menú principal ("Hablar con el estudio").
+- **5. "Margen"**: reemplazado en el bot y en la web por un texto común (`src/modules/dashboard/limit-text.ts`):
+  - por debajo: "Podés facturar $X más antes de alcanzar el límite de tu categoría C";
+  - en el límite: "Llegaste justo al límite";
+  - por encima: "Superaste el límite por $X", nunca un importe negativo;
+  - indica el período (últimos 12 meses), el límite de la categoría y el máximo del régimen.
+
+  Fórmula y reglas sin cambios.
+- **6. Facturación recurrente**: propuesta con diseño y preguntas en `docs/propuesta-facturacion-recurrente.md`. No implementada: no hay programador de tareas.
+- **7. Ingresos Brutos**: no hay soporte en el código; alcance y definiciones en `docs/propuesta-ingresos-brutos.md`.
+- **Pruebas ejecutadas**:
+  - `npm run verify` 128/128. Nuevas M1–M10:
+    - alta vieja que sigue;
+    - asociación sin fecha;
+    - cálculos sin fecha;
+    - carga y corrección de la fecha;
+    - emisión que la pide;
+    - receptor con alias y sin duplicados;
+    - padrón con dobles;
+    - Mi resumen;
+    - texto del límite debajo, en el límite y encima;
+    - configuración y ayuda sin duplicados.
+  - Navegador, versión compilada en la compu: 27/27 más 1 omitida, la de reinicios de Vercel, que necesita el simulador de copias y no se volvió a correr. Nuevas:
+    - fecha de inicio en el panel;
+    - configuración;
+    - pedido de ayuda visible para el estudio;
+    - receptor en la web con alias y sin duplicar.
+- **Hallazgo**: `src/app/(app)/loading.tsx` es un archivo local sin commitear, no es de esta entrega. Con él, la navegación del tablero a Movimientos no terminaba en la versión compilada (falló "cada total del tablero coincide con sus movimientos"). Sin él, pasa. Se dejó el archivo como estaba y no se incluyó.
+- **Pendiente con validación externa**: WhatsApp real, correo real, ARCA (padrón y emisión).
+
+
 
 ## Entrega 1 — Login y primer tablero ✅
 
