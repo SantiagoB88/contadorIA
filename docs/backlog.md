@@ -34,7 +34,8 @@
 - [ ] Integración con ARCA: padrón (ws_sr_constancia_inscripcion) y emisión (WSFEv1) con certificado del estudio y delegación (docs/arca-integracion.md)
 - [ ] Solicitudes por WhatsApp: dos eventos idénticos exactamente a la vez pueden dar un error de clave duplicada en lugar de devolver la misma solicitud (el pedido de ayuda ya lo maneja)
 - [ ] Revisar `src/app/(app)/loading.tsx` (archivo local sin commitear): con él, la navegación a Movimientos no terminaba en la versión compilada
-- [ ] Demo de Vercel: solicitudes, facturas y documentos cargados después del alta siguen viviendo en una copia del servidor; para que sean compartidos hace falta una base compartida
+- [x] Demo de Vercel: solicitudes, facturas, documentos (datos) y demás creados en la demo viajan en el navegador y se ven en todas las copias
+- [ ] Demo de Vercel: los archivos de documentos quedan en la copia que los recibió (la descarga desde otra copia pide reintentar); para compartirlos hace falta almacenamiento compartido
 - [ ] WhatsApp real en un link público: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
 - [ ] WhatsApp real en Railway (prueba temporal, base propia de Railway): código listo (railway.json, scripts/railway-start.mjs, docs/railway-bot.md); falta crear el servicio y probar con Meta
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)

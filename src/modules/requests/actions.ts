@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth";
@@ -18,7 +20,7 @@ function refresh(requestId?: string) {
   if (requestId) revalidatePath(`/solicitudes/${requestId}`);
 }
 
-export async function createRequestAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function createRequestActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const values = { taxpayerId: str(formData, "taxpayerId"), topic: str(formData, "topic"), subject: str(formData, "subject"), body: str(formData, "body") };
   const result = await createRequest(user, values, await readUploads(formData), await getOrigin());
@@ -27,7 +29,7 @@ export async function createRequestAction(_prev: FormState, formData: FormData):
   redirect(`/solicitudes/${result.requestId}?enviada=1`);
 }
 
-export async function replyAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function replyActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const requestId = str(formData, "requestId");
   const values = { body: str(formData, "body"), visibility: str(formData, "visibility") || "PUBLICA", newStatus: str(formData, "newStatus") };
@@ -43,7 +45,7 @@ export async function replyAction(_prev: FormState, formData: FormData): Promise
   return { ok: true, message: result.message };
 }
 
-export async function updateRequestAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function updateRequestActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const requestId = str(formData, "requestId");
   const values = { status: str(formData, "status"), priority: str(formData, "priority"), assignedToId: str(formData, "assignedToId") };
@@ -53,7 +55,7 @@ export async function updateRequestAction(_prev: FormState, formData: FormData):
   return { ok: true, message: result.message };
 }
 
-export async function informPaymentAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function informPaymentActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const values = { note: str(formData, "note") };
   const result = await informPayment(user, str(formData, "obligationId"), values.note, await readUploads(formData), await getOrigin());
@@ -61,3 +63,9 @@ export async function informPaymentAction(_prev: FormState, formData: FormData):
   refresh();
   redirect(`/solicitudes/${result.requestId}?pago=1`);
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const createRequestAction = demoAction(createRequestActionAccion);
+export const replyAction = demoAction(replyActionAccion);
+export const updateRequestAction = demoAction(updateRequestActionAccion);
+export const informPaymentAction = demoAction(informPaymentActionAccion);

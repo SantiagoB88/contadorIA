@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getOrigin } from "@/lib/origin";
@@ -24,7 +26,7 @@ const registerSchema = z.object({
     .regex(/^\+?[\d\s()-]{8,20}$/, "Ingresá un teléfono válido, por ejemplo +54 11 5555-5555."),
 });
 
-export async function registerAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+async function registerActionAccion(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const raw = {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -59,7 +61,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   };
 }
 
-export async function verifyEmailAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+async function verifyEmailActionAccion(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   await restoreDemoAccounts(); // demo de Vercel: el enlace puede ser de otra copia del servidor
   const ok = await verifyEmail(String(formData.get("token") ?? ""));
   if (ok) await refreshDemoAccounts();
@@ -68,7 +70,7 @@ export async function verifyEmailAction(_prev: AuthFormState, formData: FormData
     : { ok: false, message: "El enlace no es válido, ya se usó o venció. Ingresá con tu correo y contraseña para recibir uno nuevo." };
 }
 
-export async function requestResetAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+async function requestResetActionAccion(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!z.string().email().safeParse(email).success) {
     return { ok: false, message: "Ingresá un correo válido.", values: { email } };
@@ -87,7 +89,7 @@ export async function requestResetAction(_prev: AuthFormState, formData: FormDat
   };
 }
 
-export async function resetPasswordAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+async function resetPasswordActionAccion(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
@@ -105,3 +107,9 @@ export async function resetPasswordAction(_prev: AuthFormState, formData: FormDa
   // El enlace ya se usó: se sigue en Ingresar, con el aviso (si se quedara acá, la pantalla diría "enlace no válido").
   redirect("/login?aviso=clave-cambiada");
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const registerAction = demoAction(registerActionAccion);
+export const verifyEmailAction = demoAction(verifyEmailActionAccion);
+export const requestResetAction = demoAction(requestResetActionAccion);
+export const resetPasswordAction = demoAction(resetPasswordActionAccion);

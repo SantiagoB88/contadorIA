@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
@@ -40,7 +42,7 @@ function readScale(formData: FormData): { input: ScaleInput; values: Record<stri
   return { input, values };
 }
 
-export async function createScaleAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function createScaleActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const { input, values } = readScale(formData);
   const result = await createScaleVersion(admin, input);
@@ -49,7 +51,7 @@ export async function createScaleAction(_prev: FormState, formData: FormData): P
   redirect(`/admin/escalas/${result.scaleId}?creada=1`);
 }
 
-export async function updateScaleAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function updateScaleActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const { input, values } = readScale(formData);
   const result = await updateScaleVersion(admin, str(formData, "scaleId"), input, str(formData, "reason"));
@@ -58,7 +60,7 @@ export async function updateScaleAction(_prev: FormState, formData: FormData): P
   return { ok: true, message: result.message };
 }
 
-export async function setCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function setCategoryActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const values = { categoryCode: str(formData, "categoryCode"), validFrom: str(formData, "validFrom"), reason: str(formData, "reason") };
   const result = await setCategory(admin, str(formData, "taxpayerId"), values.categoryCode, values.validFrom, values.reason);
@@ -67,7 +69,7 @@ export async function setCategoryAction(_prev: FormState, formData: FormData): P
   return { ok: true, message: result.message };
 }
 
-export async function createObligationAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function createObligationActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const values = {
     concept: str(formData, "concept"),
@@ -81,7 +83,7 @@ export async function createObligationAction(_prev: FormState, formData: FormDat
   return { ok: true, message: result.message };
 }
 
-export async function updateObligationStatusAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function updateObligationStatusActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const values = { status: str(formData, "status"), note: str(formData, "note") };
   const result = await updateObligationStatus(admin, str(formData, "obligationId"), values.status, values.note);
@@ -90,7 +92,7 @@ export async function updateObligationStatusAction(_prev: FormState, formData: F
   return { ok: true, message: result.message };
 }
 
-export async function debtReviewAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function debtReviewActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const values = { asOfDate: str(formData, "asOfDate"), reviewStatus: str(formData, "reviewStatus"), reviewNote: str(formData, "reviewNote") };
   const result = await recordDebtReview(admin, str(formData, "taxpayerId"), values.asOfDate, values.reviewStatus, values.reviewNote);
@@ -98,3 +100,11 @@ export async function debtReviewAction(_prev: FormState, formData: FormData): Pr
   refreshAll();
   return { ok: true, message: result.message };
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const createScaleAction = demoAction(createScaleActionAccion);
+export const updateScaleAction = demoAction(updateScaleActionAccion);
+export const setCategoryAction = demoAction(setCategoryActionAccion);
+export const createObligationAction = demoAction(createObligationActionAccion);
+export const updateObligationStatusAction = demoAction(updateObligationStatusActionAccion);
+export const debtReviewAction = demoAction(debtReviewActionAccion);

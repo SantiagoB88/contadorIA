@@ -43,7 +43,8 @@ test("asociación por CUIT nuevo: acceso inmediato, aviso al estudio, revocació
   await register(page, email, "Prueba1234!", `Usuario ${id}`);
 
   // CUIT que el estudio no tiene: el cliente lo ve al instante, sin esperar la aprobación.
-  await login(page, email, "Prueba1234!");
+  // Cambia de cuenta sin borrar cookies, como una persona (en la demo de Vercel los datos viajan en ellas).
+  await switchTo(page, email, "Prueba1234!");
   await page.goto("/perfil");
   await page.locator("#as-cuit").fill(cuit);
   await page.locator("#as-name").fill(name);
@@ -57,24 +58,24 @@ test("asociación por CUIT nuevo: acceso inmediato, aviso al estudio, revocació
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
 
   // El estudio ve el alta en "Clientes nuevos".
-  await login(page, USERS.admin);
+  await switchTo(page, USERS.admin, "Demo1234!");
   await page.goto("/admin/accesos");
   await expect(page.getByRole("heading", { name: /Clientes nuevos/ })).toBeVisible();
   await expect(page.getByText(new RegExp(`${name} · CUIT`)).first()).toBeVisible();
 
   // El estudio revoca el acceso: el cliente deja de verlo.
-  await login(page, USERS.admin);
+  await switchTo(page, USERS.admin, "Demo1234!");
   await page.goto("/admin/accesos");
   const access = page.locator("li", { hasText: email }).filter({ has: page.getByRole("button", { name: "Revocar" }) });
   await access.getByRole("textbox").fill("Prueba de revocación E2E");
   await access.getByRole("button", { name: "Revocar" }).click();
   await expect(page.getByText(/Acceso revocado/)).toBeVisible();
   await expect(page.locator("li", { hasText: email }).filter({ has: page.getByRole("button", { name: "Revocar" }) })).toHaveCount(0);
-  await login(page, email, "Prueba1234!");
+  await switchTo(page, email, "Prueba1234!");
   await expect(page.getByText(name)).toHaveCount(0);
 
   // El estudio suspende al usuario: ya no puede ingresar.
-  await login(page, USERS.admin);
+  await switchTo(page, USERS.admin, "Demo1234!");
   await page.goto("/admin/accesos");
   await page.locator("li", { hasText: email }).getByRole("button", { name: "Suspender" }).click();
   await expect(page.locator("li", { hasText: email }).getByRole("button", { name: "Reactivar" })).toBeVisible();
@@ -134,6 +135,12 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
 });
 
 /** Cambia de cuenta como una persona, sin borrar cookies (en la demo de Vercel las cuentas nuevas viajan en ellas). */
+/** signInAs y espera el panel. */
+async function switchTo(page: Page, email: string, password: string) {
+  await signInAs(page, email, password);
+  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+}
+
 async function signInAs(page: Page, email: string, password: string) {
   await page.goto("/login");
   const other = page.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ });
@@ -292,7 +299,7 @@ test("cliente nuevo sin fecha de inicio: la carga en su panel, ve su configuraci
   await page.getByRole("button", { name: "Solicitar una llamada" }).click();
   await expect(page.getByText(/Recibimos tu pedido de ayuda/)).toBeVisible();
   await page.goto("/perfil");
-  await expect(page.getByText(/Ya pediste ayuda el/)).toBeVisible();
+  await expect(page.getByText(/Recibimos tu pedido de ayuda \(S-/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Solicitar una llamada" })).toHaveCount(0);
 
   await signInAs(page, USERS.admin, "Demo1234!");

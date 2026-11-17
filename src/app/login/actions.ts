@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -17,7 +19,7 @@ const schema = z.object({
   password: z.string().min(1).max(200),
 });
 
-export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
+async function loginActionAccion(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const rawEmail = String(formData.get("email") ?? "");
   const parsed = schema.safeParse({ email: rawEmail, password: formData.get("password") ?? "" });
   if (!parsed.success) {
@@ -74,3 +76,6 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 function safeNext(next: string): string {
   return /^\/(?!\/)[\w\-./?=&%]*$/.test(next) && !next.startsWith("/login") ? next : "/dashboard";
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const loginAction = demoAction(loginActionAccion);

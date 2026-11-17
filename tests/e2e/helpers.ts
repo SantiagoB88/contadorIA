@@ -11,7 +11,9 @@ export const USERS = {
 } as const;
 
 export async function login(page: Page, email: string, password = PASSWORD) {
-  await page.context().clearCookies();
+  // Solo se cierra la sesión: el resto de las cookies queda, como en el navegador de una persona (en la demo de
+  // Vercel ahí viajan las cuentas y los datos creados durante la demo).
+  await page.context().clearCookies({ name: "cs_session" });
   await page.goto("/login");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill(password);

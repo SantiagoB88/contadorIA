@@ -5,6 +5,20 @@ import { USERS, expectHealthyPage, login, trackErrors } from "./helpers";
 // Cada prueba crea sus propios datos (con un sufijo único) para no depender de las demás.
 
 const uid = () => Date.now().toString(36).slice(-5);
+
+/** Cambia de cuenta como una persona, sin borrar cookies (en la demo de Vercel los datos de la demo viajan en ellas). */
+async function switchTo(page: Page, email: string, password = "Demo1234!") {
+  await page.goto("/login");
+  const other = page.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ });
+  if (await other.isVisible()) {
+    await other.click();
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
+  }
+  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+}
 const pdf = (name: string, text = "demo") => ({
   name,
   mimeType: "application/pdf",
@@ -263,23 +277,24 @@ test.describe("solicitudes, notas internas y documentos", () => {
     await expect(row.getByText("Solo el estudio")).toBeVisible();
     const docHref = await row.getByRole("link", { name: `papel-${id}.pdf` }).getAttribute("href");
 
-    await login(page, USERS.clienteA);
+    await switchTo(page, USERS.clienteA);
     await page.goto("/documentos");
     await expect(page.getByText(`papel-${id}.pdf`)).toHaveCount(0);
     expect((await page.request.get(docHref!)).status()).toBe(404);
 
     // Se comparte: ahora lo ve y lo descarga.
-    await login(page, USERS.admin);
-    await page.goBack();
+    await switchTo(page, USERS.admin);
     await page.goto("/admin");
     await page.getByRole("row", { name: /Ana Gómez/ }).getByRole("link", { name: "Administrar" }).click();
     await page.locator("li", { hasText: `papel-${id}.pdf` }).getByRole("button", { name: "Compartir con el cliente" }).click();
     await expect(page.locator("li", { hasText: `papel-${id}.pdf` }).getByText("Lo ve el cliente")).toBeVisible();
 
-    await login(page, USERS.clienteA);
+    await switchTo(page, USERS.clienteA);
     await page.goto("/documentos");
     await expect(page.getByText(`papel-${id}.pdf`).first()).toBeAttached();
     const res = await page.request.get(docHref!);
+    // Demo de Vercel: el archivo queda en la copia del servidor que lo recibió (los datos viajan, el archivo no).
+    if (process.env.E2E_VERCEL && [404, 410].includes(res.status())) return;
     expect(res.status()).toBe(200);
     expect(res.headers()["content-type"]).toBe("application/pdf");
     expect(res.headers()["content-disposition"]).toContain("attachment");

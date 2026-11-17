@@ -55,6 +55,7 @@ type Snapshot = {
   links: { address: string; method: string; linkedAt: string }[];
   tokens?: { id: string; type: string; tokenHash: string; expiresAt: string }[];
   emails?: { id: string; to: string; subject: string; body: string; createdAt: string }[];
+  savedAt?: string; // cuándo se tomó la copia (para saber qué enlaces ya se usaron)
 };
 
 const keyFor = (secret: string) => createHash("sha256").update(`${secret}:cuentas-demo`).digest();
@@ -142,6 +143,7 @@ async function snapshot(userId: string): Promise<Snapshot | null> {
     links: links.map((l) => ({ address: l.address, method: l.method, linkedAt: l.linkedAt.toISOString() })),
     tokens: tokens.map((t) => ({ id: t.id, type: t.type, tokenHash: t.tokenHash, expiresAt: t.expiresAt.toISOString() })),
     emails: emails.map((e) => ({ id: e.id, to: e.to, subject: e.subject, body: e.body, createdAt: e.createdAt.toISOString() })),
+    savedAt: new Date().toISOString(),
   };
 }
 
@@ -194,6 +196,12 @@ export async function restoreDemoAccounts(): Promise<void> {
   for (const s of list) await restore(s).catch((err) => console.error("[demo] No se pudo reconstruir una cuenta:", err instanceof Error ? err.message : err));
 }
 
+// Dos pedidos pueden reconstruir la misma cuenta a la vez en la misma copia: si el otro ya creó la fila, el choque
+// de clave única se ignora y se sigue con el resto (contraseña, accesos, enlaces).
+const ignoreDuplicate = (err: unknown) => {
+  if ((err as { code?: string }).code !== "P2002") throw err;
+};
+
 async function restore(s: Snapshot) {
   const u = s.user;
   // Si esta copia tiene otros identificadores (por ejemplo, se restableció), se usa el estudio que acepta altas y los
@@ -229,12 +237,14 @@ async function restore(s: Snapshot) {
     // está en la base de ejemplo y se actualiza arriba.
     if (u.role !== "CLIENTE") return;
     if (await prisma.user.findUnique({ where: { email: u.email } })) return; // otra cuenta con ese correo en esta copia
-    await prisma.user.create({ data: { id: u.id, studyId, email: u.email, role: "CLIENTE", createdAt: new Date(u.createdAt), updatedAt, ...fields } });
+    await prisma.user
+      .create({ data: { id: u.id, studyId, email: u.email, role: "CLIENTE", createdAt: new Date(u.createdAt), updatedAt, ...fields } })
+      .catch(ignoreDuplicate);
   }
   for (const t of s.taxpayers) {
     if (await prisma.taxpayer.findUnique({ where: { id: t.id } })) continue;
     if (await prisma.taxpayer.findUnique({ where: { studyId_cuit: { studyId, cuit: t.cuit } } })) continue;
-    await prisma.taxpayer.create({ data: { ...t, studyId } });
+    await prisma.taxpayer.create({ data: { ...t, studyId } }).catch(ignoreDuplicate);
   }
   for (const a of s.accesses) {
     const tpId = await taxpayerId(a.taxpayerId);
@@ -246,7 +256,7 @@ async function restore(s: Snapshot) {
       where: { userId_taxpayerId: { userId: u.id, taxpayerId: tpId } },
       update: { status: a.status, updatedAt: changedAt },
       create: { userId: u.id, taxpayerId: tpId, status: a.status, updatedAt: changedAt },
-    });
+    }).catch(ignoreDuplicate);
   }
   for (const r of s.requests) {
     const found = await prisma.accessRequest.findUnique({ where: { id: r.id }, select: { status: true, reviewedAt: true, createdAt: true } });
@@ -273,6 +283,14 @@ async function restore(s: Snapshot) {
         createdAt: new Date(r.createdAt),
         ...data,
       },
+    }).catch(ignoreDuplicate);
+  }
+  if (s.tokens && s.savedAt) {
+    // Un enlace que ya existía cuando se tomó la copia y no viene en la lista se usó (o venció) en otra copia: acá
+    // también deja de servir. Los creados después (por ejemplo, uno recién pedido en esta copia) no se tocan.
+    await prisma.authToken.updateMany({
+      where: { userId: u.id, usedAt: null, createdAt: { lt: new Date(s.savedAt) }, tokenHash: { notIn: s.tokens.map((t) => t.tokenHash) } },
+      data: { usedAt: new Date() },
     });
   }
   for (const t of s.tokens ?? []) {
@@ -290,7 +308,7 @@ async function restore(s: Snapshot) {
     if (await prisma.channelLink.findFirst({ where: { userId: u.id, address: l.address, linkedAt: { gte: new Date(l.linkedAt) } } })) continue;
     await prisma.channelLink.create({
       data: { studyId, userId: u.id, channel: CHANNEL.WHATSAPP, address: l.address, status: "ACTIVO", activeKey, method: l.method, linkedAt: new Date(l.linkedAt) },
-    });
+    }).catch(ignoreDuplicate);
   }
 }
 

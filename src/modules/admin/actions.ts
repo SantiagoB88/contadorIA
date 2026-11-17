@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -37,7 +39,7 @@ const invoiceSchema = z.object({
   amount: z.string().trim(),
 });
 
-export async function addInvoiceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function addInvoiceActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const raw = {
     taxpayerId: String(formData.get("taxpayerId") ?? ""),
@@ -113,7 +115,7 @@ export async function addInvoiceAction(_prev: FormState, formData: FormData): Pr
   return { ok: true, message: `Comprobante cargado: ${formatARS(invoice.amountCents)} del ${formatDateAR(invoice.issueDate)}.` };
 }
 
-export async function updateCoverageAction(_prev: FormState, formData: FormData): Promise<FormState> {
+async function updateCoverageActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const taxpayerId = String(formData.get("taxpayerId") ?? "");
   const fromDate = String(formData.get("fromDate") ?? "");
@@ -144,3 +146,7 @@ export async function updateCoverageAction(_prev: FormState, formData: FormData)
   refresh(taxpayer.id);
   return { ok: true, message: "Cobertura de datos actualizada." };
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const addInvoiceAction = demoAction(addInvoiceActionAccion);
+export const updateCoverageAction = demoAction(updateCoverageActionAccion);

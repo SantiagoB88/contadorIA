@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { getOrigin } from "@/lib/origin";
@@ -36,7 +38,7 @@ export type SimulatorResult = { outcome: InboundOutcome; providerId: string; bac
  * Envía un mensaje como si llegara por WhatsApp: un texto o una opción tocada (`choiceId`, con su título como
  * texto, igual que lo manda WhatsApp). `repeatOf` reenvía el mismo id (evento duplicado).
  */
-export async function simulatorSend(
+async function simulatorSendAccion(
   address: string,
   text: string,
   opts: { choiceId?: string; repeatOf?: string; fault?: "antes" | "despues" } = {},
@@ -62,7 +64,7 @@ export async function simulatorSend(
 }
 
 /** Envía un archivo (foto o PDF) como si llegara por WhatsApp. Se valida igual que en el webhook. */
-export async function simulatorUpload(address: string, form: FormData): Promise<SimulatorResult> {
+async function simulatorUploadAccion(address: string, form: FormData): Promise<SimulatorResult> {
   await guard(address, form.get("backup") ? String(form.get("backup")) : null);
   const file = form.get("file");
   if (!(file instanceof File)) throw new Error("Elegí un archivo.");
@@ -83,7 +85,7 @@ export async function simulatorUpload(address: string, form: FormData): Promise<
 }
 
 /** Dos entregas simultáneas del mismo evento: debe procesarse una sola vez. */
-export async function simulatorConcurrent(
+async function simulatorConcurrentAccion(
   address: string,
   text: string,
   choiceId?: string,
@@ -101,7 +103,7 @@ export async function simulatorConcurrent(
  * Deja un número ficticio como recién llegado: desvincula su WhatsApp (con registro en la auditoría) y borra su
  * conversación y su historial de mensajes. Solo para los números del simulador.
  */
-export async function simulatorReset(address: string): Promise<string> {
+async function simulatorResetAccion(address: string): Promise<string> {
   await guard(address);
   const links = await prisma.channelLink.findMany({ where: { address, status: "ACTIVO" } });
   for (const link of links) {
@@ -129,7 +131,7 @@ export async function simulatorReset(address: string): Promise<string> {
  * conversaciones) y carga los datos iniciales. Solo un administrador y solo donde existe el simulador (modo DEMO).
  * Cierra todas las sesiones, la propia también.
  */
-export async function simulatorResetDemo(): Promise<string> {
+async function simulatorResetDemoAccion(): Promise<string> {
   if (!simulatorEnabled()) throw new Error("El simulador no está disponible en este entorno.");
   const user = await getCurrentUser();
   if (!user || user.role !== ROLES.ADMIN) throw new Error("Solo un administrador puede restablecer la demo.");
@@ -141,7 +143,7 @@ export async function simulatorResetDemo(): Promise<string> {
 }
 
 /** Reintenta los eventos del simulador que quedaron fallidos. */
-export async function simulatorRetry(address: string, backup?: string | null): Promise<{ count: number; backup: string | null }> {
+async function simulatorRetryAccion(address: string, backup?: string | null): Promise<{ count: number; backup: string | null }> {
   await guard(address, backup);
   const count = await retryPendingInbound({ transport: simulatorTransport, origin: await getOrigin() }, 20, "SIMULADOR");
   return { count, backup: await exportChat(address) };
@@ -160,7 +162,7 @@ export type TranscriptItem = {
 };
 
 /** Conversación del número, leída de la base (y, en la demo de Vercel, de la copia del navegador). */
-export async function simulatorTranscript(address: string, backup?: string | null): Promise<{ items: TranscriptItem[]; backup: string | null }> {
+async function simulatorTranscriptAccion(address: string, backup?: string | null): Promise<{ items: TranscriptItem[]; backup: string | null }> {
   await guard(address, backup);
   const [inbound, outbound] = await Promise.all([
     prisma.inboundEvent.findMany({ where: { address }, orderBy: { receivedAt: "asc" }, take: 200 }),
@@ -192,3 +194,12 @@ export async function simulatorTranscript(address: string, backup?: string | nul
   items.sort((a, b) => a.at.localeCompare(b.at) || (a.dir === "in" ? -1 : 1));
   return { items, backup: await exportChat(address) };
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const simulatorSend = demoAction(simulatorSendAccion);
+export const simulatorUpload = demoAction(simulatorUploadAccion);
+export const simulatorConcurrent = demoAction(simulatorConcurrentAccion);
+export const simulatorReset = demoAction(simulatorResetAccion);
+export const simulatorResetDemo = demoAction(simulatorResetDemoAccion);
+export const simulatorRetry = demoAction(simulatorRetryAccion);
+export const simulatorTranscript = demoAction(simulatorTranscriptAccion);

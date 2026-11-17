@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { rememberDemoAccount } from "@/lib/demo-accounts";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -27,7 +29,7 @@ function refreshAll() {
 
 // ---- Cliente ----
 
-export async function requestAssociationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function requestAssociationActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const values = {
     cuit: str(formData, "cuit"),
@@ -44,7 +46,7 @@ export async function requestAssociationAction(_prev: ActionState, formData: For
   return result.ok ? result : { ...result, values };
 }
 
-export async function updateProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function updateProfileActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const values = { name: str(formData, "name"), phone: str(formData, "phone") };
   const result = await updateProfile(user, values.name, values.phone);
@@ -52,7 +54,7 @@ export async function updateProfileAction(_prev: ActionState, formData: FormData
   return result.ok ? result : { ...result, values };
 }
 
-export async function changePasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function changePasswordActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const result = await changePassword(user, str(formData, "current"), str(formData, "next"), str(formData, "confirm"));
   // Se cerraron todas las sesiones: se abre una nueva para quien hizo el cambio.
@@ -71,7 +73,7 @@ async function rememberReviewed(requestId: string) {
   if (request) await rememberDemoAccount(request.userId, true);
 }
 
-export async function approveRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function approveRequestActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await approveRequest(admin, str(formData, "requestId"), str(formData, "category"), str(formData, "note"));
   if (!result.ok) return result;
@@ -81,7 +83,7 @@ export async function approveRequestAction(_prev: ActionState, formData: FormDat
   redirect("/admin/accesos?aviso=aprobada");
 }
 
-export async function rejectRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function rejectRequestActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await rejectRequest(admin, str(formData, "requestId"), str(formData, "note"));
   if (!result.ok) return { ...result, values: { note: str(formData, "note") } };
@@ -90,7 +92,7 @@ export async function rejectRequestAction(_prev: ActionState, formData: FormData
   redirect("/admin/accesos?aviso=rechazada");
 }
 
-export async function revokeAccessAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function revokeAccessActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await revokeAccess(admin, str(formData, "accessId"), str(formData, "reason"));
   if (!result.ok) return { ...result, values: { reason: str(formData, "reason") } };
@@ -100,14 +102,14 @@ export async function revokeAccessAction(_prev: ActionState, formData: FormData)
   redirect("/admin/accesos?aviso=revocado");
 }
 
-export async function setUserActiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function setUserActiveActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const result = await setUserActive(admin, str(formData, "userId"), str(formData, "active") === "true");
   if (result.ok) refreshAll();
   return result;
 }
 
-export async function adminResetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+async function adminResetPasswordActionAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const userId = str(formData, "userId");
   const result = await adminResetPassword(admin, userId);
@@ -117,3 +119,13 @@ export async function adminResetPasswordAction(_prev: ActionState, formData: For
   refreshAll();
   return result;
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const requestAssociationAction = demoAction(requestAssociationActionAccion);
+export const updateProfileAction = demoAction(updateProfileActionAccion);
+export const changePasswordAction = demoAction(changePasswordActionAccion);
+export const approveRequestAction = demoAction(approveRequestActionAccion);
+export const rejectRequestAction = demoAction(rejectRequestActionAccion);
+export const revokeAccessAction = demoAction(revokeAccessActionAccion);
+export const setUserActiveAction = demoAction(setUserActiveActionAccion);
+export const adminResetPasswordAction = demoAction(adminResetPasswordActionAccion);

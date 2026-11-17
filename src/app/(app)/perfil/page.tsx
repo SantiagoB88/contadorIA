@@ -85,7 +85,8 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
             </h3>
             {setup.help ? (
               <p className="mt-1 text-sm text-slate-700">
-                Ya pediste ayuda el {formatDateTimeAR(setup.help.createdAt)}: el estudio te va a contactar.{" "}
+                Recibimos tu pedido de ayuda (S-{setup.help.id.slice(-6).toUpperCase()}) del{" "}
+                {formatDateTimeAR(setup.help.createdAt)}. El estudio te va a contactar; no podemos asegurarte un horario.{" "}
                 <Link href={`/solicitudes/${setup.help.id}`} className="font-medium text-brand-700 hover:underline">
                   Ver el pedido
                 </Link>

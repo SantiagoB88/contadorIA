@@ -1,5 +1,35 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## Demo de Vercel: todo lo que se crea se ve en todas las copias ✅ (rama `feat/whatsapp-bot`)
+
+- **Problema reportado**: en la demo publicada, las solicitudes creadas (desde la web o desde el simulador) no aparecían en la Bandeja del estudio ni en "Mis solicitudes" del cliente. Además, las mejoras del testing no estaban publicadas en `main`.
+- **Causa**:
+  - Vercel reparte los pedidos entre copias del servidor y cada copia tiene su propia base temporal.
+  - Ya viajaban en el navegador las cuentas (`demo-accounts.ts`) y la conversación del simulador (`simulator-backup.ts`). Todo lo demás quedaba en la copia que lo creó.
+- **Cambio** (`src/lib/demo-journal.ts`):
+  - El navegador lleva, cifrado (AES-GCM, clave derivada del secreto de la demo), en cookies de hasta ~9 KB, todo lo creado o cambiado en la demo después de armar la base (marca `demo-built-at`):
+    - usuarios, contribuyentes, accesos y pedidos de acceso;
+    - solicitudes y mensajes, facturas con ítems, intentos y numeración, y receptores;
+    - documentos (los datos, no el archivo), vencimientos, pagos, revisión de deudas, cobertura, escalas, categorías y preferencias;
+    - WhatsApp vinculado, archivos del bot y avisos del estudio al chat.
+  - Cada página reconstruye lo que falta en su copia. Cada acción, envuelta con `demoAction` (las 50 Server Actions), reconstruye antes y guarda al terminar.
+  - Gana lo más nuevo; los borrados viajan como borrados.
+  - Si una fila choca con otra igual creada en otra copia, se usa la de la copia y se redirigen las referencias.
+  - Fuera de la demo de Vercel no hace nada.
+- **Adjuntos del chat**: el archivo mandado por el simulador viaja con la conversación (hasta 2 MB) hasta que se confirma la solicitud o el pago.
+- **Otras correcciones**:
+  - dos pedidos reconstruyendo la misma cuenta a la vez ya no cortan la reconstrucción;
+  - un enlace de recuperación usado deja de servir en todas las copias.
+- **Límite que sigue**: los archivos de documentos quedan en la copia que los recibió. La descarga desde otra copia avisa que se vuelva a intentar.
+- **Pruebas ejecutadas**:
+  - Simulación de Vercel con dos copias y **cada pedido a una copia al azar** (el peor caso), con reinicios en el medio: 21/21 en dos corridas seguidas. La prueba de "Restablecer demo" no aplica online. Incluye:
+    - solicitudes cliente → estudio → cliente;
+    - alta por chat con solicitud con adjunto y respuesta del estudio;
+    - facturas, pagos, documentos y escalas;
+    - pedido de ayuda.
+  - Compu: `npm run verify` 128/128; navegador sobre versión compilada, 27/27.
+  - Las pruebas ahora cambian de cuenta sin borrar las cookies de la demo, como una persona.
+
 ## Mejoras del primer testing con usuarios ✅ (rama `feat/whatsapp-bot`, sin publicar)
 
 Pedido: feedback de transcripciones de WhatsApp (Rodrigo y tester). Detalle de cada punto, decisiones y pendientes abajo.

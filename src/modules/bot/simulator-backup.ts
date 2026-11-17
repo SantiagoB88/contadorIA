@@ -3,6 +3,7 @@ import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { prisma } from "@/lib/db";
 import { demoSecret } from "@/lib/demo-secret";
 import { usesBundledDemo } from "@/lib/vercel-demo";
+import { storage } from "@/providers/storage";
 
 // Copia de la conversación del simulador en el navegador (solo en la demo de Vercel).
 // En Vercel cada copia del servidor tiene su propia base y Vercel las recicla seguido: una conversación a medio camino
@@ -14,6 +15,10 @@ import { usesBundledDemo } from "@/lib/vercel-demo";
 
 const MAX_INBOUND = 200; // lo mismo que muestra el simulador
 const MAX_OUTBOUND = 300;
+// Archivos mandados por el chat que todavía no se usaron (por ejemplo, el adjunto de una solicitud a medio confirmar):
+// viajan con la conversación para que la copia que reciba la confirmación los tenga. Vercel acepta hasta 4,5 MB por
+// envío, así que solo los de hasta 2 MB.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 type Row = Record<string, unknown>;
 type ChatSnapshot = {
@@ -22,6 +27,7 @@ type ChatSnapshot = {
   inbound: Row[];
   outbound: Row[];
   linkCodes: Row[];
+  uploads?: (Row & { data: string })[]; // archivo en base64
 };
 
 // Campos de fecha de cada tabla (se guardan como texto ISO).
@@ -30,6 +36,7 @@ const DATES: Record<keyof Omit<ChatSnapshot, "address">, string[]> = {
   inbound: ["receivedAt", "processedAt"],
   outbound: ["createdAt", "sentAt"],
   linkCodes: ["expiresAt", "usedAt", "createdAt"],
+  uploads: ["createdAt", "usedAt"],
 };
 
 const keyFor = (secret: string) => createHash("sha256").update(`${secret}:chat-demo`).digest();
@@ -53,7 +60,17 @@ export async function exportChat(address: string): Promise<string | null> {
     prisma.outboundMessage.findMany({ where: { address }, orderBy: { createdAt: "desc" }, take: MAX_OUTBOUND }),
     prisma.linkCode.findMany({ where: { address, usedAt: null, expiresAt: { gt: new Date() } } }),
   ]);
-  const snap: ChatSnapshot = { address, conversations, inbound, outbound, linkCodes };
+  const pending = await prisma.botUpload.findMany({
+    where: { address, usedAt: null, sizeBytes: { lte: MAX_UPLOAD_BYTES }, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+  });
+  const uploads: (Row & { data: string })[] = [];
+  for (const u of pending) {
+    const bytes = await storage.get(u.storageKey);
+    if (bytes) uploads.push({ ...u, data: Buffer.from(bytes).toString("base64") });
+  }
+  const snap: ChatSnapshot = { address, conversations, inbound, outbound, linkCodes, uploads };
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", keyFor(secret), iv);
   const encrypted = Buffer.concat([cipher.update(deflateRawSync(Buffer.from(JSON.stringify(snap)))), cipher.final()]);
@@ -116,6 +133,17 @@ export async function importChat(address: string, blob: string | null | undefine
   const codes = await missing(revive(snap.linkCodes, DATES.linkCodes) as (Row & { id: string })[], (ids) =>
     prisma.linkCode.findMany({ where: { id: { in: ids } }, select: { id: true } }),
   );
+  for (const u of revive(snap.uploads ?? [], DATES.uploads) as (Row & { data: string; storageKey: string; id: string })[]) {
+    // El archivo puede faltar en esta copia aunque la fila exista (la trajeron los datos de la demo sin el archivo).
+    const { data, ...row } = u;
+    if (!(await storage.get(u.storageKey))) {
+      await storage.put(u.storageKey, new Uint8Array(Buffer.from(data, "base64")));
+      changed = true;
+    }
+    if (!(await prisma.botUpload.findUnique({ where: { id: u.id } }))) {
+      await prisma.botUpload.create({ data: { ...row, address } as never }).then(() => (changed = true), () => undefined);
+    }
+  }
   for (const k of codes) {
     // El código puede ser de una cuenta que esta copia no tiene: sin la cuenta no sirve y se omite.
     await prisma.linkCode.create({ data: { ...k, address } as never }).then(() => (changed = true), () => undefined);

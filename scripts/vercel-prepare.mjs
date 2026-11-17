@@ -39,5 +39,7 @@ if (!/^[0-9a-f]{64}$/.test(secret)) {
 const { default: prismaPkg } = await import("@prisma/client");
 const prisma = new prismaPkg.PrismaClient({ datasourceUrl: `file:${path.join(root, "prisma", "demo.db").split("\\").join("/")}` });
 await prisma.appMeta.create({ data: { key: "demo-session-secret", value: secret } });
+// Marca de cuándo se armó la base: lo creado después en la demo viaja en el navegador (src/lib/demo-journal.ts).
+await prisma.appMeta.create({ data: { key: "demo-built-at", value: new Date().toISOString() } });
 await prisma.$disconnect();
 console.log("[ContadorSmart] Base de demo lista.");

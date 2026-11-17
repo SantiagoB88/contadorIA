@@ -7,6 +7,7 @@ import { passwordVersion, readSession, signSession } from "./signed-session";
 import { usesBundledDemo } from "./vercel-demo";
 import { demoSecret } from "./demo-secret";
 import { restoreDemoAccounts } from "./demo-accounts";
+import { restoreDemoData } from "./demo-journal";
 
 export type CurrentUser = {
   id: string;
@@ -69,6 +70,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     // contraseña, el correo sin confirmar): antes de atender se trae lo último que guarda el navegador, también para
     // lo que ve el estudio (ver demo-accounts.ts). Solo actualiza lo que cambió.
     await restoreDemoAccounts();
+    await restoreDemoData(); // solicitudes, facturas, documentos y demás creados en otra copia (demo-journal.ts)
     const user = await prisma.user.findUnique({ where: { id: claims.uid }, include: { study: true } });
     if (!user || !user.active || passwordVersion(user.passwordHash) !== claims.pwv) return null;
     return {

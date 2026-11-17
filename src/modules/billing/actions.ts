@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -51,7 +53,7 @@ function refresh() {
   revalidatePath("/dashboard");
 }
 
-export async function saveDraftAction(_prev: DraftFormState, formData: FormData): Promise<DraftFormState> {
+async function saveDraftActionAccion(_prev: DraftFormState, formData: FormData): Promise<DraftFormState> {
   const user = await requireUser();
   const input = readDraft(formData);
   const invoiceId = str(formData, "invoiceId") || undefined;
@@ -61,7 +63,7 @@ export async function saveDraftAction(_prev: DraftFormState, formData: FormData)
   redirect(`/facturas/${result.invoiceId}`);
 }
 
-export async function emitInvoiceAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+async function emitInvoiceActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
   const invoiceId = str(formData, "invoiceId");
   const result = await emitInvoice(user, invoiceId, str(formData, "idempotencyKey"), formData.get("simulateRejection") === "on");
@@ -70,7 +72,7 @@ export async function emitInvoiceAction(_prev: SimpleState, formData: FormData):
   return { ok: result.ok, message: result.message };
 }
 
-export async function deleteDraftAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+async function deleteDraftActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
   const result = await deleteDraft(user, str(formData, "invoiceId"));
   if (!result.ok) return result;
@@ -78,10 +80,16 @@ export async function deleteDraftAction(_prev: SimpleState, formData: FormData):
   redirect("/facturas");
 }
 
-export async function duplicateAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+async function duplicateActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
   const result = await duplicateAsDraft(user, str(formData, "invoiceId"));
   if (!result.ok) return result;
   refresh();
   redirect(`/facturas/${result.invoiceId}/editar`);
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const saveDraftAction = demoAction(saveDraftActionAccion);
+export const emitInvoiceAction = demoAction(emitInvoiceActionAccion);
+export const deleteDraftAction = demoAction(deleteDraftActionAccion);
+export const duplicateAction = demoAction(duplicateActionAccion);

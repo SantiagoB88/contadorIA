@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getAuthorizedDocument, readDocumentBytes } from "@/modules/documents/service";
+import { usesBundledDemo } from "@/lib/vercel-demo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!doc) return new Response("No encontrado", { status: 404 });
 
   const bytes = await readDocumentBytes(doc);
-  if (!bytes) return new Response("El archivo no está disponible", { status: 410 });
+  if (!bytes) {
+    // Demo de Vercel: los datos del documento viajan entre copias del servidor, pero el archivo queda en la copia que
+    // lo recibió. Otro intento puede caer en esa copia.
+    const text = usesBundledDemo
+      ? "El archivo quedó guardado en otra copia de la demo online. Volvé a intentar la descarga en unos segundos."
+      : "El archivo no está disponible";
+    return new Response(text, { status: 410, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
 
   const ascii = doc.fileName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   return new Response(new Uint8Array(bytes), {

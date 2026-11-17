@@ -1,5 +1,7 @@
 "use server";
 
+import { demoAction } from "@/lib/demo-journal";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -7,7 +9,7 @@ import { setStartDate } from "./start-date";
 
 export type StartDateState = { ok?: boolean; message?: string; fieldErrors?: Record<string, string>; value?: string };
 
-export async function setStartDateAction(_prev: StartDateState, formData: FormData): Promise<StartDateState> {
+async function setStartDateActionAccion(_prev: StartDateState, formData: FormData): Promise<StartDateState> {
   const user = await requireUser();
   const taxpayerId = String(formData.get("taxpayerId") ?? "");
   const value = String(formData.get("startDate") ?? "");
@@ -21,3 +23,6 @@ export async function setStartDateAction(_prev: StartDateState, formData: FormDa
   const id = encodeURIComponent(taxpayerId);
   redirect(formData.get("from") === "admin" ? `/admin/contribuyentes/${id}?inicio=guardado` : `/dashboard?c=${id}&inicio=guardado`);
 }
+
+// Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).
+export const setStartDateAction = demoAction(setStartDateActionAccion);
