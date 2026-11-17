@@ -14,7 +14,8 @@
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts --reset",
     "db:studio": "prisma studio",
     "dev:test": "node scripts/dev-test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "start:railway": "node scripts/railway-start.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
@@ -22,8 +23,10 @@
     "libphonenumber-js": "1.13.15",
     "next": "15.5.28",
     "pdf-lib": "1.17.1",
+    "prisma": "6.19.3",
     "react": "19.2.9",
     "react-dom": "19.2.9",
+    "tsx": "4.23.15",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -32,9 +35,7 @@
     "@types/node": "22.20.5",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "prisma": "6.19.3",
     "tailwindcss": "4.1.18",
-    "tsx": "4.23.15",
     "typescript": "5.9.3"
   }
 }

@@ -36,6 +36,7 @@
 - [ ] Revisar `src/app/(app)/loading.tsx` (archivo local sin commitear): con él, la navegación a Movimientos no terminaba en la versión compilada
 - [ ] Demo de Vercel: solicitudes, facturas y documentos cargados después del alta siguen viviendo en una copia del servidor; para que sean compartidos hace falta una base compartida
 - [ ] WhatsApp real en un link público: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
+- [ ] WhatsApp real en Railway (prueba temporal, base propia de Railway): código listo (railway.json, scripts/railway-start.mjs, docs/railway-bot.md); falta crear el servicio y probar con Meta
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)
 - [ ] WhatsApp: reintento automático periódico de eventos fallidos (hoy se reintenta al llegar el siguiente mensaje o desde el simulador)
 - [ ] Migrar a PostgreSQL + Docker Compose + migraciones versionadas, backup y restauración (base **y** carpeta `storage/`)
