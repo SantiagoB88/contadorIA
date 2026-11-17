@@ -16,6 +16,8 @@ mkdirSync(dataDir, { recursive: true });
 const env = {
   ...process.env,
   APP_MODE: process.env.APP_MODE || "DEMO",
+  // Demo completa en un solo servidor: también el simulador de WhatsApp (solo existe en modo DEMO).
+  ENABLE_BOT_SIMULATOR: process.env.ENABLE_BOT_SIMULATOR || "1",
   DATABASE_URL: process.env.DATABASE_URL || `file:${path.join(dataDir, "contadorsmart.db").split("\\").join("/")}`,
   STORAGE_DIR: process.env.STORAGE_DIR || path.join(dataDir, "storage"),
 };
