@@ -24,7 +24,7 @@ import { usesBundledDemo } from "./vercel-demo";
 // Solo en la demo de Vercel (usesBundledDemo). En la compu y en una instalación real no hace nada.
 
 const COOKIE_PREFIX = "cs_demo_datos";
-const MAX_CHUNKS = 3; // ~3,8 KB por cookie: el total de cabeceras tiene que seguir siendo chico
+const MAX_CHUNKS = 3; // hasta 3 cookies de 3 KB
 const CHUNK = 3000; // unos 9 KB en total: junto con las demás cookies queda lejos del límite de cabeceras
 const MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const BUILT_AT_KEY = "demo-built-at";
