@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { publicDemoTools } from "@/lib/demo-tools";
 import { prisma } from "@/lib/db";
-import { APP_MODE } from "@/lib/constants";
+import { APP_MODE, ROLES } from "@/lib/constants";
 import { formatDateTimeAR } from "@/lib/dates";
 import { DemoBanner } from "@/components/DemoBanner";
 import { restoreDemoAccounts } from "@/lib/demo-accounts";
@@ -27,9 +29,17 @@ function Linkified({ text }: { text: string }) {
   );
 }
 
-/** Bandeja de correo local. Solo existe en modo DEMO: en un entorno real esta página da 404. */
+/**
+ * Bandeja de correo local. Solo existe en modo DEMO: en un entorno real esta página da 404. En un servidor propio
+ * (piloto) la ve solo un administrador, porque tiene enlaces para confirmar correos y recuperar contraseñas.
+ */
 export default async function CorreosPage() {
   if (APP_MODE !== "DEMO") notFound();
+  if (!publicDemoTools()) {
+    const user = await getCurrentUser();
+    if (!user) redirect("/login?next=/dev/correos");
+    if (user.role !== ROLES.ADMIN) notFound();
+  }
   await restoreDemoAccounts(); // demo de Vercel: los correos de una cuenta creada en otra copia del servidor
   const emails = await prisma.outboxEmail.findMany({ orderBy: { createdAt: "desc" }, take: 30 });
 

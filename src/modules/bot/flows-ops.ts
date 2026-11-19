@@ -301,12 +301,13 @@ on("doc.nueva", async (ctx) => {
 
 // ───────────── Solicitar un documento ─────────────
 
-const CATALOG: Record<string, { label: string; periodic: boolean }> = {
-  constancia: { label: "Constancia de inscripción", periodic: false },
-  cuota: { label: "Comprobante de pago de la cuota", periodic: true },
-  recategorizacion: { label: "Constancia de recategorización", periodic: false },
-  declaracion: { label: "Declaración o formulario", periodic: true },
-  facturacion: { label: "Resumen de facturación", periodic: true },
+// title: lo que se ve en la lista de WhatsApp (hasta 24 caracteres, si no se corta); label: el nombre completo.
+const CATALOG: Record<string, { title: string; label: string; periodic: boolean }> = {
+  constancia: { title: "Constancia inscripción", label: "Constancia de inscripción", periodic: false },
+  cuota: { title: "Pago de la cuota", label: "Comprobante de pago de la cuota", periodic: true },
+  recategorizacion: { title: "Recategorización", label: "Constancia de recategorización", periodic: false },
+  declaracion: { title: "Declaración o formulario", label: "Declaración o formulario", periodic: true },
+  facturacion: { title: "Resumen de facturación", label: "Resumen de facturación", periodic: true },
 };
 type DocAsk = { taxpayerId: string; key: string; period?: string; note?: string; lastPrompt?: string };
 const ask = (ctx: Ctx) => ctx.conv.data as unknown as DocAsk;
@@ -315,7 +316,7 @@ on("doc.pedir", async (ctx) => {
   const tp = await activeTaxpayer(ctx);
   if (!tp) return chooseTaxpayer(ctx, "doc.pedir");
   ctx.list("¿Qué documento necesitás? Lo prepara el estudio y te lo comparte.", "Elegir documento", [
-    ...Object.entries(CATALOG).map(([k, c]) => ({ title: c.label, a: "doc.pedir.sel", v: k })),
+    ...Object.entries(CATALOG).map(([k, c]) => ({ title: c.title, ...(c.title !== c.label ? { desc: c.label } : {}), a: "doc.pedir.sel", v: k })),
     { title: "Otro documento", desc: "Contalo en un mensaje", a: "doc.pedir.otro" },
     { title: T.back, a: "m.docs" },
   ]);

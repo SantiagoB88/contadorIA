@@ -439,8 +439,16 @@ export function SimulatorClient({ examples, canResetDemo = false }: { examples: 
                 }`}
               >
                 {m.file && <p className="mb-1 text-xs font-medium text-slate-700">📎 {m.file}</p>}
+                {m.document && (
+                  <a
+                    href={`/documentos/${m.document.id}/descargar`}
+                    className="mb-1 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-medium text-brand-700 underline"
+                  >
+                    📄 {m.document.fileName}
+                  </a>
+                )}
                 {m.choice && <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Opción tocada</p>}
-                <Rich text={plain && m.message ? fallbackText(m.message) : m.text} />
+                {!m.document && <Rich text={plain && m.message ? fallbackText(m.message) : m.text} />}
                 {m.dir === "out" && /Contraseña temporal: (\S+)/.test(m.text) && <CopyPassword text={m.text} />}
                 {!plain && m.message && <Interactive message={m.message} disabled={pending} onChoose={choose} />}
                 <p className="mt-1 text-right text-[10px] text-slate-500">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicDemoTools } from "@/lib/demo-tools";
 import { getCurrentUser } from "@/lib/auth";
 import { APP_MODE } from "@/lib/constants";
 import { AuthShell } from "@/components/AuthShell";
@@ -33,7 +34,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               Creá una
             </Link>
           </p>
-          {APP_MODE === "DEMO" && (
+          {publicDemoTools() && (
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
               <p className="font-semibold text-navy">Usuarios de demo (contraseña: Demo1234!)</p>
               <ul className="mt-2 space-y-2">

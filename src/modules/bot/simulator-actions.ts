@@ -159,6 +159,7 @@ export type TranscriptItem = {
   message?: BotMessage; // respuesta con botones o lista
   choice?: boolean; // entrada: fue una opción tocada
   file?: string; // entrada: nombre del archivo
+  document?: { id: string; fileName: string }; // salida: archivo que mandó el estudio
 };
 
 /** Conversación del número, leída de la base (y, en la demo de Vercel, de la copia del navegador). */
@@ -183,12 +184,23 @@ async function simulatorTranscriptAccion(address: string, backup?: string | null
     })),
     ...outbound.map((o) => {
       let message: BotMessage | undefined;
+      let document: TranscriptItem["document"];
       try {
-        message = o.payload ? (JSON.parse(o.payload) as BotMessage) : undefined;
+        const parsed = o.payload ? (JSON.parse(o.payload) as BotMessage | { kind: "document"; documentId: string; fileName: string }) : undefined;
+        if (parsed?.kind === "document") document = { id: parsed.documentId, fileName: parsed.fileName };
+        else message = parsed;
       } catch {
         message = undefined;
       }
-      return { id: o.id, dir: "out" as const, text: o.body, at: o.createdAt.toISOString(), status: o.status, ...(message ? { message } : {}) };
+      return {
+        id: o.id,
+        dir: "out" as const,
+        text: o.body,
+        at: o.createdAt.toISOString(),
+        status: o.status,
+        ...(message ? { message } : {}),
+        ...(document ? { document } : {}),
+      };
     }),
   ];
   items.sort((a, b) => a.at.localeCompare(b.at) || (a.dir === "in" ? -1 : 1));

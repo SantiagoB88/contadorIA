@@ -15,7 +15,9 @@
     "db:studio": "prisma studio",
     "dev:test": "node scripts/dev-test.mjs",
     "test:e2e": "playwright test",
-    "start:railway": "node scripts/railway-start.mjs"
+    "start:railway": "node scripts/railway-start.mjs",
+    "start:server": "node scripts/server-start.mjs",
+    "ensayo:piloto": "node scripts/ensayo-piloto.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

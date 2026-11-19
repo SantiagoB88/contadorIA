@@ -1,5 +1,27 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## Piloto en VPS: preparación ✅ (rama `feat/piloto-vps`, sin publicar; la demo de Vercel sigue en `main`)
+
+- **Repositorio base**: este (`SantiagoB88/contadorIA`). `Mateobonacalza/ContadorSmart` es otro proyecto: bot Express con datos simulados, sin dashboard ni historia en común.
+- **Lo que usa la app**:
+  - Autenticación propia: bcrypt y sesiones en la base, con cookie que el navegador no puede leer. En Vercel, sesión firmada.
+  - SQLite con Prisma (`db push`, sin historial de migraciones) y archivos en disco.
+  - WhatsApp Cloud API de Meta, con webhook verificado y firmado.
+- **Recorrido de la constancia**: Documentos → Solicitar un documento → Constancia inscripción → Pedir documento → `createRequest` (canal WHATSAPP, una sola por evento) → Bandeja del estudio → respuesta con adjunto.
+- **Nuevo**:
+  - **El PDF del contador llega al chat** (`sendDocument` en `src/providers/messaging.ts`, `notifyRequestReply` con los adjuntos públicos): se sube a Meta y se manda como documento. Queda como aviso con su resultado real. Una nota interna no se manda. El simulador muestra el archivo con enlace.
+  - **Herramientas de demo cerradas en un servidor propio** (`src/lib/demo-tools.ts`): sin usuarios de ejemplo en Ingresar y `/dev/correos` solo para administradores. Siguen abiertas en Vercel, en la compu y en las pruebas.
+  - **Arranque para el VPS** (`scripts/server-start.mjs`): datos en `/var/lib/contadorsmart` y base nueva con solo el estudio y su administrador (`prisma/seed-piloto.ts`, sin contraseñas de ejemplo).
+  - **Servicio, HTTPS y guía**: `deploy/contadorsmart.service` (systemd), `deploy/Caddyfile` (HTTPS) y `docs/despliegue-hostinger.md` (comandos NOTEBOOK / VPS con el resultado esperado).
+  - **Lista de documentos del bot** con títulos de hasta 24 caracteres: antes WhatsApp los cortaba ("Constancia de inscripci…").
+  - **Correo confirmado** pasa a opcional si el WhatsApp está vinculado (se puede entrar igual).
+  - **Celulares argentinos**: `WHATSAPP_AR_SIN_9=1` opcional, por si Meta rechaza el 549 con el número de prueba (error 131030). No probado contra Meta.
+- **Pruebas ejecutadas**:
+  - `npm run verify` 130/130. Nuevas P1–P2: constancia → una solicitud del cliente correcto → el PDF sale al mismo número; una nota interna no se manda; un canal sin archivos queda pendiente.
+  - Navegador 27/27.
+  - `npm run ensayo:piloto` 14/14. Usa el mismo arranque que el VPS, con un WhatsApp y una API de Meta de prueba: seguridad del servidor, alta, constancia, una sola solicitud asociada, PDF subido y enviado al chat, y reinicio con datos y vínculo intactos.
+- **No probado**: Meta real (envío de documentos, formato del número), el VPS y el HTTPS.
+
 ## Demo de Vercel: todo lo que se crea se ve en todas las copias ✅ (rama `feat/whatsapp-bot`)
 
 - **Problema reportado**: en la demo publicada, las solicitudes creadas (desde la web o desde el simulador) no aparecían en la Bandeja del estudio ni en "Mis solicitudes" del cliente. Además, las mejoras del testing no estaban publicadas en `main`.

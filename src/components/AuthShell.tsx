@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { APP_MODE } from "@/lib/constants";
+import { publicDemoTools } from "@/lib/demo-tools";
 import { DemoBanner } from "@/components/DemoBanner";
 import { BrandMark } from "@/components/ui";
 
@@ -29,7 +29,7 @@ export function AuthShell({
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">{children}</div>
           {footer}
-          {APP_MODE === "DEMO" && (
+          {publicDemoTools() && (
             <p className="mt-4 text-center text-xs text-slate-500">
               Los correos no se envían: se ven en{" "}
               <Link href="/dev/correos" className="font-medium text-brand-700 hover:underline">

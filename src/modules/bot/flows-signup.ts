@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { APP_MODE, ROLES } from "@/lib/constants";
+import { ROLES } from "@/lib/constants";
+import { publicDemoTools } from "@/lib/demo-tools";
 import { cuitProblem, formatCuit, isValidCuit, normalizeCuit } from "@/lib/cuit";
 import { todayAR } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
@@ -223,7 +224,7 @@ on("g.crear", async (ctx) => {
       `• Contraseña temporal: ${created.tempPassword}`,
       `Vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.`,
       "",
-      `Te mandamos un correo para confirmar tu dirección.${APP_MODE === "DEMO" ? ` (Demo: los correos no salen; se ven en ${ctx.origin}/dev/correos)` : ""}`,
+      `Te mandamos un correo para confirmar tu dirección.${publicDemoTools() ? ` (Demo: los correos no salen; se ven en ${ctx.origin}/dev/correos)` : ""}`,
       "",
       "Próximo paso: entrá a la web con esos datos y elegí tu contraseña. Lo que te falte configurar lo ves en Mi perfil → Tu configuración, o acá en Mi cuenta → Mi configuración.",
     ].join("\n"),

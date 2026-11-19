@@ -18,6 +18,8 @@ const env = {
   APP_MODE: process.env.APP_MODE || "DEMO",
   // Demo completa en un solo servidor: también el simulador de WhatsApp (solo existe en modo DEMO).
   ENABLE_BOT_SIMULATOR: process.env.ENABLE_BOT_SIMULATOR || "1",
+  // Demo pública: bandeja de correos de prueba y usuarios de ejemplo a la vista (ver src/lib/demo-tools.ts).
+  PUBLIC_DEMO_TOOLS: process.env.PUBLIC_DEMO_TOOLS || "1",
   DATABASE_URL: process.env.DATABASE_URL || `file:${path.join(dataDir, "contadorsmart.db").split("\\").join("/")}`,
   STORAGE_DIR: process.env.STORAGE_DIR || path.join(dataDir, "storage"),
 };

@@ -324,9 +324,9 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
   const channel = input.channel ?? CHANNEL.WEB;
 
   const stored = await storeFiles(checked.files);
-  await withStoredFiles(stored, () =>
+  const message = await withStoredFiles(stored, () =>
     prisma.$transaction(async (tx) => {
-      await createMessage(tx, {
+      const created = await createMessage(tx, {
         request,
         authorId: user.id,
         body,
@@ -351,13 +351,20 @@ export async function addMessage(user: CurrentUser, requestId: string, input: Re
           }`,
         },
       });
+      return created;
     }),
   );
 
   // Una nota interna no avisa al cliente. Una respuesta del estudio avisa a quien creó la solicitud
   // (por correo y, si la solicitud llegó por WhatsApp, también por ahí).
   if (staff && isPublic) {
-    await notifyRequestReply(request).catch((err) => console.error("[bot] No se pudo registrar el aviso por WhatsApp:", err instanceof Error ? err.message : err));
+    // Los archivos de la respuesta (visibles para el cliente) también llegan al chat.
+    const docs = await prisma.document.findMany({ where: { messageId: message.id, visibility: DOC_VISIBILITY.CLIENTE } });
+    const replyDocs = docs.flatMap((d) => {
+      const file = stored.find((f) => f.storageKey === d.storageKey);
+      return file ? [{ id: d.id, fileName: d.fileName, mimeType: d.mimeType, bytes: file.bytes }] : [];
+    });
+    await notifyRequestReply(request, undefined, replyDocs).catch((err) => console.error("[bot] No se pudo registrar el aviso por WhatsApp:", err instanceof Error ? err.message : err));
     await notify(
       [request.createdBy.email],
       `Respuesta del estudio: ${request.subject}`,

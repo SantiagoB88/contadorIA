@@ -5,16 +5,42 @@ import { fallbackText, type BotMessage } from "@/modules/bot/ui";
 // - SimulatorTransport: el simulador local; no sale nada a internet.
 // - NotConfiguredTransport: sin credenciales, el mensaje queda PENDIENTE (nunca se finge una entrega).
 
+/**
+ * Dirección de la API de Meta. Siempre la real, salvo en pruebas automáticas que la reemplazan por un doble local
+ * (WHATSAPP_GRAPH_BASE_URL) para ensayar el envío completo sin salir a internet.
+ */
+const graphBase = () => (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.facebook.com").replace(/\/$/, "");
+
+/**
+ * Número de destino para la API de Meta (sin "+"). Meta informa los celulares argentinos como 549 + área + número,
+ * pero con el número de prueba a veces solo acepta enviar a 54 + área + número, sin el 9 (error 131030, "no está en
+ * la lista de destinatarios permitidos"). Con WHATSAPP_AR_SIN_9=1 se quita ese 9 al enviar. Apagado por defecto: se
+ * prende solo si los registros muestran ese error.
+ */
+export function metaRecipient(to: string): string {
+  const digits = to.replace(/^\+/, "");
+  if (process.env.WHATSAPP_AR_SIN_9 === "1" && /^549\d{10}$/.test(digits)) return `54${digits.slice(3)}`;
+  return digits;
+}
+
 export type SendResult = { status: "ENVIADO" | "FALLIDO" | "PENDIENTE" | "SIMULADO"; providerId?: string; error?: string };
+
+/** Archivo que el estudio le manda a la persona por el chat (por ejemplo, la constancia que pidió). */
+export type OutgoingDocument = { bytes: Uint8Array; fileName: string; mimeType: string; caption?: string };
 
 export interface MessagingTransport {
   readonly name: string;
   send(to: string, message: BotMessage): Promise<SendResult>;
+  /** Manda un archivo. Opcional: un transporte sin esto deja el aviso como pendiente. */
+  sendDocument?(to: string, doc: OutgoingDocument): Promise<SendResult>;
 }
 
 class SimulatorTransport implements MessagingTransport {
   readonly name = "SIMULADOR";
   async send(): Promise<SendResult> {
+    return { status: "SIMULADO" };
+  }
+  async sendDocument(): Promise<SendResult> {
     return { status: "SIMULADO" };
   }
 }
@@ -24,11 +50,14 @@ class NotConfiguredTransport implements MessagingTransport {
   async send(): Promise<SendResult> {
     return { status: "PENDIENTE", error: "Proveedor de WhatsApp no configurado (faltan WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID)." };
   }
+  async sendDocument(): Promise<SendResult> {
+    return this.send();
+  }
 }
 
 /** Cuerpo del mensaje para la API de Meta (botones de respuesta o lista interactiva). */
 export function metaPayload(to: string, message: BotMessage): Record<string, unknown> {
-  const base = { messaging_product: "whatsapp", recipient_type: "individual", to: to.replace(/^\+/, "") };
+  const base = { messaging_product: "whatsapp", recipient_type: "individual", to: metaRecipient(to) };
   if (message.kind === "text") return { ...base, type: "text", text: { body: message.text } };
   if (message.kind === "buttons") {
     return {
@@ -70,7 +99,7 @@ class MetaWhatsAppTransport implements MessagingTransport {
 
   private async post(body: Record<string, unknown>): Promise<SendResult> {
     try {
-      const res = await fetch(`https://graph.facebook.com/${this.version}/${this.phoneNumberId}/messages`, {
+      const res = await fetch(`${graphBase()}/${this.version}/${this.phoneNumberId}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -95,10 +124,47 @@ class MetaWhatsAppTransport implements MessagingTransport {
     return result;
   }
 
+  /**
+   * Manda un archivo: primero se sube a Meta (queda como "media" del número, privado) y después se envía como
+   * documento (PDF) o imagen. El archivo nunca se publica en una URL: Meta lo recibe directo del servidor.
+   * Fuera de la ventana de 24 horas desde el último mensaje de la persona, Meta lo rechaza (hace falta una plantilla).
+   */
+  async sendDocument(to: string, doc: OutgoingDocument): Promise<SendResult> {
+    let mediaId: string | undefined;
+    try {
+      const form = new FormData();
+      form.append("messaging_product", "whatsapp");
+      form.append("type", doc.mimeType);
+      form.append("file", new Blob([new Uint8Array(doc.bytes)], { type: doc.mimeType }), doc.fileName);
+      const res = await fetch(`${graphBase()}/${this.version}/${this.phoneNumberId}/media`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.token}` },
+        body: form,
+        signal: AbortSignal.timeout(30_000),
+      });
+      const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string; code?: number } };
+      if (!res.ok || !json.id) {
+        return { status: "FALLIDO", error: `Subida del archivo: HTTP ${res.status}${json.error?.code ? ` · código ${json.error.code}` : ""}: ${json.error?.message ?? "sin detalle"}` };
+      }
+      mediaId = json.id;
+    } catch (err) {
+      return { status: "FALLIDO", error: `Subida del archivo: ${err instanceof Error ? err.message : "error de red"}` };
+    }
+    const isImage = doc.mimeType.startsWith("image/");
+    const caption = doc.caption?.slice(0, 1024);
+    return this.post({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: metaRecipient(to),
+      type: isImage ? "image" : "document",
+      [isImage ? "image" : "document"]: isImage ? { id: mediaId, ...(caption ? { caption } : {}) } : { id: mediaId, filename: doc.fileName, ...(caption ? { caption } : {}) },
+    });
+  }
+
   /** Descarga un adjunto recibido: primero se pide la URL (vence en 5 minutos) y después el archivo, ambos con el token. */
   async downloadMedia(mediaId: string): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
     try {
-      const meta = await fetch(`https://graph.facebook.com/${this.version}/${encodeURIComponent(mediaId)}`, {
+      const meta = await fetch(`${graphBase()}/${this.version}/${encodeURIComponent(mediaId)}`, {
         headers: { Authorization: `Bearer ${this.token}` },
         signal: AbortSignal.timeout(10_000),
       });

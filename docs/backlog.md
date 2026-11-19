@@ -37,6 +37,10 @@
 - [x] Demo de Vercel: solicitudes, facturas, documentos (datos) y demás creados en la demo viajan en el navegador y se ven en todas las copias
 - [ ] Demo de Vercel: los archivos de documentos quedan en la copia que los recibió (la descarga desde otra copia pide reintentar); para compartirlos hace falta almacenamiento compartido
 - [ ] WhatsApp real en un link público: requiere una base compartida (se evaluó Turso y se descartó por necesitar una cuenta externa)
+- [x] Piloto VPS: PDF del estudio al chat, herramientas de demo cerradas, arranque con base propia, systemd y Caddy (docs/despliegue-hostinger.md)
+- [ ] Piloto VPS: desplegar y probar con Meta real (dominio, app de Meta, recorrido desde el celular)
+- [ ] WhatsApp: plantillas aprobadas para avisar fuera de las 24 horas (hoy el PDF solo sale dentro de la ventana)
+- [ ] Piloto: copias de seguridad de /var/lib/contadorsmart y correo real
 - [ ] WhatsApp real en Railway (prueba temporal, base propia de Railway): código listo (railway.json, scripts/railway-start.mjs, docs/railway-bot.md); falta crear el servicio y probar con Meta
 - [ ] Prueba visual intermitente: error de hidratación #418 en Movimientos (probable `<noscript>` dentro del selector de contribuyente)
 - [ ] WhatsApp: reintento automático periódico de eventos fallidos (hoy se reintenta al llegar el siguiente mensaje o desde el simulador)

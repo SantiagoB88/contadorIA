@@ -42,11 +42,12 @@ export function noticeTransport(address: string): MessagingTransport {
 
 type RequestRef = { id: string; subject: string; channel: string; createdById: string };
 
-async function sendNotice(request: RequestRef, type: string, message: BotMessage, transport?: MessagingTransport) {
-  if (request.channel !== CHANNEL.WHATSAPP) return;
+/** Manda el aviso si corresponde (solicitud de WhatsApp, número vinculado, aviso activado). Devuelve a qué número. */
+async function sendNotice(request: RequestRef, type: string, message: BotMessage, transport?: MessagingTransport): Promise<{ address: string } | null> {
+  if (request.channel !== CHANNEL.WHATSAPP) return null;
   const link = await prisma.channelLink.findFirst({ where: { userId: request.createdById, channel: CHANNEL.WHATSAPP, status: "ACTIVO" } });
-  if (!link) return;
-  if (!(await getPreferences(request.createdById))[type]) return;
+  if (!link) return null;
+  if (!(await getPreferences(request.createdById))[type]) return null;
   const row = await prisma.outboundMessage.create({
     data: {
       channel: CHANNEL.WHATSAPP,
@@ -69,17 +70,56 @@ async function sendNotice(request: RequestRef, type: string, message: BotMessage
       sentAt: result.status === "ENVIADO" || result.status === "SIMULADO" ? new Date() : null,
     },
   });
+  return { address: link.address };
 }
 
-/** El estudio respondió en público una solicitud que llegó por WhatsApp. No incluye el texto: se lee en el bot. */
-export async function notifyRequestReply(request: RequestRef, transport?: MessagingTransport): Promise<void> {
+/** Archivo que el estudio adjuntó en una respuesta pública (visible para el cliente). */
+export type ReplyDocument = { id: string; fileName: string; mimeType: string; bytes: Uint8Array };
+
+/**
+ * El estudio respondió en público una solicitud que llegó por WhatsApp. No incluye el texto (se lee en el bot), pero
+ * sí los archivos que adjuntó: llegan al mismo chat (por ejemplo, la constancia que la persona pidió).
+ */
+export async function notifyRequestReply(request: RequestRef, transport?: MessagingTransport, documents: ReplyDocument[] = []): Promise<void> {
   // Sin botones: un aviso proactivo no tiene opciones vigentes; el cliente escribe "menú" o Mis solicitudes.
-  await sendNotice(
+  const files = documents.length ? ` Te mando ${documents.length === 1 ? "el archivo" : "los archivos"} acá abajo.` : "";
+  const sent = await sendNotice(
     request,
     "RESPUESTAS_ESTUDIO",
-    textMessage(`El estudio respondió tu solicitud ${requestCode(request.id)} (${request.subject}). Para verla, escribí *menú* y entrá a Mis solicitudes.`),
+    textMessage(`El estudio respondió tu solicitud ${requestCode(request.id)} (${request.subject}).${files} Para ver la respuesta, escribí *menú* y entrá a Mis solicitudes.`),
     transport,
   );
+  if (!sent) return;
+  for (const doc of documents) await sendDocumentNotice(request, sent.address, doc, transport);
+}
+
+/** Manda un archivo al chat y lo deja registrado como aviso (con su resultado real). */
+async function sendDocumentNotice(request: RequestRef, address: string, doc: ReplyDocument, transport?: MessagingTransport) {
+  const row = await prisma.outboundMessage.create({
+    data: {
+      channel: CHANNEL.WHATSAPP,
+      address,
+      body: `📎 ${doc.fileName}`,
+      payload: JSON.stringify({ kind: "document", documentId: doc.id, fileName: doc.fileName }),
+      kind: "AVISO",
+      requestId: request.id,
+      status: "PENDIENTE",
+    },
+  });
+  const t = transport ?? noticeTransport(address);
+  const result = t.sendDocument
+    ? await t.sendDocument(address, { bytes: doc.bytes, fileName: doc.fileName, mimeType: doc.mimeType, caption: `${requestCode(request.id)} · ${request.subject}` })
+    : { status: "PENDIENTE" as const, error: "Este canal no puede mandar archivos." };
+  await prisma.outboundMessage.update({
+    where: { id: row.id },
+    data: {
+      status: result.status,
+      providerId: result.providerId ?? null,
+      error: result.error ?? null,
+      attempts: 1,
+      sentAt: result.status === "ENVIADO" || result.status === "SIMULADO" ? new Date() : null,
+    },
+  });
 }
 
 /** El estudio cambió el estado de una solicitud que llegó por WhatsApp. */

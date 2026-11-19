@@ -1,0 +1,6 @@
+# Caddy publica la app con HTTPS automático (certificado de Let's Encrypt) y la pasa al puerto local 3000.
+# Reemplazá app.TUDOMINIO.com por tu dominio (tiene que apuntar a la IP del VPS antes de arrancar Caddy).
+app.TUDOMINIO.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}

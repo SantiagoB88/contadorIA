@@ -46,7 +46,7 @@ import { consumeBotInvite, createWebLinkCode, getActiveLink, listStudyLinks, unl
 import { simulatorTransport, type MessagingTransport } from "@/providers/messaging";
 import { buttonsMessage, choicesOf, fallbackText, listMessage, type BotMessage } from "@/modules/bot/ui";
 import { cleanupOldUploads, saveBotUpload, UPLOAD_KEEP_HOURS } from "@/modules/bot/uploads";
-import { requestCode } from "@/modules/bot/notify";
+import { notifyRequestReply, requestCode } from "@/modules/bot/notify";
 import { MAX_FILE_BYTES } from "@/lib/constants";
 import { LocalFileStorage, storage, storageDir } from "@/providers/storage";
 import {
@@ -1343,7 +1343,7 @@ async function main() {
     await useTaxpayer(ANA_WA, "Ana Gómez");
     await tap(ANA_WA, "Documentos");
     await tap(ANA_WA, "Solicitar un documento");
-    await tap(ANA_WA, "Constancia de inscrip");
+    await tap(ANA_WA, "Constancia inscripción");
     await prisma.botConversation.update({
       where: { channel_address: { channel: "WHATSAPP", address: ANA_WA } },
       data: { updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
@@ -1841,6 +1841,70 @@ async function main() {
     assert.equal((await requestHelp(admin, "WEB", "WEB", botOrigin)).ok, false);
     // Otro cliente no ve el pedido de ayuda ajeno.
     assert.equal(await getRequestForUser(clienteA, a.requestId), null);
+  });
+
+  console.log("Piloto: constancia por WhatsApp y PDF del estudio al chat");
+  await check("P1. constancia pedida por el bot → una sola solicitud del cliente → el PDF del estudio llega al mismo chat", async () => {
+    await useTaxpayer(ANA_WA, "Ana Gómez");
+    const before = await prisma.serviceRequest.count({ where: { createdById: clienteA.id } });
+    await tap(ANA_WA, "Documentos");
+    await tap(ANA_WA, "Solicitar un documento");
+    await tap(ANA_WA, "Constancia inscripción");
+    const confirm = choice(ANA_WA, "Pedir documento");
+    const sent = await send(ANA_WA, { text: confirm.title, choiceId: confirm.id });
+    assert.match(sent.text, /S-[A-Z0-9]{6}/);
+    // Tocar de nuevo el mismo botón no crea otra.
+    const again = await send(ANA_WA, { text: confirm.title, choiceId: confirm.id });
+    assert.match(again.text, /ya no está vigente/);
+    assert.equal(await prisma.serviceRequest.count({ where: { createdById: clienteA.id } }), before + 1);
+    const request = await prisma.serviceRequest.findFirstOrThrow({ where: { createdById: clienteA.id }, orderBy: { createdAt: "desc" } });
+    assert.equal(request.taxpayerId, ana.id); // asociada al cliente correcto
+    assert.equal(request.channel, "WHATSAPP");
+    assert.match(request.subject, /Constancia de inscripción/);
+    assert.ok((await listInbox(admin, {})).rows.some((r) => r.id === request.id)); // la ve el estudio
+
+    // Nota interna con archivo: no sale nada al chat.
+    const outBefore = await prisma.outboundMessage.count({ where: { requestId: request.id } });
+    assert.ok((await addMessage(admin, request.id, { body: "Nota interna", visibility: "INTERNA" }, [pdfFile("interno.pdf")], botOrigin)).ok);
+    assert.equal(await prisma.outboundMessage.count({ where: { requestId: request.id } }), outBefore);
+
+    // Respuesta pública con el PDF: aviso de texto y el archivo, al mismo número.
+    assert.ok((await addMessage(admin, request.id, { body: "Te adjunto la constancia", visibility: "PUBLICA" }, [pdfFile("constancia-ana.pdf")], botOrigin)).ok);
+    const notices = await prisma.outboundMessage.findMany({ where: { requestId: request.id }, orderBy: { createdAt: "asc" } });
+    const text = notices.find((n) => !n.payload)!;
+    const doc = notices.find((n) => n.payload?.includes('"document"'))!;
+    assert.match(text.body, /Te mando el archivo acá abajo/);
+    assert.equal(doc.address, ANA_WA);
+    assert.equal(doc.body, "📎 constancia-ana.pdf");
+    assert.equal(doc.status, "SIMULADO");
+    const payload = JSON.parse(doc.payload!);
+    const document = await prisma.document.findUniqueOrThrow({ where: { id: payload.documentId } });
+    assert.equal(document.visibility, "CLIENTE");
+    assert.ok(!notices.some((n) => n.body.includes("interno.pdf")));
+  });
+
+  await check("P2. el transporte recibe el archivo real; sin soporte de archivos queda pendiente (no se finge la entrega)", async () => {
+    const request = await prisma.serviceRequest.findFirstOrThrow({ where: { createdById: clienteA.id, channel: "WHATSAPP" }, orderBy: { createdAt: "desc" } });
+    const sentDocs: { to: string; fileName: string; size: number; caption?: string }[] = [];
+    const capturing: MessagingTransport = {
+      name: "DOBLE",
+      send: async () => ({ status: "ENVIADO", providerId: "wamid.texto" }),
+      sendDocument: async (to, d) => {
+        sentDocs.push({ to, fileName: d.fileName, size: d.bytes.length, caption: d.caption });
+        return { status: "ENVIADO", providerId: "wamid.doc" };
+      },
+    };
+    const bytes = pdfBytes("doble");
+    await notifyRequestReply(request, capturing, [{ id: "doc-doble", fileName: "doble.pdf", mimeType: "application/pdf", bytes }]);
+    assert.deepEqual(sentDocs, [{ to: ANA_WA, fileName: "doble.pdf", size: bytes.length, caption: `${requestCode(request.id)} · ${request.subject}` }]);
+    const row = await prisma.outboundMessage.findFirstOrThrow({ where: { requestId: request.id, body: "📎 doble.pdf" } });
+    assert.equal(row.status, "ENVIADO");
+    assert.equal(row.providerId, "wamid.doc");
+    const textOnly: MessagingTransport = { name: "SOLO_TEXTO", send: async () => ({ status: "ENVIADO" }) };
+    await notifyRequestReply(request, textOnly, [{ id: "doc-2", fileName: "otro.pdf", mimeType: "application/pdf", bytes }]);
+    const pending = await prisma.outboundMessage.findFirstOrThrow({ where: { requestId: request.id, body: "📎 otro.pdf" } });
+    assert.equal(pending.status, "PENDIENTE");
+    assert.match(pending.error ?? "", /no puede mandar archivos/);
   });
 
   console.log(`\n${passed} verificaciones OK`);

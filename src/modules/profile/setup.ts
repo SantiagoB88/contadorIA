@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
+import { publicDemoTools } from "@/lib/demo-tools";
 import {
   ACCESS_STATUS,
-  APP_MODE,
   CHANNEL,
   REQUEST_STATUS,
   ROLES,
@@ -98,13 +98,14 @@ export async function getSetup(user: CurrentUser): Promise<Setup> {
       : {
           key: "correo",
           label: "Correo confirmado",
-          status: "PENDIENTE",
+          // Con el WhatsApp vinculado se puede entrar igual (el número prueba que la cuenta es de la persona).
+          status: link ? "OPCIONAL" : "PENDIENTE",
           detail: `Abrí el enlace que te mandamos a ${dbUser.email}.${
-            APP_MODE === "DEMO"
+            publicDemoTools()
               ? " En la demo los correos no salen: se ven en Correos de prueba."
               : ""
           } Si venció, al ingresar a la web te mandamos uno nuevo.`,
-          href: APP_MODE === "DEMO" ? "/dev/correos" : undefined,
+          href: publicDemoTools() ? "/dev/correos" : undefined,
         },
     link
       ? {

@@ -1,0 +1,29 @@
+# Servicio del piloto en el VPS: arranca solo al prender el servidor y se reinicia si se cae.
+# Instalar: sudo cp deploy/contadorsmart.service /etc/systemd/system/ && sudo systemctl daemon-reload
+[Unit]
+Description=ContadorSmart (piloto)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=contadorsmart
+Group=contadorsmart
+WorkingDirectory=/opt/contadorsmart
+# Archivo privado con los secretos (permisos 600, dueño root): systemd lo lee antes de bajar de usuario.
+EnvironmentFile=/etc/contadorsmart/contadorsmart.env
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/contadorsmart
+Environment=HOME=/var/lib/contadorsmart
+ExecStart=/usr/bin/node scripts/server-start.mjs
+Restart=always
+RestartSec=5
+# Endurecimiento básico: solo puede escribir en su carpeta de datos.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/contadorsmart /opt/contadorsmart/.next
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
