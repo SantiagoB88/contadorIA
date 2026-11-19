@@ -48,13 +48,18 @@ apt update && apt upgrade -y
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs git && node -v
 ```
-**VPS HOSTINGER** — firewall: solo SSH y web. Muestra `Status: active` con 22 (OpenSSH), 80 y 443.
+**VPS HOSTINGER** — firewall: solo SSH y web. Muestra `Status: active` con 22 (OpenSSH), 80 y 443. Si el panel de Hostinger tiene su propio firewall, también hay que permitir 80 y 443 ahí.
 ```bash
-ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable && ufw status
+apt install -y ufw && ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable && ufw status
 ```
-**VPS HOSTINGER** — instalar Caddy (repositorio oficial). La última línea muestra la versión de Caddy.
+**VPS HOSTINGER** — instalar Caddy desde los repositorios de Ubuntu. En el VPS del piloto falló la clave del repositorio de Caddy, y el paquete de Ubuntu alcanza. La última línea muestra la versión.
 ```bash
-apt install -y debian-keyring debian-archive-keyring apt-transport-https curl && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && apt update && apt install -y caddy && caddy version
+apt update && apt install -y caddy && caddy version
+```
+
+**Si la consola web dice `command not found` con comandos básicos** (por ejemplo, `apt` o `ufw`) después de reconectarse, restablecé las rutas:
+```bash
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; umask 022
 ```
 **VPS HOSTINGER** — usuario propio del servicio y carpetas. Termina sin mensajes.
 ```bash
@@ -110,11 +115,14 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/login
 
 ## 5. Publicar con HTTPS
 
-**VPS HOSTINGER** — poner tu dominio en la configuración de Caddy y recargarlo. No muestra errores.
+**VPS HOSTINGER** — configurar Caddy para el dominio (piloto: `contadoria.co` y `www.contadoria.co`) y prenderlo. Al final muestra `active` y `certificate obtained successfully` para cada nombre.
 ```bash
-sed "s/app.TUDOMINIO.com/app.TUDOMINIO.com/" /opt/contadorsmart/deploy/Caddyfile > /etc/caddy/Caddyfile && systemctl reload caddy
+printf 'contadoria.co, www.contadoria.co {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}
+' > /etc/caddy/Caddyfile && systemctl enable caddy && systemctl restart caddy && sleep 25 && systemctl is-active caddy && journalctl -u caddy -n 40 --no-pager | grep -iE "certificate obtained|error" | tail -4
 ```
-En ese comando reemplazá el **segundo** `app.TUDOMINIO.com` por tu dominio real.
 
 **NOTEBOOK** — abrir `https://app.TUDOMINIO.com/login` en el navegador. Debería verse con candado y sin usuarios de ejemplo. Entrás con `PILOT_ADMIN_EMAIL` y `PILOT_ADMIN_PASSWORD`.
 
@@ -167,11 +175,18 @@ journalctl -u contadorsmart -f
 | El PDF no llega | Pasaron más de 24 horas desde tu último mensaje (error **131047**): escribile al bot y respondé de nuevo. |
 | Error al arrancar por la base | Los registros dicen qué cambio de esquema se detuvo. No borres `/var/lib/contadorsmart`. |
 
+## Comprobar la Bandeja y la persistencia sin WhatsApp
+
+**VPS HOSTINGER** — crear una solicitud de prueba (cliente ficticio), reiniciar y volver a contar. Muestra `Solicitudes de prueba en la base: 1` antes y después de `active`. Después aparece en la Bandeja.
+```bash
+cd /opt/contadorsmart && runuser -u contadorsmart -- env HOME=/var/lib/contadorsmart DATABASE_URL=file:/var/lib/contadorsmart/contadorsmart.db node node_modules/tsx/dist/cli.mjs scripts/solicitud-de-prueba.ts && systemctl restart contadorsmart && sleep 20 && systemctl is-active contadorsmart && runuser -u contadorsmart -- env HOME=/var/lib/contadorsmart DATABASE_URL=file:/var/lib/contadorsmart/contadorsmart.db node node_modules/tsx/dist/cli.mjs scripts/solicitud-de-prueba.ts contar
+```
+
 ## Actualizar el código después
 
-**VPS HOSTINGER** — bajar los cambios, recompilar y reiniciar. Los datos no se tocan.
+**VPS HOSTINGER** — bajar los cambios, recompilar y reiniciar. Los datos no se tocan. El `umask 022` y el `chmod` evitan que los archivos nuevos queden solo para root: el servicio no podría leerlos.
 ```bash
-cd /opt/contadorsmart && git pull && npm ci && npm run build && chown -R contadorsmart:contadorsmart .next && systemctl restart contadorsmart
+umask 022; cd /opt/contadorsmart && git pull && npm ci && npm run build && chmod -R a+rX /opt/contadorsmart && chown -R contadorsmart:contadorsmart .next && systemctl restart contadorsmart
 ```
 
 ## Ensayo en la notebook (sin Meta ni internet)

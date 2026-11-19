@@ -20,7 +20,14 @@
   - `npm run verify` 130/130. Nuevas P1–P2: constancia → una solicitud del cliente correcto → el PDF sale al mismo número; una nota interna no se manda; un canal sin archivos queda pendiente.
   - Navegador 27/27.
   - `npm run ensayo:piloto` 14/14. Usa el mismo arranque que el VPS, con un WhatsApp y una API de Meta de prueba: seguridad del servidor, alta, constancia, una sola solicitud asociada, PDF subido y enviado al chat, y reinicio con datos y vínculo intactos.
-- **No probado**: Meta real (envío de documentos, formato del número), el VPS y el HTTPS.
+- **Desplegado en el VPS (19/11/2026)**: https://contadoria.co (y www), con Node 22, systemd y Caddy con certificado de Let's Encrypt. Datos en `/var/lib/contadorsmart` y secretos en `/etc/contadorsmart/contadorsmart.env` (600).
+  - Comprobado desde fuera del VPS:
+    - el ingreso responde 200 por HTTPS y `http://` redirige a `https://`;
+    - Ingresar no muestra usuarios de ejemplo;
+    - `/dev/correos` pide iniciar sesión y `/dev/whatsapp` da 404;
+    - el webhook rechaza un token incorrecto (403).
+  - El usuario entró a la Bandeja y vio la solicitud de prueba después de reiniciar el servicio.
+- **No probado**: Meta real (envío de documentos, formato del número). Falta cargar los secretos de WhatsApp.
 
 ## Demo de Vercel: todo lo que se crea se ve en todas las copias ✅ (rama `feat/whatsapp-bot`)
 
