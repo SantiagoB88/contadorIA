@@ -178,7 +178,7 @@ try {
   browser = await chromium.launch({ channel: "msedge" });
   const page = await browser.newPage();
   await page.goto(`${APP}/login`);
-  await page.getByLabel("Correo electrónico").fill(ADMIN.email);
+  await page.getByLabel("Correo, CUIT o DNI").fill(ADMIN.email);
   await page.getByLabel("Contraseña").fill(ADMIN.password);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(/\/dashboard/);
@@ -205,7 +205,7 @@ try {
   await startApp();
   const page2 = await browser.newPage();
   await page2.goto(`${APP}/login`);
-  await page2.getByLabel("Correo electrónico").fill(ADMIN.email);
+  await page2.getByLabel("Correo, CUIT o DNI").fill(ADMIN.email);
   await page2.getByLabel("Contraseña").fill(ADMIN.password);
   await page2.getByRole("button", { name: "Ingresar" }).click();
   await page2.waitForURL(/\/dashboard/);

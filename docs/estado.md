@@ -1,5 +1,26 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## Ingreso con CUIT o DNI, confirmación por WhatsApp, correo real y planes ✅ (19/11/2026, rama `feat/piloto-vps`)
+
+- **Correo real por SMTP** (`src/providers/mail.ts`, `nodemailer` 10.3.1): con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` y `MAIL_FROM` los correos salen de verdad, y siempre queda la copia en la base. Si el envío falla, queda en el registro y no corta el flujo. **En el VPS todavía no se cargaron las variables.**
+- **Confirmar la cuenta:**
+  - Al ingresar sin cuenta confirmada, la web muestra un código de 6 dígitos y el botón "Abrir WhatsApp con el código" (si está `WHATSAPP_PUBLIC_NUMBER`).
+  - Al mandarlo desde el celular, el número queda vinculado y ya se puede ingresar.
+  - Después, un aviso arriba pide confirmar el correo, con botón "Reenviar el correo".
+- **Ingreso con correo, CUIT o DNI:** por CUIT o DNI solo cuentan los clientes con acceso aprobado. Si hay varias cuentas, entra la que tiene esa contraseña.
+- **Planes de suscripción:**
+  - En **Planes**, el estudio arma planes con módulos (Movimientos, Categoría, Deudas, Facturación, Documentos, Solicitudes, Asistente de WhatsApp), con uno por defecto. En **Accesos → Usuarios** asigna uno a cada cliente.
+  - El cliente ve su plan en **Mi plan**.
+  - Se controla en el servidor: el menú oculta lo no incluido, las pantallas mandan a "Mi plan", las acciones devuelven error, y el bot oculta opciones o avisa que el asistente no está incluido.
+  - Sin planes cargados, todos ven todo. En la demo hay "Completo" (por defecto) y "Básico".
+- **Pruebas:**
+  - `npm run verify`: 138/138.
+  - Navegador: 27 OK y 1 omitida (la de Vercel). Se corrió en una copia fuera de OneDrive, porque en la carpeta de OneDrive el servidor de prueba falla al compilar ("Unexpected end of JSON input"), también en pantallas que no cambiaron.
+  - Ensayo del piloto: 15/15. Compilación en PILOTO: OK.
+  - A mano, en modo PILOTO: registro → código en el ingreso con el enlace a WhatsApp → plan "Básico" creado y asignado → el cliente no ve Deudas ni Facturación y `/facturas` lo manda a "Mi plan".
+  - Sin probar contra Meta real: el envío del código desde un celular de verdad. Probado con el bot de pruebas.
+- **Pendiente:** Inicio todavía muestra el resumen completo aunque el plan no incluya un módulo.
+
 ## Correos que no llegan: salida mientras no hay envío real ✅ (19/11/2026, rama `feat/piloto-vps`)
 
 - **Situación real:** no hay proveedor de correo. Los correos (confirmación, recuperación, avisos) quedan en la base (`OutboxEmail`) y no salen. Quien se registraba por la web quedaba trabado porque sin confirmar el correo no podía ingresar.

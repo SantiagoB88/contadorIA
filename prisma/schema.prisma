@@ -24,6 +24,25 @@ model Study {
   auditEvents    AuditEvent[]
   accessRequests AccessRequest[]
   scaleVersions  TaxScaleVersion[]
+  plans          Plan[]
+}
+
+// Plan de suscripción del estudio: qué módulos ve cada cliente. Sin cobros (fuera de alcance): solo habilita módulos.
+// Un cliente sin plan usa el plan "por defecto" del estudio; si el estudio no tiene ninguno, ve todo.
+model Plan {
+  id          String   @id @default(cuid())
+  studyId     String
+  study       Study    @relation(fields: [studyId], references: [id])
+  name        String
+  description String?
+  modules     String // JSON: lista de claves de módulo (ver src/modules/plans/catalog.ts)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  users       User[]
+
+  @@unique([studyId, name])
+  @@index([studyId])
 }
 
 model User {
@@ -40,6 +59,8 @@ model User {
   // Contraseña temporal (cuenta creada desde WhatsApp): hay que cambiarla al entrar y vence sola.
   mustChangePassword    Boolean   @default(false)
   tempPasswordExpiresAt DateTime?
+  planId           String? // plan de suscripción (solo clientes); null = el plan por defecto del estudio
+  plan             Plan?            @relation(fields: [planId], references: [id])
   createdAt        DateTime         @default(now())
   // Última modificación: en la demo de Vercel decide qué copia de la cuenta es la más nueva (ver demo-accounts.ts).
   updatedAt        DateTime         @default(now()) @updatedAt

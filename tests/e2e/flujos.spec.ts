@@ -14,7 +14,7 @@ async function switchTo(page: Page, email: string, password = "Demo1234!") {
     await other.click();
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
   }
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
@@ -33,10 +33,10 @@ async function expectNoErrors(page: Page, errors: string[], label: string) {
 test.describe("acceso y sesión", () => {
   test("contraseña incorrecta, ingreso y cierre de sesión", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Correo electrónico").fill(USERS.clienteA);
+    await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(USERS.clienteA);
     await page.getByLabel("Contraseña").fill("incorrecta");
     await page.getByRole("button", { name: "Ingresar" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: /correo o la contraseña/i })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /datos de ingreso o la contraseña/i })).toBeVisible();
 
     await login(page, USERS.clienteA);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Ana Gómez");
@@ -52,7 +52,7 @@ test.describe("acceso y sesión", () => {
     const urls: string[] = [];
     page.on("request", (r) => urls.push(r.url()));
     await page.goto("/login");
-    await page.getByLabel("Correo electrónico").fill(USERS.clienteA);
+    await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(USERS.clienteA);
     await page.getByLabel("Contraseña").fill("Demo1234!");
     await page.getByRole("button", { name: "Ingresar" }).click();
     await page.waitForLoadState("load");
@@ -100,7 +100,7 @@ test.describe("registro y asociación", () => {
     const email = `nuevo.${uid()}@ejemplo.com`;
     await page.goto("/registro");
     await page.getByLabel("Nombre y apellido").fill("Cliente Prueba E2E");
-    await page.getByLabel("Correo electrónico").fill(email);
+    await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
     await page.getByLabel("Teléfono").fill("+54 11 5555-0000");
     await page.getByLabel("Contraseña", { exact: true }).fill("Prueba1234!");
     await page.getByLabel("Repetí la contraseña").fill("Prueba1234!");

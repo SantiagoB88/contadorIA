@@ -1,76 +1,87 @@
 "use server";
 
 import { demoAction } from "@/lib/demo-journal";
-import { mailReachesPeople, NO_MAIL_HELP } from "@/lib/mail-status";
+import { mailReachesPeople } from "@/lib/mail-status";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { verifyPassword } from "@/lib/crypto";
 import { getOrigin } from "@/lib/origin";
+import { whatsappChatUrl } from "@/lib/whatsapp-public";
 import { clearAttempts, createSession, isRateLimited, registerFailedAttempt } from "@/lib/auth";
-import { sendVerificationEmail } from "@/modules/auth/service";
+import { findLoginCandidates, parseLoginIdentifier, sendVerificationEmail } from "@/modules/auth/service";
+import { createWebLinkCode, WEB_CODE_MINUTES } from "@/modules/bot/links";
 import { refreshDemoAccounts, restoreDemoAccounts } from "@/lib/demo-accounts";
 
-export type LoginState = { error?: string; info?: string; email?: string };
+/** `whatsapp`: la cuenta falta confirmar; se confirma mandando el código por WhatsApp (o con el enlace del correo). */
+export type LoginState = {
+  error?: string;
+  info?: string;
+  email?: string;
+  whatsapp?: { code: string; url: string | null; minutes: number; mailSent: boolean };
+};
 
-const schema = z.object({
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(1).max(200),
-});
+const BAD_LOGIN = "Los datos de ingreso o la contraseña no son correctos.";
 
 async function loginActionAccion(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const rawEmail = String(formData.get("email") ?? "");
-  const parsed = schema.safeParse({ email: rawEmail, password: formData.get("password") ?? "" });
-  if (!parsed.success) {
-    return { error: "Ingresá un correo válido y tu contraseña.", email: rawEmail };
+  const rawId = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const id = parseLoginIdentifier(rawId);
+  if (!id || !password || password.length > 200) {
+    return { error: "Ingresá tu correo, CUIT o DNI y tu contraseña.", email: rawId };
   }
 
-  const { email, password } = parsed.data;
-  if (isRateLimited(email)) {
-    return { error: "Hubo demasiados intentos. Esperá unos minutos y volvé a probar.", email };
+  const key = `login:${id.value}`;
+  if (isRateLimited(key)) {
+    return { error: "Hubo demasiados intentos. Esperá unos minutos y volvé a probar.", email: rawId };
   }
 
   await restoreDemoAccounts(); // demo de Vercel: cuentas creadas en otra copia del servidor (ver demo-accounts.ts)
-  const user = await prisma.user.findUnique({ where: { email } });
-  // Al pegar una contraseña suelen venir espacios de más: si la exacta no coincide, se prueba sin ellos.
-  const valid =
-    user !== null &&
-    user.active &&
-    ((await verifyPassword(password, user.passwordHash)) ||
-      (password.trim() !== password && (await verifyPassword(password.trim(), user.passwordHash))));
-  if (!valid || !user) {
-    registerFailedAttempt(email);
-    // Mensaje genérico: no revela si el correo existe.
-    return { error: "El correo o la contraseña no son correctos.", email };
+  // Por CUIT o DNI puede haber más de una cuenta: entra la única cuya contraseña coincide.
+  const candidates = (await findLoginCandidates(id)).filter((u) => u.active);
+  const passwordMatches = async (hash: string) =>
+    // Al pegar una contraseña suelen venir espacios de más: si la exacta no coincide, se prueba sin ellos.
+    (await verifyPassword(password, hash)) || (password.trim() !== password && (await verifyPassword(password.trim(), hash)));
+  const matching = [];
+  for (const u of candidates) if (await passwordMatches(u.passwordHash)) matching.push(u);
+  const user = matching.length === 1 ? matching[0] : null;
+  if (!user) {
+    registerFailedAttempt(key);
+    // Mensaje genérico: no revela si la cuenta existe.
+    return { error: BAD_LOGIN, email: rawId };
   }
 
-  clearAttempts(email);
+  clearAttempts(key);
 
   if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
     return {
       error: "La contraseña temporal venció. Pedí una nueva al asistente de WhatsApp (Mi cuenta → Entrar a la web) o usá ¿Olvidaste tu contraseña?.",
-      email,
+      email: rawId,
     };
   }
 
-  // Una cuenta creada desde WhatsApp puede entrar antes de confirmar el correo: el número vinculado prueba que es suya.
+  // La cuenta queda confirmada con el correo o con un WhatsApp vinculado (el número prueba que es suya).
   const phoneVerified = !user.emailVerifiedAt && (await prisma.channelLink.count({ where: { userId: user.id, status: "ACTIVO" } })) > 0;
   if (!user.emailVerifiedAt && !phoneVerified) {
-    // La contraseña es correcta pero falta confirmar el correo: se reenvía el enlace.
-    await sendVerificationEmail(user, await getOrigin());
+    const mailSent = mailReachesPeople();
+    if (mailSent) await sendVerificationEmail(user, await getOrigin());
+    // Primero WhatsApp (es lo más rápido): un código de un solo uso que la persona le manda al asistente.
+    if (user.role === "CLIENTE") {
+      const { code } = await createWebLinkCode(user);
+      return { email: rawId, whatsapp: { code, url: whatsappChatUrl(code), minutes: WEB_CODE_MINUTES, mailSent } };
+    }
     return {
-      info: mailReachesPeople()
+      info: mailSent
         ? "Todavía no confirmaste tu correo. Te enviamos un enlace nuevo: abrilo y volvé a ingresar."
-        : `Todavía no confirmaste tu correo. ${NO_MAIL_HELP}`,
-      email,
+        : "Todavía no confirmaste tu correo. Pedile a otro administrador del estudio que lo confirme en Accesos.",
+      email: rawId,
     };
   }
 
   await createSession(user.id);
   await refreshDemoAccounts();
-  await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id });
+  await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id, detail: id.kind === "EMAIL" ? undefined : `Ingreso con ${id.kind}` });
   // Con contraseña temporal, lo primero es elegir una propia.
   redirect(user.mustChangePassword ? "/perfil?clave=temporal#clave" : safeNext(String(formData.get("next") ?? "")));
 }

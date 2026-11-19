@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { COUNTED_INVOICE_STATUSES, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
@@ -16,6 +17,7 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function MovimientosPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "MOVIMIENTOS");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
 

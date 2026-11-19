@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,6 +16,7 @@ export const metadata = { title: "Factura · ContadorIA" };
 
 export default async function FacturaPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
+  await requireModule(user, "FACTURACION");
   const { id } = await params;
   const invoice = await getAuthorizedInvoice(user, id);
   // Mismo 404 si no existe o si es de otro contribuyente: no se revela nada.

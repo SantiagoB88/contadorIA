@@ -21,12 +21,12 @@ function fakeCuit(): string {
 async function register(page: Page, email: string, password: string, name: string) {
   await page.goto("/registro");
   await page.getByLabel("Nombre y apellido").fill(name);
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Teléfono").fill("+54 11 5555-0000");
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
   await page.getByLabel("Repetí la contraseña").fill(password);
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page.getByText(/Te enviamos un correo/)).toBeVisible();
+  await expect(page.getByText(/También te enviamos un enlace/)).toBeVisible();
   await page.goto("/dev/correos");
   const href = await page.locator(`a[href*="/verificar?token="]`).first().getAttribute("href");
   await page.goto(href!);
@@ -81,7 +81,7 @@ test("asociación por CUIT nuevo: acceso inmediato, aviso al estudio, revocació
   await expect(page.locator("li", { hasText: email }).getByRole("button", { name: "Reactivar" })).toBeVisible();
   await page.context().clearCookies();
   await page.goto("/login");
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill("Prueba1234!");
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).toHaveURL(/\/login/);
@@ -97,7 +97,7 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
   await register(page, email, "Original123!", `Usuario ${id}`);
 
   await page.goto("/recuperar");
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByRole("button", { name: /Enviar/ }).click();
   // El subtítulo de la pantalla ya dice "Te enviamos un enlace": se espera el mensaje de confirmación.
   await expect(page.getByText(/Si el correo tiene una cuenta/)).toBeVisible();
@@ -115,7 +115,7 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
 
   // Ingresa con la nueva desde la pantalla a la que lo llevó el cambio (sin borrar cookies, como una persona).
   await page.goto("/login");
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill("Nueva12345!");
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
@@ -148,7 +148,7 @@ async function signInAs(page: Page, email: string, password: string) {
     await other.click();
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
   }
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
 }

@@ -1,14 +1,15 @@
 "use server";
 
 import { demoAction } from "@/lib/demo-journal";
-import { mailReachesPeople, NO_MAIL_HELP } from "@/lib/mail-status";
+import { mailReachesPeople } from "@/lib/mail-status";
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getOrigin } from "@/lib/origin";
 import { passwordProblem } from "@/lib/crypto";
-import { isRateLimited, registerFailedAttempt } from "@/lib/auth";
-import { registerUser, requestPasswordReset, resetPassword, verifyEmail } from "./service";
+import { isRateLimited, registerFailedAttempt, requireUser } from "@/lib/auth";
+import { registerUser, requestPasswordReset, resetPassword, sendVerificationEmail, verifyEmail } from "./service";
+import { prisma } from "@/lib/db";
 import { refreshDemoAccounts, rememberDemoAccountByEmail, restoreDemoAccounts } from "@/lib/demo-accounts";
 
 export type AuthFormState = {
@@ -59,8 +60,8 @@ async function registerActionAccion(_prev: AuthFormState, formData: FormData): P
   return {
     ok: true,
     message: mailReachesPeople()
-      ? `Listo. Te enviamos un correo a ${parsed.data.email} para confirmar la cuenta. Abrí el enlace y después ingresá.`
-      : `Listo, creamos tu cuenta. Antes de ingresar hay que confirmar el correo. ${NO_MAIL_HELP}`,
+      ? `Listo. Para activar la cuenta, ingresá con tu correo y contraseña: te vamos a dar un código para mandar por WhatsApp (es lo más rápido). También te enviamos un enlace a ${parsed.data.email}.`
+      : `Listo. Para activar la cuenta, ingresá con tu correo y contraseña: te vamos a dar un código para mandar por WhatsApp.`,
   };
 }
 
@@ -116,3 +117,17 @@ export const registerAction = demoAction(registerActionAccion);
 export const verifyEmailAction = demoAction(verifyEmailActionAccion);
 export const requestResetAction = demoAction(requestResetActionAccion);
 export const resetPasswordAction = demoAction(resetPasswordActionAccion);
+
+/** Ya adentro (confirmó por WhatsApp): reenvía el enlace para confirmar también el correo. */
+async function resendVerificationActionAccion(_prev: AuthFormState): Promise<AuthFormState> {
+  const user = await requireUser();
+  const key = `reenviar:${user.id}`;
+  if (isRateLimited(key)) return { ok: false, message: "Ya te mandamos varios. Esperá unos minutos y revisá también la carpeta de spam." };
+  registerFailedAttempt(key);
+  const row = await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } });
+  if (row?.emailVerifiedAt) return { ok: true, message: "Tu correo ya está confirmado." };
+  await sendVerificationEmail(user, await getOrigin());
+  return { ok: true, message: `Listo: te mandamos el enlace a ${user.email}. Revisá también la carpeta de spam.` };
+}
+
+export const resendVerificationAction = demoAction(resendVerificationActionAccion);

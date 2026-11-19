@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { DOC_TYPE_LABEL } from "@/lib/constants";
@@ -14,6 +15,7 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function NuevaFacturaPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "FACTURACION");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
   if (taxpayers.length === 0) {

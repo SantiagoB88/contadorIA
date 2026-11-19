@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { BILLING_SIMULATED_NOTICE, ROLES } from "@/lib/constants";
@@ -24,6 +25,7 @@ const STATUS_OPTIONS = [
 
 export default async function FacturasPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "FACTURACION");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
 

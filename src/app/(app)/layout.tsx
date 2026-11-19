@@ -6,6 +6,10 @@ import { AppNav, MobileNav } from "@/components/AppNav";
 import { DemoBanner } from "@/components/DemoBanner";
 import { BrandMark, BrandName } from "@/components/ui";
 import { simulatorEnabled } from "@/modules/bot/simulator-config";
+import { getUserModules } from "@/modules/plans/service";
+import { prisma } from "@/lib/db";
+import { mailReachesPeople } from "@/lib/mail-status";
+import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
 
 // Todas las pantallas internas dependen de la sesión: nunca se cachean entre usuarios.
 export const dynamic = "force-dynamic";
@@ -14,6 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const isAdmin = user.role === ROLES.ADMIN;
   const showBot = simulatorEnabled();
+  const allowed = isAdmin ? undefined : (await getUserModules(user)).modules;
+  // Entró confirmando por WhatsApp: el correo se confirma después (solo si los correos salen de verdad).
+  const pendingEmail =
+    !isAdmin && mailReachesPeople() && !(await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt;
 
   const logout = (
     <form action={logoutAction}>
@@ -46,7 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <BrandMark />
             <BrandName dark />
           </Link>
-          <AppNav isAdmin={isAdmin} showBot={showBot} />
+          <AppNav isAdmin={isAdmin} showBot={showBot} allowed={allowed} />
           <div className="mt-auto border-t border-white/15 pt-4">
             <p className="truncate px-2 text-sm font-medium text-white">{user.name}</p>
             <p className="truncate px-2 text-xs text-slate-300">
@@ -67,6 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <MobileNav
                 isAdmin={isAdmin}
                 showBot={showBot}
+                allowed={allowed}
                 logout={logout}
                 account={
                   <>
@@ -80,6 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           </header>
 
+          {pendingEmail && !user.mustChangePassword && <VerifyEmailBanner email={user.email} />}
           {user.mustChangePassword && (
             <div role="alert" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
               Estás usando una contraseña temporal.{" "}

@@ -57,3 +57,13 @@
 - Las sesiones y tokens vencidos no se limpian de la base (no afecta el funcionamiento).
 - El esquema se aplica con `prisma db push` (sin historial de migraciones). Pasar a `prisma migrate` junto con PostgreSQL.
 - El correo no se puede cambiar desde el perfil (requiere re-verificación).
+
+## Ingreso, correo y planes (19/11/2026)
+
+- [x] Correo real por SMTP (falta cargar las variables en el VPS)
+- [x] Confirmar la cuenta por WhatsApp al ingresar y después el correo
+- [x] Ingresar con correo, CUIT o DNI
+- [x] Planes de suscripción con módulos por cliente (web y WhatsApp)
+- [ ] Planes: ocultar en Inicio los datos de módulos que el plan no incluye (hoy Inicio muestra el resumen completo)
+- [ ] Planes: precio y cobro (fuera de alcance por ahora)
+- [ ] Correo: versión HTML con la marca y dominio propio con SPF/DKIM para que no caiga en spam

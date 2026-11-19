@@ -1,5 +1,6 @@
 "use server";
 
+import { hasModule, notInPlan } from "@/modules/plans/service";
 import { demoAction } from "@/lib/demo-journal";
 
 import { revalidatePath } from "next/cache";
@@ -55,6 +56,7 @@ function refresh() {
 
 async function saveDraftActionAccion(_prev: DraftFormState, formData: FormData): Promise<DraftFormState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "FACTURACION"))) return { ok: false, message: notInPlan("FACTURACION") };
   const input = readDraft(formData);
   const invoiceId = str(formData, "invoiceId") || undefined;
   const result = await saveDraft(user, str(formData, "taxpayerId"), input, invoiceId);
@@ -65,6 +67,7 @@ async function saveDraftActionAccion(_prev: DraftFormState, formData: FormData):
 
 async function emitInvoiceActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "FACTURACION"))) return { ok: false, message: notInPlan("FACTURACION") };
   const invoiceId = str(formData, "invoiceId");
   const result = await emitInvoice(user, invoiceId, str(formData, "idempotencyKey"), formData.get("simulateRejection") === "on");
   refresh();
@@ -74,6 +77,7 @@ async function emitInvoiceActionAccion(_prev: SimpleState, formData: FormData): 
 
 async function deleteDraftActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "FACTURACION"))) return { ok: false, message: notInPlan("FACTURACION") };
   const result = await deleteDraft(user, str(formData, "invoiceId"));
   if (!result.ok) return result;
   refresh();
@@ -82,6 +86,7 @@ async function deleteDraftActionAccion(_prev: SimpleState, formData: FormData): 
 
 async function duplicateActionAccion(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "FACTURACION"))) return { ok: false, message: notInPlan("FACTURACION") };
   const result = await duplicateAsDraft(user, str(formData, "invoiceId"));
   if (!result.ok) return result;
   refresh();

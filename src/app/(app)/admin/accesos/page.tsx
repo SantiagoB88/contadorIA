@@ -9,6 +9,8 @@ import { AdminConfirmEmailForm, AdminResetPasswordForm, ReviewRequestForms, Revo
 import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
 import { listStudyLinks } from "@/modules/bot/links";
 import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
+import { listPlans } from "@/modules/plans/service";
+import { AssignPlanForm } from "@/components/plans/PlanForms";
 
 export const metadata = { title: "Accesos · ContadorIA" };
 
@@ -51,6 +53,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
   });
   const existingByCuit = new Map(existing.map((t) => [t.cuit, t.name]));
   const whatsappByUser = await listStudyLinks(admin);
+  const plans = await listPlans(admin);
 
   return (
     <div className="space-y-6">
@@ -164,7 +167,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
         )}
       </Card>
 
-      <Card className="p-0">
+      <Card className="p-0" id="usuarios">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="font-semibold text-navy">Usuarios</h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -193,6 +196,18 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
                 {u.id !== admin.id && u.active && <AdminResetPasswordForm userId={u.id} name={u.name} />}
                 {u.id !== admin.id && <UserStatusForm userId={u.id} active={u.active} />}
               </div>
+              {u.role === ROLES.CLIENTE && (
+                <div className="flex w-full flex-wrap items-center justify-end gap-2">
+                  <span className="text-xs text-slate-500">Plan</span>
+                  <AssignPlanForm
+                    userId={u.id}
+                    name={u.name}
+                    current={u.planId}
+                    plans={plans.map((p) => ({ id: p.id, name: p.name }))}
+                    defaultName={plans.find((p) => p.isDefault)?.name ?? null}
+                  />
+                </div>
+              )}
             </li>
           ))}
         </ul>

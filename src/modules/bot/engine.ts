@@ -13,6 +13,8 @@ import "./flows-info";
 import "./flows-billing";
 import "./flows-ops";
 import { SIGNUP_STEPS } from "./flows-signup";
+import { getUserModules, notInPlan } from "@/modules/plans/service";
+import { moduleForAction } from "./plan-modules";
 
 // Motor de conversación del bot. No sabe nada de WhatsApp: recibe lo que mandó un número ya validado por el
 // transporte (un texto, una opción tocada o un archivo ya guardado) y devuelve los mensajes a responder.
@@ -60,6 +62,12 @@ async function identify(address: string): Promise<Identity> {
 async function runAction(ctx: Ctx, action: Action) {
   const handler = actions[action.a];
   if (!handler) return showMenu(ctx);
+  // Opción de un módulo que el plan del cliente no incluye (por ejemplo, un botón de un mensaje anterior).
+  const needed = moduleForAction(action.a);
+  if (needed && !(await getUserModules(ctx.user)).modules.includes(needed)) {
+    ctx.say(notInPlan(needed));
+    return showMenu(ctx);
+  }
   ctx.conv.step = null;
   if (!withoutTaxpayer.has(action.a) && (await getAccessibleTaxpayers(ctx.user)).length === 0) return showPending(ctx);
   if (!readOnly.has(action.a)) return handler(ctx, action.v);
@@ -180,6 +188,7 @@ export async function handleMessage(input: BotInput): Promise<BotMessage[]> {
   // Mientras se espera un texto, un número escrito es el dato (una cantidad, un importe), no una opción.
   const action = resolveChoice(conv, input.choiceId ?? null, conv.step ? "" : text);
 
+  let planBlocked = false;
   if (input.uploadError) {
     ctx.say(`No pude recibir el archivo: ${input.uploadError}`);
     if (!ctx.repeatPrompt()) {
@@ -195,6 +204,11 @@ export async function handleMessage(input: BotInput): Promise<BotMessage[]> {
     }
   } else if (identity.kind === "guest") {
     await guestTurn(ctx, action, text);
+  } else if (!(await getUserModules(ctx.user)).modules.includes("WHATSAPP")) {
+    // El asistente es un módulo del plan: sin él, se avisa y no se atiende.
+    ctx.resetFlow();
+    ctx.say(T.whatsappNotInPlan(ctx.origin));
+    planBlocked = true;
   } else {
     await userTurn(ctx, input, action, text);
   }
@@ -202,7 +216,7 @@ export async function handleMessage(input: BotInput): Promise<BotMessage[]> {
   if (input.fault === "despues") throw new Error("Falla simulada después de la acción (simulador).");
 
   // Nunca un callejón sin salida: si el turno no dejó opciones ni espera un dato, se ofrece volver al menú.
-  if (!ctx.hasPrompt && !ctx.conv.step && ctx.out.length > 0 && identity.kind === "user") {
+  if (!planBlocked && !ctx.hasPrompt && !ctx.conv.step && ctx.out.length > 0 && identity.kind === "user") {
     ctx.buttons("¿Seguimos?", [{ title: T.menu, a: "menu" }]);
   }
   if (ctx.out.length === 0) {

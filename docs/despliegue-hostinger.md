@@ -189,6 +189,28 @@ cd /opt/contadorsmart && runuser -u contadorsmart -- env HOME=/var/lib/contadors
 umask 022; cd /opt/contadorsmart && git pull && npm ci && npm run build && chmod -R a+rX /opt/contadorsmart && chown -R contadorsmart:contadorsmart .next && systemctl restart contadorsmart
 ```
 
+## Correo real (SMTP)
+
+Sin estas variables, los correos no salen: la cuenta se confirma igual por WhatsApp.
+
+1. Elegí un proveedor con SMTP y sacá usuario y contraseña. Por ejemplo:
+   - Gmail: activá la verificación en dos pasos y creá una *contraseña de aplicación*. Datos: `smtp.gmail.com`, puerto `465`.
+   - Brevo (gratis, 300 correos por día): `smtp-relay.brevo.com`, puerto `587`.
+2. **VPS HOSTINGER** — abrí el archivo privado y agregá las variables al final. No las pegues en un chat.
+   ```bash
+   nano /etc/contadorsmart/contadorsmart.env
+   ```
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=tu-cuenta@gmail.com
+   SMTP_PASS=la-contraseña-de-aplicación
+   MAIL_FROM=ContadorIA <tu-cuenta@gmail.com>
+   WHATSAPP_PUBLIC_NUMBER=54911XXXXXXXX
+   ```
+   `WHATSAPP_PUBLIC_NUMBER` es el número del asistente, con código de país y sin `+`. Con él, la web muestra un botón **Abrir WhatsApp con el código**.
+3. Reiniciá con `systemctl restart contadorsmart`. Para probar, registrate con un correo tuyo. Si no llega, mirá el registro con `journalctl -u contadorsmart -n 50 | grep correo`.
+
 ## Ensayo en la notebook (sin Meta ni internet)
 
 **NOTEBOOK** — el mismo arranque del VPS, con un WhatsApp y una API de Meta de prueba. Recorre:
@@ -210,5 +232,5 @@ Antes hay que compilar con `NEXT_DIST_DIR=.next-prodtest npm run build`.
 - Secretos cifrados en la base y reautenticación para revelarlos.
 - Plantillas de Meta para avisar fuera de las 24 horas.
 - Copias de seguridad de `/var/lib/contadorsmart`.
-- Correo real (hoy los correos quedan en la bandeja local).
+- Correo real: cargar las variables SMTP (ver "Correo real").
 - Después: facturación frecuente, servicios de ARCA y evaluación de Aconpy.

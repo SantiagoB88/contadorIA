@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { DOC_CATEGORY_LABEL, ROLES } from "@/lib/constants";
@@ -14,6 +15,7 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function DocumentsPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "DOCUMENTOS");
   const isAdmin = user.role === ROLES.ADMIN;
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);

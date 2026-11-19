@@ -31,7 +31,7 @@ export async function getUserLink(userId: string) {
 }
 
 /** El usuario logueado genera un código para mandar por WhatsApp. Anula los anteriores sin usar. */
-export async function createWebLinkCode(user: CurrentUser): Promise<{ code: string; expiresAt: Date }> {
+export async function createWebLinkCode(user: Pick<CurrentUser, "id" | "studyId">):Promise<{ code: string; expiresAt: Date }> {
   const expiresAt = new Date(Date.now() + WEB_CODE_MINUTES * 60_000);
   await prisma.linkCode.updateMany({ where: { userId: user.id, kind: "CODIGO_WEB", usedAt: null }, data: { usedAt: new Date() } });
   // El hash es único: si dos códigos coinciden por azar, se genera otro.

@@ -39,7 +39,7 @@ async function loginUI(page: Page, email: string, password: string, expectUrl = 
     await other.click();
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
   }
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(expectUrl, { waitUntil: "commit" });

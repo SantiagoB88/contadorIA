@@ -1,3 +1,5 @@
+import { getUserModules } from "@/modules/plans/service";
+import { moduleForAction } from "./plan-modules";
 import { prisma } from "@/lib/db";
 import { CHANNEL, REQUEST_STATUS } from "@/lib/constants";
 import { getSetup, HELP_REASONS, requestHelp, SETUP_STATUS_LABEL, type SetupStatus } from "@/modules/profile/setup";
@@ -160,13 +162,19 @@ export async function showMenu(ctx: Ctx) {
     },
     { title: "Mi cuenta", desc: "Datos, avisos y vinculación", a: "m.cuenta" },
   ];
+  // Solo las opciones de los módulos del plan del cliente.
+  const allowed = (await getUserModules(ctx.user)).modules;
+  const visible = rows.filter((r) => {
+    const key = moduleForAction(r.a);
+    return !key || allowed.includes(key);
+  });
   if (taxpayers.length > 1)
-    rows.push({
+    visible.push({
       title: "Cambiar contribuyente",
       desc: `Hoy: ${tp.name}`,
       a: "m.cambiar",
     });
-  ctx.list(T.menuIntro(firstName(ctx.user.name), tp.name), T.menuButton, rows);
+  ctx.list(T.menuIntro(firstName(ctx.user.name), tp.name), T.menuButton, visible);
 }
 
 /** Elegir contribuyente. `then` es la acción a seguir después. */

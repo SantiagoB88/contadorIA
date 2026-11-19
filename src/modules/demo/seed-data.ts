@@ -106,6 +106,7 @@ async function wipe() {
   await prisma.appMeta.deleteMany();
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.plan.deleteMany();
   await prisma.taxpayer.deleteMany();
   await prisma.taxCategoryLimit.deleteMany();
   await prisma.taxScaleVersion.deleteMany();
@@ -132,6 +133,13 @@ export async function seedDemo(options: { reset?: boolean } = {}) {
   const passwordHash = await hash(DEMO_PASSWORD, 10);
 
   const study = await prisma.study.create({ data: { name: "Estudio Demo", acceptsSignups: true } });
+  // Planes de ejemplo: "Completo" es el por defecto (todos ven todo, como antes); "Básico" se asigna en Accesos.
+  await prisma.plan.createMany({
+    data: [
+      { studyId: study.id, name: "Completo", description: "Todos los módulos, en la web y por WhatsApp.", modules: JSON.stringify(["MOVIMIENTOS", "CATEGORIA", "DEUDAS", "FACTURACION", "DOCUMENTOS", "SOLICITUDES", "WHATSAPP"]), isDefault: true },
+      { studyId: study.id, name: "Básico", description: "Seguimiento de la categoría y consultas al estudio, sin facturación.", modules: JSON.stringify(["MOVIMIENTOS", "CATEGORIA", "SOLICITUDES", "WHATSAPP"]) },
+    ],
+  });
   // Segundo estudio solo para comprobar aislamiento.
   const otherStudy = await prisma.study.create({ data: { name: "Estudio Aislamiento (pruebas)" } });
 

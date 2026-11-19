@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ export const metadata = { title: "Informar pago · ContadorIA" };
 
 export default async function InformPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
+  await requireModule(user, "DEUDAS");
   const { id } = await params;
   const obligation = await prisma.obligation.findFirst({ where: { id, studyId: user.studyId } });
   const taxpayer = obligation ? await getAuthorizedTaxpayer(user, obligation.taxpayerId) : null;

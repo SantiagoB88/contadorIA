@@ -92,3 +92,12 @@
 - Monotributo y pesos argentinos únicamente.
 - Los usuarios creados antes de la entrega 2 se consideran con correo verificado.
 - El estudio verifica la titularidad del CUIT por fuera del sistema antes de aprobar.
+
+## Ingreso, correo real y planes (19/11/2026)
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Correo real | SMTP genérico con `nodemailer` 10.3.1 (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`). Sin esas variables, los correos solo quedan en `OutboxEmail`. Siempre se guarda la copia. | Sirve cualquier proveedor (Gmail con contraseña de aplicación, Brevo, Resend, el correo de Hostinger) sin atarse a uno. Se eligió 10.3.1 porque las versiones hasta 10.1.3 tienen fallas de seguridad publicadas. Un error al enviar se registra y no corta el registro ni el ingreso. |
+| Confirmar la cuenta | Primero WhatsApp: al ingresar sin cuenta confirmada, la web da un código de 6 dígitos (el mismo `LinkCode` de la vinculación, 10 minutos, un solo uso) para mandarlo al asistente. Al vincular el número, la cuenta queda confirmada. Después, un aviso pide confirmar el correo, con botón para reenviarlo. | Es lo más rápido y prueba que el número es de la persona. El correo sigue siendo un segundo paso que no bloquea. El código solo se muestra después de validar la contraseña. |
+| Ingreso con CUIT o DNI | El campo acepta correo, CUIT (11 dígitos) o DNI (7 u 8). Por CUIT o DNI solo cuentan los clientes con acceso **aprobado** a ese CUIT (el DNI se busca dentro del CUIT, dígitos 3 a 10). Si hay varias cuentas, entra la única cuya contraseña coincide. El mensaje de error es el mismo exista o no la cuenta. | Un pedido sin aprobar no alcanza: cualquiera puede declarar un CUIT. No se guarda el DNI aparte. Los administradores ingresan con correo. |
+| Planes de suscripción | Tabla `Plan` por estudio con la lista de módulos (`MOVIMIENTOS`, `CATEGORIA`, `DEUDAS`, `FACTURACION`, `DOCUMENTOS`, `SOLICITUDES`, `WHATSAPP`) y `User.planId`. Un cliente sin plan usa el plan por defecto; si no hay ninguno, ve todo. El estudio ve todo siempre. | Se controla en el servidor: las pantallas mandan a "Mi plan", las acciones devuelven error, y el bot oculta las opciones o avisa que el asistente no está incluido. Sin cobros (fuera de alcance). No se puede borrar un plan con clientes asignados. |

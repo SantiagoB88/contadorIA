@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { SR_TOPIC_LABEL } from "@/lib/constants";
@@ -12,6 +13,7 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function NewRequestPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "SOLICITUDES");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
   const requested = first(sp.c);

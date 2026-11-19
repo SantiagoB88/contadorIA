@@ -79,7 +79,7 @@ async function switchAccount(page: Page, email: string, password: string) {
     await other.click();
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
   }
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
@@ -128,7 +128,7 @@ test("alta por chat → acceso inmediato → ingreso con contraseña temporal �
   await expect(web.getByText(/Ya ingresaste como/)).toBeVisible();
   await web.getByRole("button", { name: /Cerrar sesión y entrar con otra cuenta/ }).click();
   await web.waitForURL(/\/login$/, { waitUntil: "commit" });
-  await web.getByLabel("Correo electrónico").fill(email);
+  await web.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   // Copiada con un espacio de más (pasa al pegar): igual entra.
   await web.getByLabel("Contraseña").fill(`${temp} `);
   await web.getByRole("button", { name: "Ingresar" }).click();

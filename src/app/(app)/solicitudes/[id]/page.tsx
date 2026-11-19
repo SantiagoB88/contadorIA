@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -15,6 +16,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function RequestPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "SOLICITUDES");
   const { id } = await params;
   if (user.role === ROLES.ADMIN) redirect(`/admin/solicitudes/${id}`);
   const sp = await searchParams;

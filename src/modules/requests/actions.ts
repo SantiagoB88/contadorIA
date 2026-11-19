@@ -1,5 +1,6 @@
 "use server";
 
+import { hasModule, notInPlan } from "@/modules/plans/service";
 import { demoAction } from "@/lib/demo-journal";
 
 import { revalidatePath } from "next/cache";
@@ -22,6 +23,7 @@ function refresh(requestId?: string) {
 
 async function createRequestActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "SOLICITUDES"))) return { ok: false, message: notInPlan("SOLICITUDES") };
   const values = { taxpayerId: str(formData, "taxpayerId"), topic: str(formData, "topic"), subject: str(formData, "subject"), body: str(formData, "body") };
   const result = await createRequest(user, values, await readUploads(formData), await getOrigin());
   if (!result.ok) return { ok: false, message: result.message, fieldErrors: result.fieldErrors, values };
@@ -31,6 +33,7 @@ async function createRequestActionAccion(_prev: FormState, formData: FormData): 
 
 async function replyActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "SOLICITUDES"))) return { ok: false, message: notInPlan("SOLICITUDES") };
   const requestId = str(formData, "requestId");
   const values = { body: str(formData, "body"), visibility: str(formData, "visibility") || "PUBLICA", newStatus: str(formData, "newStatus") };
   const result = await addMessage(
@@ -57,6 +60,7 @@ async function updateRequestActionAccion(_prev: FormState, formData: FormData): 
 
 async function informPaymentActionAccion(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (!(await hasModule(user, "DEUDAS"))) return { ok: false, message: notInPlan("DEUDAS") };
   const values = { note: str(formData, "note") };
   const result = await informPayment(user, str(formData, "obligationId"), values.note, await readUploads(formData), await getOrigin());
   if (!result.ok) return { ok: false, message: result.message, fieldErrors: result.fieldErrors, values };

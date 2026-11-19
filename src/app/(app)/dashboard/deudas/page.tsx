@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { OBLIGATION_STATUS, ROLES } from "@/lib/constants";
@@ -17,6 +18,7 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function DebtsPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "DEUDAS");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
 

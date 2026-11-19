@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { IS_DEMO } from "@/lib/constants";
@@ -24,6 +25,7 @@ const COVERAGE_TEXT = {
 
 export default async function CategoryPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "CATEGORIA");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
 

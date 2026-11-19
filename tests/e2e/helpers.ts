@@ -15,7 +15,7 @@ export async function login(page: Page, email: string, password = PASSWORD) {
   // Vercel ahí viajan las cuentas y los datos creados durante la demo).
   await page.context().clearCookies({ name: "cs_session" });
   await page.goto("/login");
-  await page.getByLabel("Correo electrónico").fill(email);
+  await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });

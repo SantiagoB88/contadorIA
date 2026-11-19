@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -19,6 +20,7 @@ function centsToInput(cents: bigint): string {
 
 export default async function EditarFacturaPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
+  await requireModule(user, "FACTURACION");
   const { id } = await params;
   const invoice = await getAuthorizedInvoice(user, id);
   if (!invoice || invoice.source !== INVOICE_SOURCE.FACTURADOR) notFound();

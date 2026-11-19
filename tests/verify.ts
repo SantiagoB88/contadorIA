@@ -15,7 +15,11 @@ import { limitDetail, limitHeadline, limitText } from "@/modules/dashboard/limit
 import { getSetup, requestHelp } from "@/modules/profile/setup";
 import { passwordProblem } from "@/lib/crypto";
 import { TOKEN_TYPE } from "@/lib/constants";
-import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
+import { findLoginCandidates, isTokenUsable, parseLoginIdentifier, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
+import { mail, setMailTransportForTests, smtpConfigured } from "@/providers/mail";
+import { mailReachesPeople } from "@/lib/mail-status";
+import { assignPlan, deletePlan, getUserModules, hasModule, listPlans, savePlan } from "@/modules/plans/service";
+import { parseModules } from "@/modules/plans/catalog";
 import { AUTO_APPROVAL_NOTE, adminConfirmEmail, adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
 import { verifyPassword } from "@/lib/crypto";
@@ -1917,6 +1921,119 @@ async function main() {
     const pending = await prisma.outboundMessage.findFirstOrThrow({ where: { requestId: request.id, body: "📎 otro.pdf" } });
     assert.equal(pending.status, "PENDIENTE");
     assert.match(pending.error ?? "", /no puede mandar archivos/);
+  });
+
+  console.log("Ingreso con CUIT o DNI, confirmación por WhatsApp, correo real y planes");
+  await check("el ingreso acepta correo, CUIT o DNI (con puntos y guiones) y rechaza lo demás", () => {
+    assert.deepEqual(parseLoginIdentifier(" Ana@Ejemplo.com "), { kind: "EMAIL", value: "ana@ejemplo.com" });
+    assert.deepEqual(parseLoginIdentifier("20-00000003-6"), { kind: "CUIT", value: "20000000036" });
+    assert.deepEqual(parseLoginIdentifier("12.345.678"), { kind: "DNI", value: "12345678" });
+    assert.deepEqual(parseLoginIdentifier("1234567"), { kind: "DNI", value: "01234567" });
+    for (const bad of ["", "hola", "123", "123456789", "ana@", "20-0000000-36x"]) assert.equal(parseLoginIdentifier(bad), null, bad);
+  });
+  await check("por CUIT o DNI solo aparecen clientes con acceso aprobado (un pedido sin aprobar no alcanza)", async () => {
+    const bruno = await prisma.user.findUniqueOrThrow({ where: { email: "cliente.b@contadorsmart.local" } });
+    const byCuit = await findLoginCandidates({ kind: "CUIT", value: "20000000036" });
+    assert.deepEqual(byCuit.map((u) => u.id), [bruno.id]);
+    const byDni = await findLoginCandidates({ kind: "DNI", value: "00000003" });
+    assert.ok(byDni.some((u) => u.id === bruno.id));
+    assert.ok(byDni.every((u) => u.role === "CLIENTE"));
+    // CUIT declarado en un pedido pendiente: no sirve para ingresar.
+    const pend = await prisma.accessRequest.findFirst({ where: { status: "PENDIENTE" } });
+    if (pend) {
+      const approved = await prisma.taxpayerAccess.count({ where: { userId: pend.userId, status: "APROBADO", taxpayer: { cuit: pend.cuit } } });
+      const found = await findLoginCandidates({ kind: "CUIT", value: pend.cuit });
+      if (!approved) assert.ok(!found.some((u) => u.id === pend.userId), "no debe entrar por un pedido sin aprobar");
+    }
+    assert.deepEqual(await findLoginCandidates({ kind: "CUIT", value: "20999999990" }), []);
+  });
+  await check("registro web: se confirma mandando el código por WhatsApp desde el celular y queda vinculado", async () => {
+    const r = await registerUser({ name: "Web Wpp", email: "web.wpp@ejemplo.com", phone: "+54 11 5555-7777", password: "Prueba1234!" }, "http://localhost");
+    assert.ok(r.ok);
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: "web.wpp@ejemplo.com" } });
+    assert.equal(u.emailVerifiedAt, null);
+    const { code } = await createWebLinkCode({ id: u.id, studyId: u.studyId });
+    const WEB_WPP = "+5491155557777";
+    const reply = await say(WEB_WPP, code);
+    assert.match(reply.text, /quedó confirmada/);
+    assert.equal(await prisma.channelLink.count({ where: { userId: u.id, status: "ACTIVO" } }), 1);
+    assert.equal(await prisma.linkCode.count({ where: { userId: u.id, usedAt: null } }), 0); // un solo uso
+  });
+  await check("correo real: con SMTP configurado sale por el transporte, guarda la copia y un error no corta el flujo", async () => {
+    const sent: { to?: unknown; subject?: unknown; text?: unknown; from?: unknown }[] = [];
+    const saved = { host: process.env.SMTP_HOST, user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, from: process.env.MAIL_FROM };
+    Object.assign(process.env, { SMTP_HOST: "smtp.prueba.local", SMTP_USER: "u", SMTP_PASS: "p", MAIL_FROM: "ContadorIA <no-responder@contadoria.co>" });
+    try {
+      assert.equal(smtpConfigured(), true);
+      assert.equal(mailReachesPeople(), true);
+      let fail = false;
+      setMailTransportForTests({
+        sendMail: async (m: Record<string, unknown>) => {
+          if (fail) throw new Error("conexión rechazada");
+          sent.push(m);
+          return {};
+        },
+      } as unknown as Parameters<typeof setMailTransportForTests>[0]);
+      await mail.send({ to: "destino@ejemplo.com", subject: "Prueba SMTP", body: "Hola" });
+      assert.deepEqual(sent.map((m) => [m.to, m.subject, m.text, m.from]), [["destino@ejemplo.com", "Prueba SMTP", "Hola", "ContadorIA <no-responder@contadoria.co>"]]);
+      assert.ok(await prisma.outboxEmail.findFirst({ where: { to: "destino@ejemplo.com", subject: "Prueba SMTP" } }));
+      fail = true;
+      await mail.send({ to: "destino@ejemplo.com", subject: "Prueba con falla", body: "Hola" }); // no tira error
+    } finally {
+      setMailTransportForTests(null);
+      for (const [k, v] of [["SMTP_HOST", saved.host], ["SMTP_USER", saved.user], ["SMTP_PASS", saved.pass], ["MAIL_FROM", saved.from]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+  await check("planes: solo el estudio los arma, nombres únicos, un solo plan por defecto y no se borra uno en uso", async () => {
+    assert.equal((await savePlan(clienteA, { name: "X", description: "", modules: [], isDefault: false })).ok, false);
+    assert.equal((await savePlan(admin, { name: "", description: "", modules: [], isDefault: false })).ok, false);
+    assert.equal((await savePlan(admin, { name: "Sin factura", description: "", modules: ["NO_EXISTE"], isDefault: false })).ok, false);
+    const r = await savePlan(admin, { name: "Sin factura", description: "Prueba", modules: ["MOVIMIENTOS", "CATEGORIA", "WHATSAPP", "SOLICITUDES"], isDefault: false });
+    assert.ok(r.ok, r.message);
+    assert.equal((await savePlan(admin, { name: "Sin factura", description: "", modules: [], isDefault: false })).ok, false); // repetido
+    const plan = await prisma.plan.findFirstOrThrow({ where: { studyId: admin.studyId, name: "Sin factura" } });
+    assert.deepEqual(parseModules(plan.modules), ["MOVIMIENTOS", "CATEGORIA", "SOLICITUDES", "WHATSAPP"]);
+    // Otro estudio no lo ve ni lo asigna.
+    assert.equal((await listPlans(otherAdmin)).some((p) => p.id === plan.id), false);
+    assert.equal((await assignPlan(otherAdmin, clienteA.id, plan.id)).ok, false);
+    assert.equal((await assignPlan(admin, admin.id, plan.id)).ok, false); // el estudio ve todo
+    assert.ok((await assignPlan(admin, clienteA.id, plan.id)).ok);
+    assert.equal((await deletePlan(admin, plan.id)).ok, false); // tiene un cliente
+    // Un solo plan por defecto.
+    const d = await savePlan(admin, { name: "Defecto prueba", description: "", modules: ["DOCUMENTOS"], isDefault: true });
+    assert.ok(d.ok);
+    assert.equal(await prisma.plan.count({ where: { studyId: admin.studyId, isDefault: true } }), 1);
+    assert.ok(await prisma.auditEvent.findFirst({ where: { action: "PLAN_ASSIGNED", entityId: clienteA.id } }));
+  });
+  await check("planes: el cliente ve los módulos de su plan (o del plan por defecto); el estudio, todo", async () => {
+    assert.deepEqual((await getUserModules(admin)).modules.length, 7);
+    const a = await getUserModules(clienteA);
+    assert.equal(a.plan?.name, "Sin factura");
+    assert.equal(await hasModule(clienteA, "FACTURACION"), false);
+    assert.equal(await hasModule(clienteA, "CATEGORIA"), true);
+    const b = await asCurrentUser("cliente.b@contadorsmart.local");
+    assert.equal((await getUserModules(b)).plan?.name, "Defecto prueba"); // sin plan asignado → por defecto
+    assert.deepEqual((await getUserModules(b)).modules, ["DOCUMENTOS"]);
+  });
+  await check("planes en WhatsApp: el menú oculta lo que no incluye, un botón viejo no lo abre y sin el asistente se avisa", async () => {
+    await say(ANA_WA, "menu");
+    const menu = render(lastReplies.get(ANA_WA) ?? []);
+    assert.ok(!/\[Facturación\]/.test(menu), menu);
+    assert.ok(/\[Categoría y límites\]/.test(menu), menu);
+    const old = await send(ANA_WA, { text: "Facturación", choiceId: "m.fact" });
+    assert.ok(!/Preparar factura/.test(old.text));
+    const plan = await prisma.plan.findFirstOrThrow({ where: { studyId: admin.studyId, name: "Sin factura" } });
+    await prisma.plan.update({ where: { id: plan.id }, data: { modules: JSON.stringify(["MOVIMIENTOS"]) } });
+    const blocked = await say(ANA_WA, "menu");
+    assert.match(blocked.text, /no incluye el asistente de WhatsApp/);
+    // Se deja todo como estaba para las pruebas que siguen.
+    await assignPlan(admin, clienteA.id, null);
+    await prisma.plan.deleteMany({ where: { studyId: admin.studyId, name: { in: ["Sin factura", "Defecto prueba"] } } });
+    await prisma.plan.updateMany({ where: { studyId: admin.studyId, name: "Completo" }, data: { isDefault: true } });
+    assert.equal((await getUserModules(clienteA)).modules.length, 7);
   });
 
   console.log(`\n${passed} verificaciones OK`);

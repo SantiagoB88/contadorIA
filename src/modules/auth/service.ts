@@ -54,7 +54,44 @@ export async function sendVerificationEmail(user: { id: string; email: string; n
   });
 }
 
-export type RegisterInput = { name: string; email: string; phone: string; password: string };
+export type LoginIdentifier = { kind: "EMAIL" | "CUIT" | "DNI"; value: string };
+
+/** Lo que la persona escribió en "Correo, CUIT o DNI". Null si no es ninguno de los tres. */
+export function parseLoginIdentifier(input: string): LoginIdentifier | null {
+  const raw = input.trim();
+  if (raw.includes("@")) {
+    const email = raw.toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200 ? { kind: "EMAIL", value: email } : null;
+  }
+  // CUIT o DNI: se aceptan puntos, guiones y espacios ("20-12345678-3", "12.345.678").
+  if (!/^[\d.\-\s]+$/.test(raw)) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) return { kind: "CUIT", value: digits };
+  if (digits.length === 7 || digits.length === 8) return { kind: "DNI", value: digits.padStart(8, "0") };
+  return null;
+}
+
+/**
+ * Cuentas que podrían corresponder al identificador. Por CUIT o DNI solo cuentan los accesos que el estudio aprobó
+ * (un pedido sin aprobar no alcanza: cualquiera puede declarar un CUIT). El DNI es el que está dentro del CUIT
+ * (dígitos 3 a 10). Si hay varias, quien llama prueba la contraseña con cada una.
+ */
+export async function findLoginCandidates(id: LoginIdentifier) {
+  if (id.kind === "EMAIL") {
+    const user = await prisma.user.findUnique({ where: { email: id.value } });
+    return user ? [user] : [];
+  }
+  const cuitFilter = id.kind === "CUIT" ? { cuit: id.value } : { cuit: { contains: id.value } };
+  const accesses = await prisma.taxpayerAccess.findMany({
+    where: { status: "APROBADO", taxpayer: cuitFilter, user: { role: ROLES.CLIENTE } },
+    include: { user: true, taxpayer: { select: { cuit: true } } },
+    take: 20,
+  });
+  const matches = accesses.filter((a) => (id.kind === "CUIT" ? true : a.taxpayer.cuit.slice(2, 10) === id.value));
+  return [...new Map(matches.map((a) => [a.user.id, a.user])).values()].slice(0, 5);
+}
+
+export type RegisterInput ={ name: string; email: string; phone: string; password: string };
 
 /**
  * Registra un cliente. Si el correo ya existe no se informa en pantalla (no se revela quién tiene cuenta):

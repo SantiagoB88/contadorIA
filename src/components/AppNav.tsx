@@ -3,10 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { moduleForPath, type ModuleKey } from "@/modules/plans/catalog";
 
 type Item = { href: string; label: string; exact?: boolean; newTab?: boolean };
 
-function navItems(isAdmin: boolean, showBot: boolean): Item[] {
+/** Secciones del menú. `allowed`: módulos del plan del cliente (el estudio ve todo). */
+function navItems(isAdmin: boolean, showBot: boolean, allowed?: ModuleKey[]): Item[] {
+  return allItems(isAdmin, showBot).filter((item) => {
+    const key = moduleForPath(item.href);
+    return !key || !allowed || allowed.includes(key);
+  });
+}
+
+function allItems(isAdmin: boolean, showBot: boolean): Item[] {
   return [
     { href: "/dashboard", label: "Inicio", exact: true },
     { href: "/dashboard/movimientos", label: "Movimientos" },
@@ -21,8 +30,10 @@ function navItems(isAdmin: boolean, showBot: boolean): Item[] {
           { href: "/admin/solicitudes", label: "Bandeja" },
           { href: "/admin/escalas", label: "Escalas" },
           { href: "/admin/accesos", label: "Accesos" },
+          { href: "/admin/planes", label: "Planes" },
         ]
       : []),
+    ...(isAdmin ? [] : [{ href: "/plan", label: "Mi plan" }]),
     { href: "/perfil", label: "Mi perfil" },
     // Simulador del bot de WhatsApp: solo en la demo (se abre aparte para probarlo al lado de la web).
     ...(showBot ? [{ href: "/dev/whatsapp", label: "Probar bot de WhatsApp (DEMO)", newTab: true }] : []),
@@ -85,11 +96,11 @@ function NavLinks({ items, pathname, tone }: { items: Item[]; pathname: string; 
 }
 
 /** Menú lateral de escritorio. */
-export function AppNav({ isAdmin, showBot = false }: { isAdmin: boolean; showBot?: boolean }) {
+export function AppNav({ isAdmin, showBot = false, allowed }: { isAdmin: boolean; showBot?: boolean; allowed?: ModuleKey[] }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Navegación principal" className="flex flex-col gap-1">
-      <NavLinks items={navItems(isAdmin, showBot)} pathname={pathname} tone="dark" />
+      <NavLinks items={navItems(isAdmin, showBot, allowed)} pathname={pathname} tone="dark" />
     </nav>
   );
 }
@@ -98,17 +109,19 @@ export function AppNav({ isAdmin, showBot = false }: { isAdmin: boolean; showBot
 export function MobileNav({
   isAdmin,
   showBot = false,
+  allowed,
   account,
   logout,
 }: {
   isAdmin: boolean;
   showBot?: boolean;
+  allowed?: ModuleKey[];
   account: React.ReactNode;
   logout: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = navItems(isAdmin, showBot);
+  const items = navItems(isAdmin, showBot, allowed);
   const current = items.find((i) => isActive(i, pathname))?.label;
 
   // Al cambiar de pantalla, el menú se cierra.

@@ -1,3 +1,4 @@
+import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -22,6 +23,7 @@ const VIEWS = [
 
 export default async function RequestsPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  await requireModule(user, "SOLICITUDES");
   if (user.role === ROLES.ADMIN) redirect("/admin/solicitudes");
   const sp = await searchParams;
   const view = VIEWS.some((v) => v.key === first(sp.ver)) ? first(sp.ver)! : "activas";

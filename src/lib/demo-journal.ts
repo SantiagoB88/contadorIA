@@ -31,6 +31,7 @@ const BUILT_AT_KEY = "demo-built-at";
 
 // Tablas en orden de dependencia (primero las que otras referencian).
 const MODELS = [
+  "Plan",
   "User",
   "Taxpayer",
   "TaxpayerAccess",

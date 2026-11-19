@@ -23,7 +23,12 @@ export const T = {
     `Para darte de alta no te pedimos datos por acá: se hace en la web, de forma segura.\n\n1. Creá tu cuenta: ${origin}/registro\n2. Confirmá tu correo y, en Mi perfil, cargá tu CUIT. El estudio revisa la solicitud.\n3. Con la sesión iniciada, abrí este enlace para vincular este WhatsApp (vence en 24 horas):\n${inviteUrl}\n\nNunca te vamos a pedir tu clave fiscal ni tu contraseña por WhatsApp.`,
   haveAccountSteps: (inviteUrl: string) =>
     `Para vincular este WhatsApp a tu cuenta:\n• En la web, entrá a Mi perfil → WhatsApp → Generar código y mandame acá los 6 números.\n• O, con la sesión iniciada en la web, abrí este enlace (vence en 24 horas):\n${inviteUrl}`,
-  linked: (name: string) => `Listo: vinculamos este WhatsApp con la cuenta de ${name}.`,
+  linked: (name: string) =>
+    `Listo: vinculamos este WhatsApp con la cuenta de ${name}. Tu cuenta quedó confirmada: si estabas ingresando a la web, volvé y tocá *Ingresar*.`,
+  whatsappNotInPlan: (origin: string) =>
+    `Tu plan no incluye el asistente de WhatsApp. Podés seguir usando la web: ${origin}
+
+Si lo necesitás, pedíselo al estudio.`,
   suspended: "Tu acceso no está disponible en este momento. Para resolverlo, comunicate con el estudio por los canales habituales.",
 
   // Alta pendiente o sin contribuyentes
