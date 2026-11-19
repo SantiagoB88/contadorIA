@@ -145,15 +145,36 @@ export default async function FacturasPage({ searchParams }: { searchParams: Sea
       </Card>
 
       {rows.length === 0 ? (
-        <EmptyState title={hasFilters ? "No hay facturas con esos filtros" : "Todavía no hiciste ninguna factura"}>
+        <EmptyState
+          title={
+            hasFilters
+              ? "No hay facturas con esos filtros"
+              : user.role === ROLES.ADMIN
+                ? "Este contribuyente todavía no hizo facturas desde ContadorIA"
+                : "Todavía no hiciste facturas desde ContadorIA"
+          }
+        >
           {hasFilters ? (
             <Link href={`/facturas?c=${taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
               Quitar filtros
             </Link>
           ) : (
-            <Link href={`/facturas/nueva?c=${taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
-              Crear la primera
-            </Link>
+            <div className="space-y-3">
+              {/* Las dos pantallas muestran facturas: se aclara la diferencia (ver docs/propuesta-ux.md, A3). */}
+              <p>
+                Acá aparecen las facturas que se hacen desde ContadorIA. Lo que cargó el estudio está en{" "}
+                <Link href={`/dashboard/movimientos?c=${taxpayer.id}`} className="font-medium text-brand-700 hover:underline">
+                  {user.role === ROLES.ADMIN ? "Ingresos" : "Mis ingresos"}
+                </Link>
+                .
+              </p>
+              <Link
+                href={`/facturas/nueva?c=${taxpayer.id}`}
+                className="inline-flex rounded-lg bg-brand-600 px-4 py-2.5 font-medium text-white hover:bg-brand-700"
+              >
+                Hacer la primera factura
+              </Link>
+            </div>
           )}
         </EmptyState>
       ) : (

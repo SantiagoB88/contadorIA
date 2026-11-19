@@ -2,8 +2,8 @@
 // Sin dependencias del servidor: lo usan también el menú y los formularios.
 
 export const MODULES = {
-  MOVIMIENTOS: { label: "Movimientos", desc: "Ingresos del período y facturación acumulada", href: "/dashboard/movimientos" },
-  CATEGORIA: { label: "Categoría", desc: "Categoría registrada, margen y sugerencia orientativa", href: "/dashboard/categoria" },
+  MOVIMIENTOS: { label: "Mis ingresos", desc: "Todo lo facturado que suma para tu categoría", href: "/dashboard/movimientos" },
+  CATEGORIA: { label: "Categoría y límites", desc: "Categoría registrada, margen y sugerencia orientativa", href: "/dashboard/categoria" },
   DEUDAS: { label: "Deudas y vencimientos", desc: "Obligaciones y revisión de deuda del estudio", href: "/dashboard/deudas" },
   FACTURACION: { label: "Facturación", desc: "Hacer facturas, receptores y recurrentes", href: "/facturas" },
   DOCUMENTOS: { label: "Documentos", desc: "Constancias y archivos que comparte el estudio", href: "/documentos" },

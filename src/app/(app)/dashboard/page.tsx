@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { REQUEST_STATUS, ROLES } from "@/lib/constants";
@@ -23,6 +24,8 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
   const sp = await searchParams;
+  // El estudio empieza en "Hoy en el estudio"; el tablero de un cliente se abre desde ahí (con ?c=).
+  if (user.role === ROLES.ADMIN && !first(sp.c)) redirect("/admin");
   const taxpayers = await getAccessibleTaxpayers(user);
 
   if (taxpayers.length === 0) {

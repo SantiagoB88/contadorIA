@@ -138,7 +138,7 @@ test("recuperar la contraseña y editar el perfil", async ({ page }) => {
 /** signInAs y espera el panel. */
 async function switchTo(page: Page, email: string, password: string) {
   await signInAs(page, email, password);
-  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+  await page.waitForURL(/\/(dashboard|perfil|admin)/, { waitUntil: "commit" });
 }
 
 async function signInAs(page: Page, email: string, password: string) {
@@ -161,7 +161,7 @@ test("el estudio blanquea la contraseña de un cliente y el cliente entra con la
   await register(page, email, "Original123!", name);
 
   await signInAs(page, USERS.admin, "Demo1234!");
-  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
+  await page.waitForURL(/\/admin/, { waitUntil: "commit" });
   await page.goto("/admin/accesos");
   const row = page.locator("li", { hasText: email });
   page.once("dialog", (d) => d.accept());
@@ -303,7 +303,7 @@ test("cliente nuevo sin fecha de inicio: la carga en su panel, ve su configuraci
   await expect(page.getByRole("button", { name: "Solicitar una llamada" })).toHaveCount(0);
 
   await signInAs(page, USERS.admin, "Demo1234!");
-  await page.waitForURL(/\/dashboard/, { waitUntil: "commit" });
+  await page.waitForURL(/\/admin/, { waitUntil: "commit" });
   await page.goto("/admin/solicitudes");
   // La Bandeja tiene una lista (celular) y una tabla (pantalla grande): se cuenta en la lista.
   await expect(page.locator("li", { hasText: name }).filter({ hasText: "Pide una llamada: Entrar a la web" })).toHaveCount(1);

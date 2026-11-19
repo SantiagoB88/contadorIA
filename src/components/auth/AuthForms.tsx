@@ -85,7 +85,7 @@ export function RegisterForm() {
         Crear cuenta
       </SubmitButton>
       <p className="text-xs text-slate-500">
-        Tu CUIT lo cargás después de confirmar el correo. El estudio valida la asociación antes de mostrarte datos fiscales.
+        Tu CUIT lo cargás después, desde Mi perfil. Si el estudio todavía no lo tiene, lo ves enseguida; si ya es de otro cliente del estudio, el estudio lo confirma antes de mostrarte datos.
       </p>
     </ActionForm>
   );

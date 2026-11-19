@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { ROLES } from "@/lib/constants";
+import { REQUEST_STATUS, ROLES, SR_STATUS } from "@/lib/constants";
 import { logoutAction } from "@/app/actions";
-import { AppNav, MobileNav } from "@/components/AppNav";
+import { AppNav, MobileNav, type NavCounts } from "@/components/AppNav";
 import { DemoBanner } from "@/components/DemoBanner";
 import { BrandMark, BrandName } from "@/components/ui";
 import { simulatorEnabled } from "@/modules/bot/simulator-config";
@@ -10,6 +10,7 @@ import { getUserModules } from "@/modules/plans/service";
 import { prisma } from "@/lib/db";
 import { mailReachesPeople } from "@/lib/mail-status";
 import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
+import { countWaitingForClient } from "@/modules/requests/service";
 
 // Todas las pantallas internas dependen de la sesión: nunca se cachean entre usuarios.
 export const dynamic = "force-dynamic";
@@ -22,6 +23,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Entró confirmando por WhatsApp: el correo se confirma después (solo si los correos salen de verdad).
   const pendingEmail =
     !isAdmin && mailReachesPeople() && !(await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt;
+
+  // Contadores del menú: lo que espera a cada uno.
+  const counts: NavCounts = isAdmin
+    ? {
+        unassignedRequests: await prisma.serviceRequest.count({
+          where: { studyId: user.studyId, status: { not: SR_STATUS.RESUELTA }, assignedToId: null },
+        }),
+        pendingAccesses: await prisma.accessRequest.count({ where: { studyId: user.studyId, status: REQUEST_STATUS.PENDIENTE } }),
+      }
+    : { waitingForClient: await countWaitingForClient(user) };
+  // El estudio empieza en "Hoy en el estudio"; el cliente, en su Inicio.
+  const home = isAdmin ? "/admin" : "/dashboard";
 
   const logout = (
     <form action={logoutAction}>
@@ -50,11 +63,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex flex-1">
         {/* Barra lateral en escritorio (desde 1024 px) */}
         <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto bg-navy p-4 text-white lg:flex">
-          <Link href="/dashboard" className="mb-6 flex items-center gap-2 rounded-lg px-2 focus-visible:outline-accent">
+          <Link href={home} className="mb-6 flex items-center gap-2 rounded-lg px-2 focus-visible:outline-accent">
             <BrandMark />
             <BrandName dark />
           </Link>
-          <AppNav isAdmin={isAdmin} showBot={showBot} allowed={allowed} />
+          <AppNav isAdmin={isAdmin} showBot={showBot} allowed={allowed} counts={counts} />
           <div className="mt-auto border-t border-white/15 pt-4">
             <p className="truncate px-2 text-sm font-medium text-white">{user.name}</p>
             <p className="truncate px-2 text-xs text-slate-300">
@@ -68,7 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {/* Barra superior compacta en celular y tablet, con el menú desplegable */}
           <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/dashboard" className="flex items-center gap-2">
+              <Link href={home} className="flex items-center gap-2">
                 <BrandMark />
                 <BrandName />
               </Link>
@@ -76,6 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 isAdmin={isAdmin}
                 showBot={showBot}
                 allowed={allowed}
+                counts={counts}
                 logout={logout}
                 account={
                   <>

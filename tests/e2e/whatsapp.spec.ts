@@ -82,7 +82,7 @@ async function switchAccount(page: Page, email: string, password: string) {
   await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+  await page.waitForURL(/\/(dashboard|perfil|admin)/, { waitUntil: "commit" });
 }
 
 const pdf = { name: "constancia.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% prueba\n%%EOF\n") };

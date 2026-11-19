@@ -17,7 +17,7 @@ async function switchTo(page: Page, email: string, password = "Demo1234!") {
   await page.getByLabel(/^(Correo electrónico|Correo, CUIT o DNI)$/).fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await page.waitForURL(/\/(dashboard|perfil)/, { waitUntil: "commit" });
+  await page.waitForURL(/\/(dashboard|perfil|admin)/, { waitUntil: "commit" });
 }
 const pdf = (name: string, text = "demo") => ({
   name,
@@ -80,6 +80,26 @@ test.describe("acceso y sesión", () => {
     // Descarga de un documento de otro cliente: no encontrado.
     const res = await page.request.get(docHref!);
     expect(res.status()).toBe(404);
+  });
+
+  test("menú agrupado: el cliente ve sus secciones y el estudio entra a Hoy", async ({ page }) => {
+    await login(page, USERS.clienteA);
+    const nav = page.getByRole("navigation", { name: "Navegación principal" });
+    await expect(nav.getByText("Mi monotributo")).toBeVisible();
+    await expect(nav.getByRole("link", { name: /Mis ingresos/ })).toBeVisible();
+    // Ana tiene una solicitud que espera su respuesta: el menú lo cuenta.
+    await expect(nav.getByRole("link", { name: /Solicitudes al estudio.*esperan tu respuesta/ })).toBeVisible();
+    await expect(nav.getByRole("link", { name: /Hoy en el estudio/ })).toHaveCount(0);
+
+    await login(page, USERS.admin);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Hoy en el estudio");
+    await expect(nav.getByRole("link", { name: /Hoy en el estudio/ })).toHaveAttribute("aria-current", "page");
+    // Las pantallas del cliente se abren desde la ficha, no desde el menú del estudio.
+    await expect(nav.getByRole("link", { name: /Mis ingresos|Categoría y límites/ })).toHaveCount(0);
+    // Sin contribuyente elegido, el tablero del cliente lleva a Hoy.
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/admin$/);
   });
 
   test("menú del celular: se abre, navega y se cierra", async ({ page }) => {

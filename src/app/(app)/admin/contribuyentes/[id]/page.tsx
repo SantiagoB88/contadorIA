@@ -56,7 +56,7 @@ export default async function AdminTaxpayerPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div>
         <Link href="/admin" className="text-sm font-medium text-brand-700 hover:underline">
-          ← Volver al backoffice
+          ← Volver a Hoy en el estudio
         </Link>
       </div>
       <PageHeader

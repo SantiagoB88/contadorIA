@@ -15,7 +15,7 @@ export default async function PlanesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Planes de suscripción"
+        title="Planes"
         subtitle="Armá los planes con los módulos que incluye cada uno y asignáselos a tus clientes en Accesos."
       />
       <Notice title="Cómo funciona">

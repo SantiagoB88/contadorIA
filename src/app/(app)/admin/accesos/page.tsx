@@ -12,7 +12,7 @@ import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
 import { listPlans } from "@/modules/plans/service";
 import { AssignPlanForm } from "@/components/plans/PlanForms";
 
-export const metadata = { title: "Accesos · ContadorIA" };
+export const metadata = { title: "Accesos y usuarios · ContadorIA" };
 
 const NOTICES: Record<string, string> = {
   aprobada: "Solicitud aprobada. El cliente ya ve al contribuyente; el acceso figura en “Accesos vigentes”.",
@@ -59,10 +59,10 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
     <div className="space-y-6">
       <div>
         <Link href="/admin" className="text-sm font-medium text-brand-700 hover:underline">
-          ← Volver al backoffice
+          ← Volver a Hoy en el estudio
         </Link>
       </div>
-      <PageHeader title="Accesos" subtitle="Solicitudes de asociación, accesos vigentes y usuarios del estudio" />
+      <PageHeader title="Accesos y usuarios" subtitle="Pedidos de CUIT, accesos vigentes, usuarios del estudio y el plan de cada cliente" />
       {notice && <Notice title="Listo">{notice}</Notice>}
 
       {newClients.length > 0 && (

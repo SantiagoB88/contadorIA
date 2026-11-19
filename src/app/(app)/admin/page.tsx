@@ -10,7 +10,7 @@ import { getDebtSummary } from "@/modules/fiscal/obligations";
 import { DEBT_STATE } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, PageHeader, type Tone } from "@/components/ui";
 
-export const metadata = { title: "Backoffice · ContadorIA" };
+export const metadata = { title: "Hoy en el estudio · ContadorIA" };
 
 const LEVEL: Record<AlertLevel, { label: string; tone: Tone }> = {
   NORMAL: { label: "Normal", tone: "success" },
@@ -49,7 +49,7 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Backoffice" subtitle={`${admin.studyName} · resumen operativo`} />
+      <PageHeader title="Hoy en el estudio" subtitle={`${admin.studyName} · lo que hay que atender y tus clientes`} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>

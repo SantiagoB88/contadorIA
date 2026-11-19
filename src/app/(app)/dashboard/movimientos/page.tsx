@@ -1,7 +1,7 @@
 import { requireModule } from "@/lib/plan-guard";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { COUNTED_INVOICE_STATUSES, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
+import { COUNTED_INVOICE_STATUSES, ROLES, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
 import { formatARS } from "@/lib/money";
 import { formatDateAR, isValidYmd, todayAR } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -9,7 +9,7 @@ import { getInvoices, periodRanges, rangeCoverage } from "@/modules/dashboard/me
 import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { Badge, Card, EmptyState, Notice, PageHeader, inputClass, labelClass } from "@/components/ui";
 
-export const metadata = { title: "Movimientos · ContadorIA" };
+export const metadata = { title: "Mis ingresos · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -17,6 +17,8 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function MovimientosPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
+  // El estudio ve esta pantalla "como el cliente": sin el "Mis".
+  const pageTitle = user.role === ROLES.ADMIN ? "Ingresos" : "Mis ingresos";
   await requireModule(user, "MOVIMIENTOS");
   const sp = await searchParams;
   const taxpayers = await getAccessibleTaxpayers(user);
@@ -24,7 +26,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   if (taxpayers.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Movimientos" />
+        <PageHeader title={pageTitle} />
         <EmptyState title="Todavía no tenés contribuyentes habilitados" />
       </div>
     );
@@ -34,7 +36,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
   if (!taxpayer) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Movimientos" />
+        <PageHeader title={pageTitle} />
         <Notice tone="danger" title="No tenés acceso a este contribuyente">
           <Link href="/dashboard/movimientos" className="font-medium underline">
             Ver mis movimientos
@@ -60,7 +62,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Movimientos" subtitle={`${taxpayer.name} · ${formatDateAR(from)} al ${formatDateAR(to)}`}>
+      <PageHeader title={pageTitle} subtitle={`${taxpayer.name} · ${formatDateAR(from)} al ${formatDateAR(to)}`}>
         <TaxpayerPicker
           action="/dashboard/movimientos"
           taxpayers={taxpayers.map((t) => ({ id: t.id, label: t.name }))}

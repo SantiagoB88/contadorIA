@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<title>Bocetos ContadorIA</title>
+<style>
+  :root { --navy:#112D4E; --tq:#20C4B6; --blue:#2457D6; --mint:#E1F5F2; --bg:#F3F6FA; --line:#E2E8F0; --mut:#64748B; --txt:#1E293B; --amber:#FFF7E0; --amberb:#F5C451; --red:#FDECEC; --redb:#E05252; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--txt); background:#cfd6df; }
+  .frame { background:var(--bg); display:flex; margin:24px; border-radius:6px; overflow:hidden; }
+  .sk-note { position:absolute; }
+  aside { width:250px; background:var(--navy); color:#fff; padding:18px 14px; flex-shrink:0; display:flex; flex-direction:column; }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:17px; margin:0 6px 18px; }
+  .brand b { background:#fff; color:var(--navy); border-radius:6px; padding:3px 5px; font-size:12px; }
+  .brand span { color:var(--tq); }
+  .ctx { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:8px 10px; margin-bottom:16px; font-size:12px; color:#cbd5e1; }
+  .ctx strong { display:block; color:#fff; font-size:14px; }
+  .grp { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:#8fa3bd; margin:14px 8px 4px; }
+  .it { padding:7px 10px; border-radius:8px; margin-bottom:2px; }
+  .it .l { font-size:14px; font-weight:600; color:#e2e8f0; }
+  .it .d { font-size:11.5px; color:#94a3b8; margin-top:1px; }
+  .it.on { background:rgba(255,255,255,.1); box-shadow:inset 3px 0 0 var(--tq); }
+  .it.on .l { color:#fff; }
+  .pill { display:inline-block; background:var(--tq); color:var(--navy); font-size:11px; font-weight:700; border-radius:99px; padding:0 7px; margin-left:6px; }
+  .foot { margin-top:auto; border-top:1px solid rgba(255,255,255,.15); padding-top:10px; font-size:12px; color:#cbd5e1; }
+  main { flex:1; padding:26px 32px; min-width:0; }
+  h1 { font-size:24px; margin:0; color:var(--navy); }
+  .sub { color:var(--mut); font-size:14px; margin-top:4px; }
+  .row { display:flex; gap:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  h2 { font-size:15px; margin:0 0 10px; color:var(--navy); }
+  .btn { display:inline-block; background:var(--blue); color:#fff; font-weight:600; font-size:13.5px; padding:8px 14px; border-radius:8px; white-space:nowrap; }
+  .btn2 { display:inline-block; border:1px solid #cbd5e1; color:var(--navy); background:#fff; font-weight:600; font-size:13px; padding:7px 12px; border-radius:8px; white-space:nowrap; }
+  .lnk { color:var(--blue); font-weight:600; font-size:13px; }
+  .task { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
+  .task:first-of-type { border-top:0; }
+  .ic { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .t-red { background:var(--red); } .t-amb { background:var(--amber); } .t-mint { background:var(--mint); } .t-blue { background:#E7EEFF; }
+  .task .tx { flex:1; font-size:14px; } .task .tx small { display:block; color:var(--mut); font-size:12.5px; }
+  .big { font-size:26px; font-weight:700; color:var(--navy); margin:4px 0; }
+  .bar { height:9px; background:#EDF2F7; border-radius:9px; overflow:hidden; margin:8px 0 4px; } .bar i { display:block; height:100%; background:#10B981; }
+  .badge { white-space:nowrap; display:inline-block; font-size:11.5px; font-weight:600; border-radius:99px; padding:1px 9px; border:1px solid; }
+  .b-ok { background:#ECFDF5; color:#047857; border-color:#A7F3D0; } .b-w { background:#FFFBEB; color:#92400E; border-color:#FCD34D; } .b-r { background:#FEF2F2; color:#B91C1C; border-color:#FCA5A5; } .b-n { background:#F1F5F9; color:#475569; border-color:#CBD5E1; }
+  .muted { color:var(--mut); font-size:12.5px; }
+  .det { border:1px dashed #cbd5e1; border-radius:10px; padding:10px 14px; color:var(--navy); font-size:13.5px; font-weight:600; background:#fff; }
+  .anno { background:#FFF3B0; border:1px solid #E9C400; color:#5b4a00; font-size:12px; border-radius:6px; padding:3px 7px; display:inline-block; font-weight:600; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin:16px 0; }
+  .tab { padding:8px 12px; font-size:13.5px; font-weight:600; color:var(--mut); border-bottom:2px solid transparent; }
+  .tab.on { color:var(--navy); border-color:var(--tq); }
+  table { width:100%; border-collapse:collapse; font-size:13px; } th { text-align:left; color:var(--mut); font-weight:600; padding:8px; background:#F8FAFC; } td { padding:9px 8px; border-top:1px solid var(--line); }
+  .kpi { flex:1; } .kpi .n { font-size:26px; font-weight:700; color:var(--navy); } .kpi .lnk { font-size:12.5px; }
+  /* Celular */
+  .phone { width:375px; background:var(--bg); margin:24px; border-radius:6px; overflow:hidden; }
+  .ptop { background:#fff; border-bottom:1px solid var(--line); padding:10px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .pctx { font-size:12px; color:var(--mut); } .pctx strong { color:var(--navy); font-size:14px; display:block; }
+  .tabbar { background:#fff; border-top:1px solid var(--line); display:flex; justify-content:space-around; padding:8px 0 10px; font-size:11px; color:var(--mut); text-align:center; }
+  .tabbar div span { display:block; font-size:18px; } .tabbar .on { color:var(--blue); font-weight:700; }
+  .pmenu { background:#fff; padding:6px 14px 14px; }
+  .pmenu .grp { color:#64748B; margin-left:0; } .pmenu .it .l { color:var(--navy); } .pmenu .it .d { color:var(--mut); } .pmenu .it.on { background:var(--mint); }
+</style>
+</head>
+<body>
+
+<!-- 1. Inicio del cliente -->
+<div class="frame" id="inicio-cliente" style="width:1280px">
+  <aside>
+    <div class="brand"><b>CIA</b><em style="font-style:normal">Contador<span>IA</span></em></div>
+    <div class="ctx">Estás viendo<strong>Ana Gómez ▾</strong>CUIT 27-00000001-4 · Cat. D</div>
+    <div class="it on"><div class="l">Inicio</div><div class="d">Lo que tenés que hacer hoy</div></div>
+    <div class="grp">Mi monotributo</div>
+    <div class="it"><div class="l">Mis ingresos</div><div class="d">Lo que facturaste y suma</div></div>
+    <div class="it"><div class="l">Mi categoría</div><div class="d">Cuánto te falta para el límite</div></div>
+    <div class="it"><div class="l">Pagos y vencimientos</div><div class="d">Qué vence y qué debés</div></div>
+    <div class="grp">Facturar</div>
+    <div class="it"><div class="l">Hacer una factura</div><div class="d">Emitir y ver tus facturas</div></div>
+    <div class="grp">Con mi estudio</div>
+    <div class="it"><div class="l">Consultas <span class="pill">1</span></div><div class="d">Preguntas y pedidos al estudio</div></div>
+    <div class="it"><div class="l">Documentos</div><div class="d">Constancias y archivos</div></div>
+    <div class="foot">Ana Gómez · Estudio Demo<br><span style="color:#fff">Mi cuenta · Mi plan · Salir</span></div>
+  </aside>
+  <main>
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div><h1>Hola, Ana</h1><div class="sub">Esto es lo que tenés pendiente hoy, 19/11/2026.</div></div>
+      <div class="row" style="gap:8px"><span class="btn2">Consultar al estudio</span><span class="btn">Hacer una factura</span></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Para hacer ahora <span class="anno">① lo urgente primero</span></h2>
+      <div class="task"><div class="ic t-amb">💬</div><div class="tx"><b>El estudio espera tu respuesta</b><small>“¿Me tengo que recategorizar?” · S-YIA3CJ · Martín Gómez</small></div><span class="btn">Responder</span></div>
+      <div class="task"><div class="ic t-blue">📅</div><div class="tx"><b>Vence la cuota del monotributo el 01/12</b><small>$ 61.250,00 · faltan 12 días</small></div><span class="btn2">Ya pagué: informar pago</span></div>
+      <div class="task"><div class="ic t-mint">📱</div><div class="tx"><b>Vinculá tu WhatsApp</b><small>Para consultar todo desde el celular (opcional)</small></div><span class="lnk">Vincular →</span></div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="card" style="flex:1.3">
+        <div class="row" style="justify-content:space-between"><h2>Tu categoría D</h2><span class="badge b-ok">Normal</span></div>
+        <div class="muted">Podés facturar todavía</div>
+        <div class="big">$ 7.855.000</div>
+        <div class="bar"><i style="width:62.6%"></i></div>
+        <div class="muted">62,6 % del límite anual · últimos 12 meses</div>
+        <div style="margin-top:10px"><span class="lnk">Ver cómo se calcula →</span></div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="row" style="justify-content:space-between"><h2>Pagos</h2><span class="badge b-ok">Sin deuda informada</span></div>
+        <div class="muted">Revisado por el estudio al 18/11/2026</div>
+        <div style="margin-top:12px;font-size:14px"><b>Próximo:</b> 01/12 · Cuota mensual<br>$ 61.250,00</div>
+        <div style="margin-top:10px"><span class="lnk">Ver pagos y vencimientos →</span></div>
+      </div>
+      <div class="card" style="flex:1">
+        <h2>Facturaste</h2>
+        <div class="muted">Este mes (al 19/11)</div>
+        <div class="big">$ 1.045.000</div>
+        <div class="muted">Últimos 12 meses: $ 13.145.000</div>
+        <div style="margin-top:10px"><span class="lnk">Ver mis ingresos →</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px" class="det">▸ Más números: semestre, año y gráfico de los últimos 12 meses <span class="anno">② el detalle, plegado</span></div>
+    <div style="margin-top:10px" class="det">▸ ¿De dónde salen estos datos? <span class="muted" style="font-weight:400">(cobertura, fecha de corte, qué suma)</span></div>
+  </main>
+</div>
+
+<!-- 2. Inicio con límite superado (cliente B) -->
+<div class="frame" id="inicio-superado" style="width:900px">
+  <main>
+    <h1>Hola, Bruno</h1><div class="sub">Esto es lo que tenés pendiente hoy.</div>
+    <div class="card" style="margin-top:16px;border-color:#FCA5A5">
+      <h2>Para hacer ahora</h2>
+      <div class="task"><div class="ic t-red">⚠️</div><div class="tx"><b>Superaste el límite de tu categoría C por $ 1.522.500</b><small>Es una referencia por ingresos. Antes de hacer cualquier trámite, consultalo con el estudio.</small></div><span class="btn">Consultar al estudio</span></div>
+      <div class="task"><div class="ic t-red">💸</div><div class="tx"><b>Tenés deuda informada por el estudio</b><small>Revisá el detalle y, si ya pagaste, informá el pago con el comprobante.</small></div><span class="btn2">Ver deuda</span></div>
+    </div>
+    <p class="muted" style="margin-top:10px"><span class="anno">El botón abre una consulta con el tema “Categoría y límites” ya elegido.</span></p>
+  </main>
+</div>
+
+<!-- 3. Celular: Inicio + barra inferior -->
+<div class="phone" id="inicio-movil">
+  <div class="ptop"><div class="pctx">Estás viendo<strong>Ana Gómez ▾</strong></div><span class="btn2">☰</span></div>
+  <div style="padding:16px">
+    <h1 style="font-size:21px">Hola, Ana</h1>
+    <div class="card" style="margin-top:12px;padding:12px 14px">
+      <h2>Para hacer ahora</h2>
+      <div class="task"><div class="ic t-amb">💬</div><div class="tx"><b>El estudio espera tu respuesta</b><small>¿Me tengo que recategorizar?</small></div></div>
+      <div class="task"><div class="ic t-blue">📅</div><div class="tx"><b>Vence la cuota el 01/12</b><small>$ 61.250,00</small></div></div>
+    </div>
+    <div class="card" style="margin-top:12px;padding:12px 14px">
+      <div class="row" style="justify-content:space-between"><h2>Tu categoría D</h2><span class="badge b-ok">Normal</span></div>
+      <div class="muted">Podés facturar todavía</div><div class="big">$ 7.855.000</div>
+      <div class="bar"><i style="width:62.6%"></i></div>
+    </div>
+    <div class="row" style="margin-top:12px;gap:10px">
+      <div class="card" style="flex:1;padding:10px 12px"><div class="muted">Este mes</div><b>$ 1.045.000</b></div>
+      <div class="card" style="flex:1;padding:10px 12px"><div class="muted">Deuda</div><span class="badge b-ok">Sin deuda informada</span></div>
+    </div>
+  </div>
+  <div class="tabbar"><div class="on"><span>🏠</span>Inicio</div><div><span>🧾</span>Facturar</div><div><span>📊</span>Mi categoría</div><div><span>💬</span>Consultas</div><div><span>☰</span>Más</div></div>
+</div>
+
+<!-- 4. Menú de celular agrupado -->
+<div class="phone" id="menu-movil">
+  <div class="ptop"><div class="pctx">Estás viendo<strong>Ana Gómez ▾</strong></div><span class="btn2">✕ Cerrar</span></div>
+  <div class="pmenu">
+    <div class="it on"><div class="l">Inicio</div><div class="d">Lo que tenés que hacer hoy</div></div>
+    <div class="grp">Mi monotributo</div>
+    <div class="it"><div class="l">Mis ingresos</div><div class="d">Lo que facturaste y suma</div></div>
+    <div class="it"><div class="l">Mi categoría</div><div class="d">Cuánto te falta para el límite</div></div>
+    <div class="it"><div class="l">Pagos y vencimientos</div><div class="d">Qué vence y qué debés</div></div>
+    <div class="grp">Facturar</div>
+    <div class="it"><div class="l">Hacer una factura</div><div class="d">Emitir y ver tus facturas</div></div>
+    <div class="grp">Con mi estudio</div>
+    <div class="it"><div class="l">Consultas <span class="pill">1</span></div><div class="d">Preguntas y pedidos al estudio</div></div>
+    <div class="it"><div class="l">Documentos</div><div class="d">Constancias y archivos</div></div>
+    <div class="grp">Mi cuenta</div>
+    <div class="it"><div class="l">Mis datos y seguridad</div><div class="d">Contraseña, WhatsApp, mis CUIT</div></div>
+    <div class="it"><div class="l">Mi plan</div><div class="d">Qué incluye tu suscripción</div></div>
+    <div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px" class="row"><span class="muted" style="flex:1">Ana Gómez · Estudio Demo</span><span class="btn2">Cerrar sesión</span></div>
+  </div>
+</div>
+
+<!-- 5. Estudio: Hoy -->
+<div class="frame" id="estudio-hoy" style="width:1280px">
+  <aside>
+    <div class="brand"><b>CIA</b><em style="font-style:normal">Contador<span>IA</span></em></div>
+    <div class="it on"><div class="l">Hoy</div><div class="d">Lo que el estudio tiene que atender</div></div>
+    <div class="grp">Clientes</div>
+    <div class="it"><div class="l">Contribuyentes</div><div class="d">Ficha, categoría, deudas, archivos</div></div>
+    <div class="it"><div class="l">Consultas <span class="pill">2</span></div><div class="d">Bandeja de pedidos de clientes</div></div>
+    <div class="it"><div class="l">Documentos</div><div class="d">Todos los archivos del estudio</div></div>
+    <div class="it"><div class="l">Pedidos de acceso <span class="pill">1</span></div><div class="d">Aprobar o rechazar CUIT</div></div>
+    <div class="grp">Configuración del estudio</div>
+    <div class="it"><div class="l">Usuarios</div><div class="d">Claves, suspensiones, plan de cada uno</div></div>
+    <div class="it"><div class="l">Planes</div><div class="d">Qué módulos ve cada cliente</div></div>
+    <div class="it"><div class="l">Escalas</div><div class="d">Límites por categoría y vigencia</div></div>
+    <div class="foot">Rodrigo · Administrador<br><span style="color:#fff">Mi cuenta · Salir</span></div>
+  </aside>
+  <main>
+    <h1>Hoy en el estudio</h1><div class="sub">Estudio Demo · 19/11/2026</div>
+    <div class="row" style="margin-top:16px">
+      <div class="card kpi"><div class="muted">Consultas sin asignar</div><div class="n">1</div><span class="lnk">Atender →</span></div>
+      <div class="card kpi"><div class="muted">Pedidos de acceso</div><div class="n">1</div><span class="lnk">Revisar →</span></div>
+      <div class="card kpi"><div class="muted">Clientes con alerta de límite</div><div class="n">3</div><span class="lnk">Ver quiénes →</span></div>
+      <div class="card kpi"><div class="muted">Deudas sin revisar</div><div class="n">1</div><span class="lnk">Ver quiénes →</span></div>
+    </div>
+    <div class="card" style="margin-top:16px;padding:0">
+      <div style="padding:14px 18px" class="row"><h2 style="flex:1;margin:0">Contribuyentes</h2><span class="btn2">Todos ▾</span><span class="btn2">Buscar nombre o CUIT</span></div>
+      <table>
+        <tr><th>Contribuyente</th><th>Cat.</th><th>Últimos 12 meses</th><th>Límite</th><th>Deuda</th><th>Pendiente</th></tr>
+        <tr><td><b>Bruno Díaz</b><div class="muted">20-00000003-6</div></td><td>C</td><td>$ 18.522.500</td><td><span class="badge b-r">Superado</span></td><td><span class="badge b-r">Deuda informada</span></td><td><span class="lnk">1 consulta nueva</span></td></tr>
+        <tr><td><b>Martín Gómez</b><div class="muted">20-00000002-8</div></td><td>B</td><td>$ 11.711.000</td><td><span class="badge b-w">Próximo al límite</span></td><td><span class="badge b-n">Sin revisión</span></td><td><span class="lnk">Cargar revisión de deuda</span></td></tr>
+        <tr><td><b>Elena Paz</b><div class="muted">27-00000006-5</div></td><td>F</td><td>$ 26.290.000</td><td><span class="badge b-w">Preventivo</span></td><td><span class="badge b-w">Pendiente de revisión</span></td><td><span class="lnk">Pedido de acceso</span></td></tr>
+        <tr><td><b>Ana Gómez</b><div class="muted">27-00000001-4</div></td><td>D</td><td>$ 13.145.000</td><td><span class="badge b-ok">Normal</span></td><td><span class="badge b-ok">Sin deuda informada</span></td><td class="muted">—</td></tr>
+      </table>
+      <div style="padding:10px 18px" class="muted"><span class="anno">Ordenados por urgencia. Toda la fila abre la ficha del contribuyente.</span></div>
+    </div>
+  </main>
+</div>
+
+<!-- 6. Ficha del contribuyente con pestañas -->
+<div class="frame" id="ficha" style="width:1100px">
+  <main>
+    <span class="lnk">← Contribuyentes</span>
+    <div class="row" style="justify-content:space-between;align-items:flex-end;margin-top:8px">
+      <div><h1>Bruno Díaz</h1><div class="sub">CUIT 20-00000003-6 · Reparación de PC · Cat. C · inicio 01/03/2021</div></div>
+      <div class="row" style="gap:8px"><span class="btn2">Ver como el cliente ↗</span><span class="btn">Cargar comprobante</span></div>
+    </div>
+    <div class="tabs"><div class="tab on">Resumen</div><div class="tab">Comprobantes</div><div class="tab">Categoría</div><div class="tab">Deudas y vencimientos</div><div class="tab">Documentos</div><div class="tab">Consultas (1)</div><div class="tab">Accesos</div></div>
+    <div class="row">
+      <div class="card" style="flex:1"><h2>Atención</h2>
+        <div class="task"><div class="ic t-red">⚠️</div><div class="tx"><b>Superó el límite de la categoría C</b><small>109 % · escala ficticia 2026</small></div><span class="lnk">Registrar categoría →</span></div>
+        <div class="task"><div class="ic t-amb">💬</div><div class="tx"><b>Consulta nueva sin asignar</b><small>Quiero regularizar la deuda</small></div><span class="lnk">Abrir →</span></div>
+        <div class="task"><div class="ic t-blue">🗓️</div><div class="tx"><b>Última revisión de deuda: 18/11</b><small>Con deuda informada</small></div><span class="lnk">Registrar revisión →</span></div>
+      </div>
+      <div class="card" style="flex:.8"><h2>Datos</h2><div class="muted">Cobertura</div><b>Completa desde 01/01/2025</b><div class="muted" style="margin-top:8px">Usuarios con acceso</div><b>Bruno Díaz</b><div class="muted" style="margin-top:8px">Plan</div><b>Completo (por defecto)</b></div>
+    </div>
+    <p class="muted"><span class="anno">Cada formulario largo de hoy (cargar comprobante, vencimiento, revisión, subir archivo) pasa a su pestaña: la página deja de medir 3.466 px.</span></p>
+  </main>
+</div>
+
+<!-- 7. Patrón común de pantalla -->
+<div class="frame" id="patron" style="width:1000px">
+  <main>
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h1>Pagos y vencimientos <span class="anno">A · título = nombre del menú</span></h1>
+        <div class="sub">Qué vence, qué debés y cómo avisar que pagaste. <span class="anno">B · para qué sirve, en una línea</span></div></div>
+      <span class="btn">Informar un pago</span>
+    </div>
+    <div style="margin-top:6px"><span class="anno">C · una sola acción principal, siempre arriba a la derecha</span></div>
+    <div class="card" style="margin-top:14px;background:#FFFBEB;border-color:#FCD34D"><b>Tenés 1 vencimiento en los próximos 15 días.</b> <span class="anno">D · a lo sumo un aviso, el más importante</span></div>
+    <div class="card" style="margin-top:14px;height:130px;display:flex;align-items:center;justify-content:center;color:#94a3b8">E · contenido: resumen arriba, lista o tabla abajo</div>
+    <div class="det" style="margin-top:14px">▸ ¿Cómo funciona? Las deudas las carga el estudio; un pago figura verificado cuando el estudio revisó el comprobante. <span class="anno">F · la letra chica, plegada al final</span></div>
+    <div class="card" style="margin-top:14px;border-style:dashed;text-align:center"><b>Todavía no hay vencimientos cargados</b><div class="muted">El estudio los carga. Si tenés una boleta, mandala por Consultas.</div><span class="lnk">Enviar al estudio →</span> <span class="anno">G · vacío = qué pasa y qué hacer</span></div>
+  </main>
+</div>
+
+</body>
+</html>

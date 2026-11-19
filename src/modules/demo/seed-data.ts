@@ -400,7 +400,7 @@ export async function seedDemo(options: { reset?: boolean } = {}) {
   });
   await message(martinReq.id, clienteA.id, "En el tablero me dice que estoy cerca del límite. ¿Qué tengo que hacer?", "PUBLICA", hoursAgo(30));
   await message(martinReq.id, contadora.id, "Está al 98 %. Antes de recategorizar hay que confirmar si tiene facturas sin cargar de septiembre.", "INTERNA", hoursAgo(21));
-  await message(martinReq.id, contadora.id, "Hola Martín. ¿Emitiste facturas en septiembre que no veas en Movimientos? Con eso definimos si conviene recategorizar.", "PUBLICA", hoursAgo(20));
+  await message(martinReq.id, contadora.id, "Hola Martín. ¿Emitiste facturas en septiembre que no veas en Mis ingresos? Con eso definimos si conviene recategorizar.", "PUBLICA", hoursAgo(20));
   await saveDoc({ taxpayerId: taxpayers.martin, title: "Papel de trabajo: recategorización", fileName: "papel-de-trabajo-recategorizacion.pdf", category: "OTRO", visibility: "INTERNO", uploadedById: contadora.id, note: "Borrador interno del estudio", createdAt: hoursAgo(21) });
 
   // Bruno: deuda informada y una solicitud nueva sin asignar (perfil del plan).

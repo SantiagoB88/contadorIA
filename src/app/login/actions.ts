@@ -5,6 +5,7 @@ import { mailReachesPeople } from "@/lib/mail-status";
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { ROLES } from "@/lib/constants";
 import { audit } from "@/lib/audit";
 import { verifyPassword } from "@/lib/crypto";
 import { getOrigin } from "@/lib/origin";
@@ -83,12 +84,14 @@ async function loginActionAccion(_prev: LoginState, formData: FormData): Promise
   await refreshDemoAccounts();
   await audit({ studyId: user.studyId, actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id, detail: id.kind === "EMAIL" ? undefined : `Ingreso con ${id.kind}` });
   // Con contraseña temporal, lo primero es elegir una propia.
-  redirect(user.mustChangePassword ? "/perfil?clave=temporal#clave" : safeNext(String(formData.get("next") ?? "")));
+  // Sin página pedida, el estudio empieza en "Hoy en el estudio" y el cliente en su Inicio.
+  const home = user.role === ROLES.ADMIN ? "/admin" : "/dashboard";
+  redirect(user.mustChangePassword ? "/perfil?clave=temporal#clave" : safeNext(String(formData.get("next") ?? ""), home));
 }
 
 /** Vuelve a la página que pidió el ingreso, solo si es una ruta interna (nunca a otro sitio). */
-function safeNext(next: string): string {
-  return /^\/(?!\/)[\w\-./?=&%]*$/.test(next) && !next.startsWith("/login") ? next : "/dashboard";
+function safeNext(next: string, home: string): string {
+  return /^\/(?!\/)[\w\-./?=&%]*$/.test(next) && !next.startsWith("/login") ? next : home;
 }
 
 // Demo de Vercel: cada acción reconstruye y guarda los datos de la demo en el navegador (ver demo-journal.ts).

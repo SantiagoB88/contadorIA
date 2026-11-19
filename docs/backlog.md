@@ -49,6 +49,12 @@
 - [ ] Probar en Safari / iPhone real y en Firefox
 - [ ] Tablas del backoffice (resumen, escalas, últimos comprobantes) en formato tarjeta para celular: hoy se desplazan dentro de su recuadro
 
+- [x] UX parte 1 de `docs/propuesta-ux.md`: menú agrupado, nombres y entrada del estudio a "Hoy"
+- [ ] UX parte 2: Inicio del cliente "Para hacer ahora" (respeta el plan)
+- [ ] UX parte 3: patrón de pantalla y contribuyente elegido para toda la web
+- [ ] UX parte 4: pantallas del estudio (Hoy con filtros, ficha con pestañas, Accesos dividido, Bandeja simple)
+- [ ] UX parte 5: Mi perfil en pestañas y barra inferior en celular
+
 ## Deuda técnica conocida
 
 - El límite de intentos (login, registro, recuperación) vive en memoria: se reinicia al reiniciar el servidor y no sirve con varias instancias.

@@ -34,7 +34,7 @@ export default async function ScalesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Escalas de categorías"
+        title="Escalas"
         subtitle="Límites anuales de ingresos por categoría, con vigencia y fuente. Cada cálculo usa la escala vigente a su fecha de corte."
       />
 

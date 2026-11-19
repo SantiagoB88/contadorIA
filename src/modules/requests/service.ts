@@ -485,6 +485,21 @@ export async function listRequestsForUser(user: CurrentUser, filter: ClientReque
   });
 }
 
+/** Menú: cuántas solicitudes del cliente esperan su respuesta (mismo alcance que `listRequestsForUser`). */
+export async function countWaitingForClient(user: CurrentUser) {
+  if (isStaff(user)) return 0;
+  return prisma.serviceRequest.count({
+    where: {
+      studyId: user.studyId,
+      status: SR_STATUS.ESPERANDO_CLIENTE,
+      OR: [
+        { taxpayer: { accesses: { some: { userId: user.id, status: ACCESS_STATUS.APROBADO } } } },
+        { taxpayerId: null, createdById: user.id },
+      ],
+    },
+  });
+}
+
 export type InboxFilter = { status?: string; assigned?: string; taxpayerId?: string };
 
 /** Bandeja del estudio con filtros y conteos para los accesos rápidos. */

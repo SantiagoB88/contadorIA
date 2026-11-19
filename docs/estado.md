@@ -1,5 +1,25 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## UX parte 1: menú agrupado y entrada del estudio ✅ (19/11/2026, rama `feat/piloto-vps`, sin commitear)
+
+- **Menú** (`src/components/AppNav.tsx`): grupos por tarea ("Mi monotributo", "Con mi estudio", "Mi cuenta"; para el estudio "Clientes", "Configuración del estudio", "Mi cuenta") con una línea que explica cada sección. El celular usa el mismo menú, en una columna. El simulador del bot queda en su propio grupo "Demo".
+- **Contadores** calculados en el servidor (`layout.tsx`): solicitudes que esperan respuesta del cliente (`countWaitingForClient`); para el estudio, solicitudes sin asignar y pedidos de acceso pendientes. El botón "Menú" del celular muestra el total.
+- **El estudio entra a "Hoy en el estudio"** (`/admin`): al ingresar, desde `/` y con el logo. `/dashboard` sin `?c=` lo lleva ahí. Las pantallas del cliente salen de su menú y se abren desde la tabla ("Tablero") o la ficha.
+- **Nombres**: Movimientos → Mis ingresos ("Ingresos" para el estudio), Backoffice → Hoy en el estudio, Accesos → Accesos y usuarios, títulos de Escalas y Planes iguales al menú. Facturación, Deudas, Solicitudes y Mi perfil no cambian porque los usan el bot y los correos (ver `decisiones.md`).
+- **Textos**: Facturación vacía explica que lo cargado por el estudio está en Mis ingresos (y habla en tercera persona para el estudio); el registro ya no dice que el estudio valida siempre el CUIT.
+- **Accesibilidad**: el nombre de cada enlace es solo el título (más pendientes); la descripción se anuncia aparte (`aria-describedby`).
+- **Pruebas**: typecheck OK; `npm run verify` 138/138; navegador 28 OK y 1 omitida (la de Vercel), en una copia fuera de OneDrive. Nueva prueba "menú agrupado: el cliente ve sus secciones y el estudio entra a Hoy". Las pruebas que esperaban que el administrador entrara a `/dashboard` ahora aceptan `/admin`.
+- **Capturas** en `docs/ux/parte1/` (tomadas antes de acortar tres descripciones del menú).
+- **Pendiente**: partes 2 a 5 de `docs/propuesta-ux.md`. Sin probar en modo PILOTO ni compilado para producción.
+
+## Propuesta de UX: análisis y reorganización 📝 (19/11/2026, rama `feat/piloto-vps`)
+
+- **Documento:** `docs/propuesta-ux.md`, con capturas de antes (`docs/ux/antes/`) y bocetos del después (`docs/ux/despues/`, fuente editable en `docs/ux/bocetos.html`).
+- **Cómo se hizo:** recorrido de todas las pantallas con la demo local (servidor de prueba en el puerto 3100 con `e2e.db`, en una copia fuera de OneDrive), como cliente A, cliente B y administrador, en 1440 px y 375 px.
+- **Hallazgos principales:** Inicio no dice qué hacer (una consulta que espera respuesta no aparece si es de otro CUIT); límite superado sin botón para actuar; Movimientos y Facturación se contradicen; el administrador entra al tablero de un cliente; menú plano de 10 a 13 ítems; en celular lo importante está a 3 pantallas.
+- **Propuesta:** menú agrupado por tarea con descripciones, Inicio "Para hacer ahora", "Hoy" para el estudio, patrón común de pantalla, ficha del contribuyente con pestañas, Accesos dividido. Sin cambios de reglas de negocio ni de cálculos.
+- **Aprobada** por el usuario; se implementa en 5 partes (sección 8 del documento). Parte 1 hecha (arriba).
+
 ## Ingreso con CUIT o DNI, confirmación por WhatsApp, correo real y planes ✅ (19/11/2026, rama `feat/piloto-vps`)
 
 - **Correo real por SMTP** (`src/providers/mail.ts`, `nodemailer` 10.3.1): con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` y `MAIL_FROM` los correos salen de verdad, y siempre queda la copia en la base. Si el envío falla, queda en el registro y no corta el flujo. **En el VPS todavía no se cargaron las variables.**
