@@ -8,7 +8,7 @@ import { formatDateTimeAR } from "@/lib/dates";
 import { DemoBanner } from "@/components/DemoBanner";
 import { restoreDemoAccounts } from "@/lib/demo-accounts";
 
-export const metadata = { title: "Correos de prueba · ContadorSmart" };
+export const metadata = { title: "Correos de prueba · ContadorIA" };
 export const dynamic = "force-dynamic";
 
 // Convierte las URL del texto en enlaces (sin HTML del correo: se muestra como texto plano).

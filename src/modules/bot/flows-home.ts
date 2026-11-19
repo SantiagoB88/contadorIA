@@ -37,7 +37,7 @@ export async function showWelcome(ctx: Ctx) {
     where: { acceptsSignups: true },
   });
   ctx.resetFlow();
-  ctx.buttons(T.welcome(study?.name ?? "ContadorSmart"), [
+  ctx.buttons(T.welcome(study?.name ?? "ContadorIA"), [
     { title: T.guestHaveAccount, a: "g.tengo" },
     { title: T.guestRegister, a: "g.registro" },
     { title: T.guestAbout, a: "g.conocer" },

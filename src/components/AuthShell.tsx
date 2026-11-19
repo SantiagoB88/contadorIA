@@ -21,7 +21,7 @@ export function AuthShell({
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <Link href="/login" className="mx-auto mb-3 flex w-fit" aria-label="ContadorSmart">
+            <Link href="/login" className="mx-auto mb-3 flex w-fit" aria-label="ContadorIA">
               <BrandMark size="lg" />
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight text-navy">{title}</h1>

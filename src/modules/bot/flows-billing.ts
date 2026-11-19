@@ -52,7 +52,7 @@ const inFlow = (ctx: Ctx) => ctx.conv.flow === "factura";
 on("m.fact", async (ctx) => {
   const tp = await activeTaxpayer(ctx);
   if (!tp) return chooseTaxpayer(ctx, "m.fact");
-  ctx.list(`Facturación de ${tp.name} (modo demo, sin validez fiscal). ¿Qué querés hacer?`, "Ver opciones", [
+  ctx.list(`Facturación de ${tp.name} (simulada: todavía sin conexión con ARCA). ¿Qué querés hacer?`, "Ver opciones", [
     { title: "Preparar factura", a: "f.nueva" },
     { title: "Ver comprobantes", a: "f.ver" },
     { title: "Continuar borrador", a: "f.borradores", v: "0" },
@@ -135,7 +135,7 @@ textSteps["f.buscar"] = async (ctx, text) => {
 
 // Receptor nuevo (orden pedido en el testing): CUIT → validación → datos fiscales (del padrón si hay consulta
 // conectada; si no, a mano) → nombre para guardarlo → confirmación. Para consumidor final sin CUIT: DNI o sin
-// identificar. La razón social es el dato fiscal; el alias solo identifica al receptor dentro de ContadorSmart.
+// identificar. La razón social es el dato fiscal; el alias solo identifica al receptor dentro de ContadorIA.
 type NewRecipient = {
   docType?: string;
   docNumber?: string;
@@ -556,7 +556,7 @@ async function showSummary(ctx: Ctx) {
       invoice.recipientDocNumber ? ` (${invoice.recipientDocType} ${invoice.recipientDocNumber})` : ""
     } · ${TAX_CONDITION_LABEL[invoice.recipientTaxCondition ?? ""] ?? ""}\n• Fecha: ${formatDateAR(invoice.issueDate)}\n${invoice.items
       .map((i) => `• ${i.description}: ${formatQuantity(i.quantityMilli)} × ${formatARS(i.unitPriceCents)} = ${formatARS(i.subtotalCents)}`)
-      .join("\n")}\n• Total: ${formatARS(invoice.amountCents)}\n\nModo ${APP_MODE}: confirmar genera una factura simulada, sin validez fiscal ni CAE.`,
+      .join("\n")}\n• Total: ${formatARS(invoice.amountCents)}\n\nConfirmar genera una factura simulada, sin CAE y sin validez fiscal (todavía no hay conexión con ARCA).`,
   );
   ctx.list("¿Qué querés hacer?", "Ver opciones", [
     { title: "Confirmar simulación", desc: "Emitir la factura simulada", a: "f.emitir" },
@@ -605,7 +605,7 @@ on("f.emitir", async (ctx) => {
     invoice.status === INVOICE_STATUS.SIMULADO
       ? `Factura simulada ${formatInvoiceNumber(invoice.invoiceType, invoice.pointOfSale, invoice.number)} emitida a ${invoice.recipientName} por ${formatARS(
           invoice.amountCents,
-        )}. No tiene validez fiscal (modo demo).\nEl PDF se descarga en la web con tu sesión: ${ctx.origin}/facturas/${invoice.id}/pdf`
+        )}. Es simulada: sin CAE y sin validez fiscal.\nEl PDF se descarga en la web con tu sesión: ${ctx.origin}/facturas/${invoice.id}/pdf`
       : `Resultado: ${STATUS_LABEL[invoice.status] ?? invoice.status}. ${invoice.rejectionReason ?? ""}`.trim(),
   );
   ctx.buttons("¿Algo más?", [

@@ -9,7 +9,7 @@ import { InformPaymentForm } from "@/components/requests/RequestForms";
 import { amountText, formatPeriod } from "@/components/fiscal/FiscalViews";
 import { Card, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Informar pago · ContadorSmart" };
+export const metadata = { title: "Informar pago · ContadorIA" };
 
 export default async function InformPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();

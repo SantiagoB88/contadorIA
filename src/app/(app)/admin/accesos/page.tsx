@@ -10,7 +10,7 @@ import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
 import { listStudyLinks } from "@/modules/bot/links";
 import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
 
-export const metadata = { title: "Accesos · ContadorSmart" };
+export const metadata = { title: "Accesos · ContadorIA" };
 
 const NOTICES: Record<string, string> = {
   aprobada: "Solicitud aprobada. El cliente ya ve al contribuyente; el acceso figura en “Accesos vigentes”.",

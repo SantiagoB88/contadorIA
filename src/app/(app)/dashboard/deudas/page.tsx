@@ -9,7 +9,7 @@ import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { DEBT_STATE, amountText, debtStateText, formatPeriod, obligationBadge } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Deudas y vencimientos · ContadorSmart" };
+export const metadata = { title: "Deudas y vencimientos · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

@@ -11,7 +11,7 @@ import { Conversation, PriorityBadge, RequestStatusBadge, statusOptions, topicLa
 import { formatPeriod } from "@/components/fiscal/FiscalViews";
 import { Card, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Solicitud · Backoffice · ContadorSmart" };
+export const metadata = { title: "Solicitud · Backoffice · ContadorIA" };
 
 export default async function AdminRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();

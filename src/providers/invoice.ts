@@ -66,7 +66,9 @@ async function nextNumber(request: IssueRequest): Promise<number> {
 }
 
 export function getInvoiceProvider(mode: string): InvoiceProvider {
-  if (mode === "DEMO") return new SimulatedInvoiceProvider();
+  // PILOTO: personas reales, pero todavía sin conexión con ARCA. Se simula y cada pantalla lo aclara; esas facturas no
+  // suman como ingresos (COUNTED_INVOICE_STATUSES).
+  if (mode === "DEMO" || mode === "PILOTO") return new SimulatedInvoiceProvider();
   // Sin proveedor real configurado se falla de forma visible: nunca se cae en silencio a la simulación.
   throw new Error(`No hay un proveedor de facturación configurado para el modo ${mode}.`);
 }

@@ -1,6 +1,6 @@
 // Consulta de datos fiscales de un CUIT (razón social y condición frente al IVA) en el padrón de ARCA.
 //
-// Estado: NO CONECTADO. ContadorSmart todavía no tiene integración con ARCA. El servicio que correspondería es el
+// Estado: NO CONECTADO. ContadorIA todavía no tiene integración con ARCA. El servicio que correspondería es el
 // "Padrón Constancia de Inscripción" (ws_sr_constancia_inscripcion), que exige autenticarse en el WSAA con un
 // certificado digital X.509 de un CUIT autorizado (el del estudio, con el servicio delegado o habilitado). Nunca se usa
 // la clave fiscal personal de un cliente. Ver docs/arca-integracion.md.
@@ -21,7 +21,7 @@ export interface PadronProvider {
 /** Sin integración: siempre "no disponible". */
 export const unavailablePadron: PadronProvider = {
   async lookup() {
-    return { status: "NO_DISPONIBLE", reason: "la consulta al padrón de ARCA todavía no está conectada en ContadorSmart" };
+    return { status: "NO_DISPONIBLE", reason: "la consulta al padrón de ARCA todavía no está conectada en ContadorIA" };
   },
 };
 

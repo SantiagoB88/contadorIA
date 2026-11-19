@@ -49,7 +49,7 @@ export async function sendVerificationEmail(user: { id: string; email: string; n
   const token = await issueToken(user.id, TOKEN_TYPE.VERIFICAR_CORREO);
   await mail.send({
     to: user.email,
-    subject: "Confirmá tu correo en ContadorSmart",
+    subject: "Confirmá tu correo en ContadorIA",
     body: `Hola ${user.name}:\n\nPara activar tu cuenta, abrí este enlace (vence en 24 horas):\n${origin}/verificar?token=${token}\n\nSi no creaste una cuenta, ignorá este correo.`,
   });
 }
@@ -66,7 +66,7 @@ export async function registerUser(input: RegisterInput, origin: string): Promis
   if (existing) {
     await mail.send({
       to: email,
-      subject: "Ya tenés una cuenta en ContadorSmart",
+      subject: "Ya tenés una cuenta en ContadorIA",
       body: `Hola:\n\nAlguien intentó crear una cuenta con este correo, pero ya tenés una.\nSi no recordás la contraseña, podés recuperarla en:\n${origin}/recuperar\n\nSi no fuiste vos, ignorá este correo.`,
     });
     return { ok: true };
@@ -106,7 +106,7 @@ export async function requestPasswordReset(emailInput: string, origin: string) {
   const token = await issueToken(user.id, TOKEN_TYPE.RESTABLECER_CLAVE);
   await mail.send({
     to: user.email,
-    subject: "Restablecé tu contraseña de ContadorSmart",
+    subject: "Restablecé tu contraseña de ContadorIA",
     body: `Hola ${user.name}:\n\nPara elegir una contraseña nueva, abrí este enlace (vence en 1 hora y sirve una sola vez):\n${origin}/restablecer?token=${token}\n\nSi no lo pediste, ignorá este correo: tu contraseña no cambia.`,
   });
   await audit({ studyId: user.studyId, actorId: user.id, action: "PASSWORD_RESET_REQUEST", entity: "User", entityId: user.id });
@@ -178,7 +178,7 @@ export async function registerFromChannel(input: { name: string; email: string; 
   if (existing) {
     await mail.send({
       to: email,
-      subject: "Ya tenés una cuenta en ContadorSmart",
+      subject: "Ya tenés una cuenta en ContadorIA",
       body: `Hola:\n\nAlguien intentó crear una cuenta con este correo desde WhatsApp, pero ya tenés una.\nSi fuiste vos, vinculá tu WhatsApp desde la web (Mi perfil → WhatsApp). Si no recordás la contraseña: ${origin}/recuperar\n\nSi no fuiste vos, ignorá este correo.`,
     });
     return { ok: false, reason: "EMAIL_EN_USO", message: "No pudimos crear la cuenta con ese correo." };

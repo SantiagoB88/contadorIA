@@ -5,7 +5,7 @@ import { restoreDemoAccounts } from "@/lib/demo-accounts";
 import { AuthShell } from "@/components/AuthShell";
 import { ResetPasswordForm } from "@/components/auth/AuthForms";
 
-export const metadata = { title: "Nueva contraseña · ContadorSmart" };
+export const metadata = { title: "Nueva contraseña · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

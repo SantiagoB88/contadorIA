@@ -7,7 +7,7 @@ import { listInbox } from "@/modules/requests/service";
 import { PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Bandeja de solicitudes · ContadorSmart" };
+export const metadata = { title: "Bandeja de solicitudes · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

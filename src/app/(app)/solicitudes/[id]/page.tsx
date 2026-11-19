@@ -9,7 +9,7 @@ import { ReplyForm } from "@/components/requests/RequestForms";
 import { Conversation, PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
 import { Card, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Solicitud · ContadorSmart" };
+export const metadata = { title: "Solicitud · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

@@ -1,11 +1,11 @@
 // Piezas visuales simples y reutilizables (sin lógica de negocio).
 
-/** Marca de ContadorSmart: cuadrado azul profundo con la "S" en turquesa. */
+/** Marca de ContadorIA: cuadrado azul profundo con "IA" en turquesa (provisoria hasta tener el logo). */
 export function BrandMark({ size = "sm" }: { size?: "sm" | "lg" }) {
-  const box = size === "lg" ? "h-12 w-12 rounded-xl text-xl" : "h-8 w-8 rounded-lg text-sm";
+  const box = size === "lg" ? "h-12 w-12 rounded-xl text-lg tracking-tight" : "h-8 w-8 rounded-lg text-[11px] tracking-tight";
   return (
     <span aria-hidden="true" className={`flex ${box} shrink-0 items-center justify-center bg-navy font-bold text-white`}>
-      C<span className="text-accent">S</span>
+      C<span className="text-accent">IA</span>
     </span>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { BILLING_SIMULATED_NOTICE, ROLES } from "@/lib/constants";
 import { formatARS } from "@/lib/money";
 import { formatDateAR } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -8,7 +9,7 @@ import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { InvoiceStatusBadge } from "@/components/billing/InvoiceStatusBadge";
 import { Card, EmptyState, Notice, PageHeader, inputClass, labelClass } from "@/components/ui";
 
-export const metadata = { title: "Facturación · ContadorSmart" };
+export const metadata = { title: "Facturación · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -30,12 +31,18 @@ export default async function FacturasPage({ searchParams }: { searchParams: Sea
     return (
       <div className="space-y-6">
         <PageHeader title="Facturación" />
-        <EmptyState title="Todavía no tenés contribuyentes habilitados">
-          <Link href="/perfil#asociar" className="font-medium text-brand-700 hover:underline">
-            Asociá tu CUIT
-          </Link>{" "}
-          para poder facturar.
-        </EmptyState>
+        {user.role === ROLES.ADMIN ? (
+          <EmptyState title="El estudio todavía no tiene clientes">
+            Aparecen acá cuando se dan de alta por WhatsApp o por la web.
+          </EmptyState>
+        ) : (
+          <EmptyState title="Todavía no tenés contribuyentes habilitados">
+            <Link href="/perfil#asociar" className="font-medium text-brand-700 hover:underline">
+              Asociá tu CUIT
+            </Link>{" "}
+            para poder facturar.
+          </EmptyState>
+        )}
       </div>
     );
   }
@@ -92,8 +99,8 @@ export default async function FacturasPage({ searchParams }: { searchParams: Sea
         </div>
       </PageHeader>
 
-      <Notice tone="warning" title="Facturador en modo demostración">
-        Las facturas se emiten con un simulador local: no se envían a ARCA, no tienen CAE y no tienen validez fiscal.
+      <Notice tone="warning" title="Facturación sin conexión con ARCA">
+        {BILLING_SIMULATED_NOTICE}
       </Notice>
 
       <Card>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { VerifyEmailForm } from "@/components/auth/AuthForms";
 
-export const metadata = { title: "Confirmar correo · ContadorSmart" };
+export const metadata = { title: "Confirmar correo · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

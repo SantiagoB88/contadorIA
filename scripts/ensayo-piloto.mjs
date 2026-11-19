@@ -146,8 +146,9 @@ try {
   console.log("Seguridad del servidor");
   const login = await (await fetch(`${APP}/login`)).text();
   ok(!login.includes("Demo1234!"), "Ingresar no muestra usuarios ni contraseñas de ejemplo");
+  ok(!login.includes("MODO DEMO") && login.includes("ContadorIA"), "Sin cartel de demo y con la marca ContadorIA");
   const correos = await fetch(`${APP}/dev/correos`, { redirect: "manual" });
-  ok([302, 303, 307, 308].includes(correos.status), "/dev/correos pide iniciar sesión");
+  ok([302, 303, 307, 308, 404].includes(correos.status), "/dev/correos no está abierto (pide iniciar sesión o no existe)");
   ok((await fetch(`${APP}/dev/whatsapp`)).status === 404, "El simulador de WhatsApp no existe en el servidor");
   ok((await fetch(`${APP}/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=verify-de-ensayo&hub.challenge=42`).then((r) => r.text())) === "42", "Meta puede verificar el webhook");
 

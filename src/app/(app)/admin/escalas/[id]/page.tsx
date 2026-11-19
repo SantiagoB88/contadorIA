@@ -10,7 +10,7 @@ import { ScaleForm } from "@/components/fiscal/FiscalForms";
 import { ScaleStatusBadge, validityText } from "@/components/fiscal/FiscalViews";
 import { Card, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Escala · ContadorSmart" };
+export const metadata = { title: "Escala · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

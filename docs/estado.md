@@ -1,5 +1,16 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## Marca ContadorIA y modo PILOTO ✅ (rama `feat/piloto-vps`)
+
+- **Marca:** el nombre visible pasa a **ContadorIA** (web, pestañas, correos). La marca provisoria dice "CIA" hasta tener el logo; los prompts de logos y banners están en `docs/marca-prompts.md`. Los nombres internos (servicio, cookies, carpetas) no cambian.
+- **`APP_MODE=PILOTO`** (por defecto en `scripts/server-start.mjs` y en el entorno de ejemplo del VPS):
+  - sin banner de demo, sin usuarios de ejemplo, sin `/dev/correos` y sin simulador;
+  - la facturación sigue simulada (no hay conexión con ARCA) y cada pantalla y el bot lo dicen ("sin CAE y sin validez fiscal"), sin la palabra DEMO;
+  - las facturas simuladas **no suman** como ingresos (en DEMO sí);
+  - se quitó "Modo de trabajo: DEMO" de la factura;
+  - el administrador sin clientes ve un mensaje para el estudio y no "Asociá tu CUIT".
+- **Pruebas:** `npm run verify` 130/130; navegador 27/27 (DEMO); ensayo del piloto 15/15 (PILOTO); vista de la pantalla de ingreso y de Facturación en PILOTO.
+
 ## Piloto en VPS: preparación ✅ (rama `feat/piloto-vps`, sin publicar; la demo de Vercel sigue en `main`)
 
 - **Repositorio base**: este (`SantiagoB88/contadorIA`). `Mateobonacalza/ContadorSmart` es otro proyecto: bot Express con datos simulados, sin dashboard ni historia en común.

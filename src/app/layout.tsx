@@ -3,8 +3,8 @@ import { isDbUpToDate } from "@/lib/db-status";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ContadorSmart",
-  description: "Portal del contribuyente y backoffice del estudio (demo local)",
+  title: "ContadorIA",
+  description: "Portal del contribuyente y backoffice del estudio contable",
 };
 
 export const viewport: Viewport = {

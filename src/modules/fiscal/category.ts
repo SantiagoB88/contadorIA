@@ -25,7 +25,7 @@ export type CategoryAt = { code: string | null; since: string | null };
 
 /**
  * Desde cuándo rige la categoría con la que se dio de alta un contribuyente: el inicio de actividad o, si no se
- * informó, el día en que se cargó en ContadorSmart (fecha real del registro; nunca una fecha de inicio inventada).
+ * informó, el día en que se cargó en ContadorIA (fecha real del registro; nunca una fecha de inicio inventada).
  */
 export function categoryBaseDate(taxpayer: { startDate: string | null; createdAt: Date }): string {
   return taxpayer.startDate ?? ymdAR(taxpayer.createdAt);

@@ -59,7 +59,7 @@ function textRight(page: PDFPage, text: string, xRight: number, y: number, font:
 export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Factura de demostración ${formatInvoiceNumber(invoice.invoiceType, invoice.pointOfSale, invoice.number)}`);
-  doc.setProducer("ContadorSmart (modo DEMO)");
+  doc.setProducer("ContadorIA (modo DEMO)");
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
@@ -174,7 +174,7 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Uint8Array> 
   // Pie en todas las páginas
   pages.forEach((p, i) => {
     const lines = [
-      "Este documento fue generado por ContadorSmart en modo DEMO. No fue informado a ARCA, no tiene CAE ni código QR",
+      "Este documento fue generado por ContadorIA en modo DEMO. No fue informado a ARCA, no tiene CAE ni código QR",
       "y no tiene validez fiscal. No sirve como comprobante para el receptor.",
       `Generado el ${formatDateTimeAR(invoice.issuedAt ?? new Date())} · Página ${i + 1} de ${pages.length}`,
     ];

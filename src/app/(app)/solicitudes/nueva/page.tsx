@@ -5,7 +5,7 @@ import { getAccessibleTaxpayers } from "@/modules/taxpayers/access";
 import { NewRequestForm } from "@/components/requests/RequestForms";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Nueva solicitud · ContadorSmart" };
+export const metadata = { title: "Nueva solicitud · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

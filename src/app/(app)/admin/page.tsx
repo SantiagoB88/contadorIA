@@ -10,7 +10,7 @@ import { getDebtSummary } from "@/modules/fiscal/obligations";
 import { DEBT_STATE } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, PageHeader, type Tone } from "@/components/ui";
 
-export const metadata = { title: "Backoffice · ContadorSmart" };
+export const metadata = { title: "Backoffice · ContadorIA" };
 
 const LEVEL: Record<AlertLevel, { label: string; tone: Tone }> = {
   NORMAL: { label: "Normal", tone: "success" },

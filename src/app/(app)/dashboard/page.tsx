@@ -14,7 +14,7 @@ import { RequestList } from "@/components/requests/RequestViews";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 import { StartDateForm } from "@/components/taxpayers/StartDateForm";
 
-export const metadata = { title: "Inicio · ContadorSmart" };
+export const metadata = { title: "Inicio · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { IS_DEMO } from "@/lib/constants";
 import { formatARS } from "@/lib/money";
 import { formatDateAR, monthKey, parseYmd } from "@/lib/dates";
 import { getAccessibleTaxpayers, getAuthorizedTaxpayer } from "@/modules/taxpayers/access";
@@ -9,7 +10,7 @@ import { MarginCard, formatPercent } from "@/components/dashboard/DashboardCards
 import { ScaleStatusBadge, validityText } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Categoría y límites · ContadorSmart" };
+export const metadata = { title: "Categoría y límites · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -79,7 +80,7 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
               por el estudio
             </p>
             <p className="mt-3 text-xs text-slate-500">
-              La categoría solo la cambia el estudio. ContadorSmart nunca la modifica en forma automática.
+              La categoría solo la cambia el estudio. ContadorIA nunca la modifica en forma automática.
             </p>
           </Card>
 
@@ -149,7 +150,8 @@ export default async function CategoryPage({ searchParams }: { searchParams: Sea
           <div>
             <dt className="text-slate-500">Qué suma</dt>
             <dd className="text-slate-800">
-              Comprobantes verificados y, solo en la demo, facturas emitidas en simulación. No suman borradores ni rechazos.
+              Comprobantes verificados{IS_DEMO ? " y, en la demo, facturas emitidas en simulación" : ""}. No suman borradores, rechazos
+              {IS_DEMO ? "" : " ni facturas simuladas"}.
             </dd>
           </div>
           <div>

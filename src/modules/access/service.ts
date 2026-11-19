@@ -362,7 +362,7 @@ export async function adminResetPassword(admin: CurrentUser, userId: string): Pr
   await mail.send({
     to: user.email,
     subject: "El estudio blanqueó tu contraseña",
-    body: `Hola, ${user.name}:\n\nEl estudio blanqueó la contraseña de tu cuenta de ContadorSmart. Te va a pasar una contraseña temporal: vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.\n\nSi no lo pediste, comunicate con el estudio.`,
+    body: `Hola, ${user.name}:\n\nEl estudio blanqueó la contraseña de tu cuenta de ContadorIA. Te va a pasar una contraseña temporal: vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.\n\nSi no lo pediste, comunicate con el estudio.`,
   });
   return {
     ok: true,

@@ -11,7 +11,7 @@ import { InvoiceStatusBadge } from "@/components/billing/InvoiceStatusBadge";
 import { DeleteDraftButton, DuplicateButton, EmitPanel } from "@/components/billing/InvoiceActions";
 import { Card, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Factura · ContadorSmart" };
+export const metadata = { title: "Factura · ContadorIA" };
 
 export default async function FacturaPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -128,8 +128,8 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         <Card>
           <h2 className="font-semibold text-navy">Confirmar</h2>
           <p className="mt-1 mb-4 text-sm text-slate-600">
-            Modo de trabajo: <strong>{APP_MODE}</strong>. La emisión es simulada: se asigna un número interno y queda en el
-            historial, pero no se envía nada a ARCA.
+            La emisión es simulada: se asigna un número interno y queda en el historial, pero no se envía nada a ARCA (sin
+            CAE y sin validez fiscal).
           </p>
           <EmitPanel invoiceId={invoice.id} idempotencyKey={randomUUID()} isDemo={APP_MODE === "DEMO"} />
           <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-100 pt-4">

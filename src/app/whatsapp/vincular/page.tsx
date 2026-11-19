@@ -6,7 +6,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { ConfirmInviteForm } from "@/components/bot/WhatsAppForms";
 import { Notice } from "@/components/ui";
 
-export const metadata = { title: "Vincular WhatsApp · ContadorSmart" };
+export const metadata = { title: "Vincular WhatsApp · ContadorIA" };
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

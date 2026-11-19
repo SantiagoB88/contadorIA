@@ -20,7 +20,7 @@ import { DocumentUploadForm, DocumentVisibilityButton } from "@/components/reque
 import { RequestList, docCategoryLabel } from "@/components/requests/RequestViews";
 import { DOC_CATEGORY_LABEL } from "@/lib/constants";
 
-export const metadata = { title: "Administrar contribuyente · ContadorSmart" };
+export const metadata = { title: "Administrar contribuyente · ContadorIA" };
 
 const ACCESS_LABEL: Record<string, string> = { APROBADO: "Aprobado", PENDIENTE: "Pendiente", REVOCADO: "Revocado" };
 

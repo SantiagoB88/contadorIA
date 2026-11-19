@@ -1300,7 +1300,7 @@ async function main() {
     const confirm = choice(ANA_WA, "Confirmar simulación");
     const emitted = await send(ANA_WA, { text: confirm.title, choiceId: confirm.id });
     assert.match(emitted.text, /Factura simulada .* emitida a Cliente WhatsApp SRL/);
-    assert.match(emitted.text, /No tiene validez fiscal/);
+    assert.match(emitted.text, /sin CAE y sin validez fiscal/);
     assert.equal(await prisma.invoice.count({ where: { taxpayerId: ana.id, status: "SIMULADO" } }), before + 1);
     const inv = await prisma.invoice.findFirstOrThrow({ where: { taxpayerId: ana.id, recipientName: "Cliente WhatsApp SRL" } });
     assert.equal(inv.amountCents, 1_500_000n);

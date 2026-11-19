@@ -39,7 +39,7 @@ export const SETUP_STATUS_LABEL: Record<SetupStatus, string> = {
 };
 
 export const ARCA_NOT_AVAILABLE =
-  "ContadorSmart todavía no se conecta con ARCA: no emite facturas reales ni consulta tus datos fiscales. No hace falta que hagas nada ahora; cuando esté disponible, el estudio te va a guiar. Nunca te vamos a pedir tu clave fiscal por WhatsApp ni por la web.";
+  "ContadorIA todavía no se conecta con ARCA: no emite facturas reales ni consulta tus datos fiscales. No hace falta que hagas nada ahora; cuando esté disponible, el estudio te va a guiar. Nunca te vamos a pedir tu clave fiscal por WhatsApp ni por la web.";
 
 export async function getSetup(user: CurrentUser): Promise<Setup> {
   const [dbUser, link, accesses, pending, help] = await Promise.all([
@@ -66,7 +66,7 @@ export async function getSetup(user: CurrentUser): Promise<Setup> {
   const items: SetupItem[] = [
     {
       key: "cuenta",
-      label: "Cuenta de ContadorSmart",
+      label: "Cuenta de ContadorIA",
       status: "LISTO",
       detail: `Ingresás a la web con ${dbUser.email}.`,
     },

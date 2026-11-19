@@ -17,7 +17,7 @@ mkdirSync(dataDir, { recursive: true });
 
 const env = {
   ...process.env,
-  APP_MODE: process.env.APP_MODE || "DEMO",
+  APP_MODE: process.env.APP_MODE || "PILOTO", // servidor con personas reales (ver src/lib/constants.ts)
   DATABASE_URL: process.env.DATABASE_URL || `file:${path.join(dataDir, "contadorsmart.db").split("\\").join("/")}`,
   STORAGE_DIR: process.env.STORAGE_DIR || path.join(dataDir, "storage"),
 };

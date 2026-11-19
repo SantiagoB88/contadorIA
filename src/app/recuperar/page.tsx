@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { RequestResetForm } from "@/components/auth/AuthForms";
 
-export const metadata = { title: "Recuperar contraseña · ContadorSmart" };
+export const metadata = { title: "Recuperar contraseña · ContadorIA" };
 
 export default function RecuperarPage() {
   return (

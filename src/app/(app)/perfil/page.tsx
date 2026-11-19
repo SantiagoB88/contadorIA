@@ -12,7 +12,7 @@ import { maskPhone } from "@/lib/phone";
 import { getSetup, HELP_REASONS, SETUP_STATUS_LABEL, type SetupStatus } from "@/modules/profile/setup";
 import { HelpRequestForm } from "@/components/profile/HelpRequestForm";
 
-export const metadata = { title: "Mi perfil · ContadorSmart" };
+export const metadata = { title: "Mi perfil · ContadorIA" };
 
 const SETUP_TONE: Record<SetupStatus, "success" | "warning" | "neutral" | "info"> = {
   LISTO: "success",

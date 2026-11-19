@@ -7,7 +7,7 @@ import { formatBytes, listDocuments } from "@/modules/documents/service";
 import { docCategoryLabel } from "@/components/requests/RequestViews";
 import { Badge, Card, EmptyState, PageHeader, inputClass, labelClass } from "@/components/ui";
 
-export const metadata = { title: "Documentos · ContadorSmart" };
+export const metadata = { title: "Documentos · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

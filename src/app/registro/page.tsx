@@ -4,7 +4,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { SignedInNotice } from "@/components/SignedInNotice";
 import { RegisterForm } from "@/components/auth/AuthForms";
 
-export const metadata = { title: "Crear cuenta · ContadorSmart" };
+export const metadata = { title: "Crear cuenta · ContadorIA" };
 
 export default async function RegistroPage() {
   const user = await getCurrentUser();

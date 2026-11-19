@@ -15,9 +15,6 @@ export const INVOICE_STATUS = {
   RECHAZADO: "RECHAZADO",
 } as const;
 
-// Solo estos estados suman en los indicadores. Borradores, en proceso y rechazos quedan fuera.
-// SIMULADO solo existe en el ambiente DEMO y las consultas siempre filtran por ambiente: nunca se mezcla con datos reales.
-export const COUNTED_INVOICE_STATUSES: string[] = [INVOICE_STATUS.VERIFICADO, INVOICE_STATUS.SIMULADO];
 
 export const INVOICE_SOURCE = {
   DATOS_FICTICIOS: "DATOS_FICTICIOS",
@@ -55,7 +52,20 @@ export const TAX_CONDITION_LABEL: Record<string, string> = {
 export const DEMO_POINT_OF_SALE = 1;
 export const MONOTRIBUTO_INVOICE_TYPE = "C";
 
+// Modo de trabajo:
+// - DEMO: datos de ejemplo, banner de demo, facturas simuladas que suman en los indicadores.
+// - PILOTO: servidor con personas reales (contadoria.co). Sin banner ni datos de ejemplo; la facturación sigue
+//   simulada (no hay conexión con ARCA) y se aclara en cada pantalla, pero esas facturas NO suman como ingresos.
 export const APP_MODE = process.env.APP_MODE ?? "DEMO";
+export const IS_DEMO = APP_MODE === "DEMO";
+
+// Solo estos estados suman en los indicadores. Borradores, en proceso y rechazos quedan fuera. Las facturas simuladas
+// suman solo en la demo: con personas reales no son ingresos. Las consultas siempre filtran por ambiente.
+export const COUNTED_INVOICE_STATUSES: string[] = IS_DEMO ? [INVOICE_STATUS.VERIFICADO, INVOICE_STATUS.SIMULADO] : [INVOICE_STATUS.VERIFICADO];
+
+/** Aviso único de la facturación mientras no haya conexión con ARCA (web y bot dicen lo mismo). */
+export const BILLING_SIMULATED_NOTICE =
+  "La facturación todavía no está conectada con ARCA: los comprobantes se emiten en forma simulada, sin CAE y sin validez fiscal.";
 
 export const SESSION_COOKIE = "cs_session";
 export const SESSION_DAYS = 7;

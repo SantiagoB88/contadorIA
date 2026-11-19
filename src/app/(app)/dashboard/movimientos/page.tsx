@@ -8,7 +8,7 @@ import { getInvoices, periodRanges, rangeCoverage } from "@/modules/dashboard/me
 import { TaxpayerPicker } from "@/components/dashboard/TaxpayerPicker";
 import { Badge, Card, EmptyState, Notice, PageHeader, inputClass, labelClass } from "@/components/ui";
 
-export const metadata = { title: "Movimientos · ContadorSmart" };
+export const metadata = { title: "Movimientos · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

@@ -46,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="rounded-lg ring-1 ring-white/15">
               <BrandMark />
             </span>
-            <span className="font-semibold">ContadorSmart</span>
+            <span className="font-semibold">ContadorIA</span>
           </Link>
           <AppNav isAdmin={isAdmin} showBot={showBot} />
           <div className="mt-auto border-t border-white/15 pt-4">
@@ -64,7 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="flex items-center justify-between gap-3">
               <Link href="/dashboard" className="flex items-center gap-2">
                 <BrandMark />
-                <span className="font-semibold text-navy">ContadorSmart</span>
+                <span className="font-semibold text-navy">ContadorIA</span>
               </Link>
               <MobileNav
                 isAdmin={isAdmin}

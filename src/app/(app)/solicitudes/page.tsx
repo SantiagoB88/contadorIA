@@ -9,7 +9,7 @@ import { listRequestsForUser } from "@/modules/requests/service";
 import { PriorityBadge, RequestStatusBadge, topicLabel } from "@/components/requests/RequestViews";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Solicitudes · ContadorSmart" };
+export const metadata = { title: "Solicitudes · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

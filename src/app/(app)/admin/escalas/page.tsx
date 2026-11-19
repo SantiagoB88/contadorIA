@@ -8,7 +8,7 @@ import { ScaleForm, type ScaleDefaults } from "@/components/fiscal/FiscalForms";
 import { ScaleStatusBadge, validityText } from "@/components/fiscal/FiscalViews";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Escalas · ContadorSmart" };
+export const metadata = { title: "Escalas · ContadorIA" };
 
 export default async function ScalesPage() {
   const admin = await requireAdmin();

@@ -7,7 +7,7 @@ import { listRecipients, MAX_DAYS_BACK, recipientLabel } from "@/modules/billing
 import { InvoiceForm } from "@/components/billing/InvoiceForm";
 import { Card, EmptyState, Notice, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Nueva factura · ContadorSmart" };
+export const metadata = { title: "Nueva factura · ContadorIA" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,9 +36,9 @@ export default async function NuevaFacturaPage({ searchParams }: { searchParams:
         </Link>
       </div>
       <PageHeader title="Nueva factura" subtitle={`Emisor: ${taxpayer.name} · Factura C (monotributo)`} />
-      <Notice tone="warning" title="Modo DEMO">
-        Primero se guarda como borrador. En el paso siguiente revisás y confirmás una emisión <strong>simulada</strong>, sin
-        validez fiscal.
+      <Notice tone="warning" title="Facturación sin conexión con ARCA">
+        Primero se guarda como borrador. En el paso siguiente revisás y confirmás una emisión <strong>simulada</strong>: sin
+        CAE y sin validez fiscal.
       </Notice>
       <Card>
         <InvoiceForm

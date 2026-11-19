@@ -8,7 +8,7 @@ import { getAuthorizedInvoice, listRecipients, MAX_DAYS_BACK, recipientLabel } f
 import { InvoiceForm } from "@/components/billing/InvoiceForm";
 import { Card, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Editar borrador · ContadorSmart" };
+export const metadata = { title: "Editar borrador · ContadorIA" };
 
 /** "12345" centavos → "123,45" (formato que acepta el formulario). */
 function centsToInput(cents: bigint): string {

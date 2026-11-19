@@ -5,7 +5,7 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { SIMULATOR_IDENTITIES, simulatorEnabled } from "@/modules/bot/simulator-config";
 import { SimulatorClient } from "./SimulatorClient";
 
-export const metadata = { title: "Simulador de WhatsApp · ContadorSmart" };
+export const metadata = { title: "Simulador de WhatsApp · ContadorIA" };
 export const dynamic = "force-dynamic";
 
 /** Simulador del bot. Solo existe en modo DEMO (en la compu y en la demo de Vercel): en cualquier otro caso da 404. */

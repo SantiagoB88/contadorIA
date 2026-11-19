@@ -6,7 +6,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { SignedInNotice } from "@/components/SignedInNotice";
 import { LoginForm } from "./LoginForm";
 
-export const metadata = { title: "Ingresar · ContadorSmart" };
+export const metadata = { title: "Ingresar · ContadorIA" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const target = typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
   if (user) {
     return (
-      <AuthShell title="ContadorSmart" subtitle="Ya tenés una sesión abierta.">
+      <AuthShell title="ContadorIA" subtitle="Ya tenés una sesión abierta.">
         <SignedInNotice name={user.name} email={user.email} continueHref={target} action="entrar con otra cuenta" />
       </AuthShell>
     );
@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return (
     <AuthShell
-      title="ContadorSmart"
+      title="ContadorIA"
       subtitle="Ingresá para ver tu facturación y tu categoría."
       footer={
         <>

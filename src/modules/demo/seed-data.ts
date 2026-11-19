@@ -73,7 +73,7 @@ async function demoPdf(title: string): Promise<Uint8Array> {
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   page.drawText("DOCUMENTO DE DEMOSTRACIÓN", { x: 60, y: 760, size: 20, font: bold, color: rgb(0.7, 0.1, 0.1) });
   page.drawText(title, { x: 60, y: 720, size: 16, font: bold });
-  page.drawText("Generado por ContadorSmart con datos ficticios. Sin validez fiscal ni legal.", { x: 60, y: 690, size: 11, font });
+  page.drawText("Generado por ContadorIA con datos ficticios. Sin validez fiscal ni legal.", { x: 60, y: 690, size: 11, font });
   return pdf.save();
 }
 
