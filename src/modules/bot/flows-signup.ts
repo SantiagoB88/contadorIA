@@ -224,7 +224,7 @@ on("g.crear", async (ctx) => {
       `• Contraseña temporal: ${created.tempPassword}`,
       `Vence en ${TEMP_PASSWORD_HOURS} horas y al entrar te pedimos que elijas la tuya.`,
       "",
-      `Te mandamos un correo para confirmar tu dirección.${publicDemoTools() ? ` (Demo: los correos no salen; se ven en ${ctx.origin}/dev/correos)` : ""}`,
+      publicDemoTools() ? `Te mandamos un correo para confirmar tu dirección. (Demo: los correos no salen; se ven en ${ctx.origin}/dev/correos)` : "Como te registraste desde este WhatsApp, no hace falta confirmar el correo para entrar.",
       "",
       "Próximo paso: entrá a la web con esos datos y elegí tu contraseña. Lo que te falte configurar lo ves en Mi perfil → Tu configuración, o acá en Mi cuenta → Mi configuración.",
     ].join("\n"),

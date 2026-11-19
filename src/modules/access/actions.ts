@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSession, requireAdmin, requireUser } from "@/lib/auth";
 import { changePassword, updateProfile } from "@/modules/profile/service";
-import { adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "./service";
+import { adminConfirmEmail, adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "./service";
 
 export type ActionState = {
   ok?: boolean;
@@ -129,3 +129,13 @@ export const rejectRequestAction = demoAction(rejectRequestActionAccion);
 export const revokeAccessAction = demoAction(revokeAccessActionAccion);
 export const setUserActiveAction = demoAction(setUserActiveActionAccion);
 export const adminResetPasswordAction = demoAction(adminResetPasswordActionAccion);
+export const adminConfirmEmailAction = demoAction(async function adminConfirmEmailAccion(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const userId = str(formData, "userId");
+  const result = await adminConfirmEmail(admin, userId);
+  if (result.ok) {
+    await rememberDemoAccount(userId, true);
+    refreshAll();
+  }
+  return result;
+});

@@ -5,7 +5,7 @@ import { ACCESS_STATUS, REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { formatCuit } from "@/lib/cuit";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "@/components/ui";
-import { AdminResetPasswordForm, ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
+import { AdminConfirmEmailForm, AdminResetPasswordForm, ReviewRequestForms, RevokeAccessForm, UserStatusForm } from "@/components/access/AccessForms";
 import { AdminUnlinkForm } from "@/components/bot/WhatsAppForms";
 import { listStudyLinks } from "@/modules/bot/links";
 import { AUTO_APPROVAL_NOTE } from "@/modules/access/service";
@@ -186,6 +186,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Prom
                   {u.role === ROLES.ADMIN ? "Administrador" : "Cliente"}
                 </Badge>
                 {!u.emailVerifiedAt && <Badge tone="warning">Correo sin confirmar</Badge>}
+                {!u.emailVerifiedAt && u.id !== admin.id && <AdminConfirmEmailForm userId={u.id} name={u.name} />}
                 <Badge tone={u.active ? "success" : "danger"}>{u.active ? "Activo" : "Suspendido"}</Badge>
                 {whatsappByUser.get(u.id) && <Badge tone="info">WhatsApp {whatsappByUser.get(u.id)!.masked}</Badge>}
                 {whatsappByUser.get(u.id) && <AdminUnlinkForm linkId={whatsappByUser.get(u.id)!.id} />}

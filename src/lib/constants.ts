@@ -155,6 +155,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   PASSWORD_RESET: "Restableció su contraseña",
   PASSWORD_CHANGE: "Cambió su contraseña",
   PASSWORD_RESET_BY_ADMIN: "Blanqueó la contraseña de un usuario",
+  EMAIL_CONFIRMED_BY_ADMIN: "Confirmó el correo de un usuario",
   TAXPAYER_START_DATE: "Cargó la fecha de inicio de actividad",
   PROFILE_UPDATE: "Actualizó su perfil",
   ACCESS_REQUEST_CREATE: "Pidió asociarse a un CUIT",

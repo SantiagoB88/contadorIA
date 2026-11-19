@@ -16,7 +16,7 @@ import { getSetup, requestHelp } from "@/modules/profile/setup";
 import { passwordProblem } from "@/lib/crypto";
 import { TOKEN_TYPE } from "@/lib/constants";
 import { isTokenUsable, registerUser, requestPasswordReset, resetPassword, verifyEmail } from "@/modules/auth/service";
-import { AUTO_APPROVAL_NOTE, adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
+import { AUTO_APPROVAL_NOTE, adminConfirmEmail, adminResetPassword, approveRequest, rejectRequest, requestAssociation, revokeAccess, setUserActive } from "@/modules/access/service";
 import { changePassword } from "@/modules/profile/service";
 import { verifyPassword } from "@/lib/crypto";
 import { addDaysYmd } from "@/lib/dates";
@@ -334,6 +334,18 @@ async function main() {
     assert.equal(await prisma.session.count({ where: { userId: nuevo.id } }), 0);
     assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: nuevo.id } })).active, false);
     assert.equal((await setUserActive(admin, nuevo.id, true)).ok, true);
+  });
+  await check("el estudio confirma un correo a mano (mientras no se envían correos): solo de su estudio, una vez y con auditoría", async () => {
+    const unverified = await registerUser({ name: "Sin Correo", email: "sin.correo@ejemplo.com", phone: "", password: "Prueba1234!" }, "http://localhost");
+    assert.ok(unverified.ok);
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: "sin.correo@ejemplo.com" } });
+    assert.equal((await adminConfirmEmail(otherAdmin, u.id)).ok, false); // otro estudio
+    const r = await adminConfirmEmail(admin, u.id);
+    assert.ok(r.ok, r.message);
+    assert.ok((await prisma.user.findUniqueOrThrow({ where: { id: u.id } })).emailVerifiedAt);
+    assert.equal((await adminConfirmEmail(admin, u.id)).ok, false); // ya estaba confirmado
+    assert.equal(await prisma.authToken.count({ where: { userId: u.id, type: "VERIFICAR_CORREO", usedAt: null } }), 0);
+    assert.ok(await prisma.auditEvent.findFirst({ where: { action: "EMAIL_CONFIRMED_BY_ADMIN", entityId: u.id, actorId: admin.id } }));
   });
   await check("el estudio blanquea la contraseña: temporal de un uso visible, cierra sesiones y avisa", async () => {
     assert.equal((await adminResetPassword(admin, admin.id)).ok, false);

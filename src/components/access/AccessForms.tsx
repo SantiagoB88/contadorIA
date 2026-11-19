@@ -3,6 +3,7 @@
 import { ActionForm, useActionForm } from "@/components/ActionForm";
 import { useState } from "react";
 import {
+  adminConfirmEmailAction,
   adminResetPasswordAction,
   approveRequestAction,
   changePasswordAction,
@@ -280,5 +281,23 @@ function CopyValue({ value }: { value: string }) {
     >
       {copied ? "Copiada" : "Copiar contraseña"}
     </button>
+  );
+}
+
+/** El estudio confirma el correo a mano (mientras el servidor no envía correos reales). */
+export function AdminConfirmEmailForm({ userId, name }: { userId: string; name: string }) {
+  const [state, action] = useActionForm<ActionState>(adminConfirmEmailAction, {});
+  return (
+    <ActionForm
+      form={action}
+      confirmMessage={`¿Confirmar el correo de ${name}? Hacelo solo si sabés que ese correo es de esa persona.`}
+      className="flex flex-col items-end gap-1"
+    >
+      <input type="hidden" name="userId" value={userId} />
+      <button type="submit" className="rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50">
+        Confirmar correo
+      </button>
+      {state.message && <p className={`text-xs ${state.ok ? "text-emerald-700" : "text-red-700"}`}>{state.message}</p>}
+    </ActionForm>
   );
 }

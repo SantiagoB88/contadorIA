@@ -1,6 +1,7 @@
 "use server";
 
 import { demoAction } from "@/lib/demo-journal";
+import { mailReachesPeople, NO_MAIL_HELP } from "@/lib/mail-status";
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -60,7 +61,9 @@ async function loginActionAccion(_prev: LoginState, formData: FormData): Promise
     // La contraseña es correcta pero falta confirmar el correo: se reenvía el enlace.
     await sendVerificationEmail(user, await getOrigin());
     return {
-      info: "Todavía no confirmaste tu correo. Te enviamos un enlace nuevo: abrilo y volvé a ingresar.",
+      info: mailReachesPeople()
+        ? "Todavía no confirmaste tu correo. Te enviamos un enlace nuevo: abrilo y volvé a ingresar."
+        : `Todavía no confirmaste tu correo. ${NO_MAIL_HELP}`,
       email,
     };
   }

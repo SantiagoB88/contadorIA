@@ -1,5 +1,15 @@
 # Estado · 16/11/2026 (entrega 5 + mejoras del primer testing con usuarios)
 
+## Correos que no llegan: salida mientras no hay envío real ✅ (19/11/2026, rama `feat/piloto-vps`)
+
+- **Situación real:** no hay proveedor de correo. Los correos (confirmación, recuperación, avisos) quedan en la base (`OutboxEmail`) y no salen. Quien se registraba por la web quedaba trabado porque sin confirmar el correo no podía ingresar.
+- **Arreglo:**
+  - **Accesos → "Confirmar correo"**: el estudio confirma el correo de un usuario a mano (`adminConfirmEmail`), con auditoría `EMAIL_CONFIRMED_BY_ADMIN`. "Blanquear clave" sigue disponible.
+  - **Textos honestos** (`src/lib/mail-status.ts`): en el registro, el ingreso y la recuperación ya no se dice "te enviamos un enlace" cuando no sale nada: se indica pedirle al estudio que confirme el correo, o registrarse por WhatsApp (no necesita confirmar correo).
+  - Logo claro con fondo transparente.
+- **Pruebas:** `npm run verify` 131/131; ensayo del piloto 15/15; compilación en PILOTO; en el navegador (servidor local en PILOTO): registro web → ingreso bloqueado con el texto nuevo → el administrador confirma en Accesos → la persona ingresa al inicio.
+- **Pendiente:** proveedor de correo real (a elegir con el usuario).
+
 ## Marca ContadorIA y modo PILOTO ✅ (rama `feat/piloto-vps`)
 
 - **Marca:** el nombre visible pasa a **ContadorIA** (web, pestañas, correos). La marca provisoria dice "CIA" hasta tener el logo; los prompts de logos y banners están en `docs/marca-prompts.md`. Los nombres internos (servicio, cookies, carpetas) no cambian.

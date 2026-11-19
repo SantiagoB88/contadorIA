@@ -370,3 +370,23 @@ export async function adminResetPassword(admin: CurrentUser, userId: string): Pr
     message: `Contraseña de ${user.name} blanqueada. Pasale esta contraseña temporal (se muestra una sola vez; vence en ${TEMP_PASSWORD_HOURS} horas y al entrar tiene que elegir otra).`,
   };
 }
+
+/**
+ * El estudio confirma el correo de un usuario a mano. Sirve mientras el servidor no envía correos reales (el enlace
+ * de confirmación no le llega a nadie): el estudio conoce a la persona y da fe de que el correo es suyo. Queda en la
+ * auditoría con quién lo confirmó. Los enlaces de confirmación pendientes dejan de servir.
+ */
+export async function adminConfirmEmail(admin: CurrentUser, userId: string): Promise<ServiceResult> {
+  assertAdmin(admin);
+  const user = await prisma.user.findFirst({ where: { id: userId, studyId: admin.studyId } });
+  if (!user) return { ok: false, message: "El usuario no existe en tu estudio." };
+  if (user.emailVerifiedAt) return { ok: false, message: "Ese correo ya estaba confirmado." };
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } }),
+    prisma.authToken.updateMany({ where: { userId: user.id, type: TOKEN_TYPE.VERIFICAR_CORREO, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.auditEvent.create({
+      data: { studyId: admin.studyId, actorId: admin.id, action: "EMAIL_CONFIRMED_BY_ADMIN", entity: "User", entityId: user.id, detail: user.email },
+    }),
+  ]);
+  return { ok: true, message: `Correo de ${user.name} confirmado. Ya puede ingresar a la web.` };
+}

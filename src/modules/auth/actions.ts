@@ -1,6 +1,7 @@
 "use server";
 
 import { demoAction } from "@/lib/demo-journal";
+import { mailReachesPeople, NO_MAIL_HELP } from "@/lib/mail-status";
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -57,7 +58,9 @@ async function registerActionAccion(_prev: AuthFormState, formData: FormData): P
   await rememberDemoAccountByEmail(parsed.data.email); // demo de Vercel: la cuenta sigue al navegador
   return {
     ok: true,
-    message: `Listo. Te enviamos un correo a ${parsed.data.email} para confirmar la cuenta. Abrí el enlace y después ingresá.`,
+    message: mailReachesPeople()
+      ? `Listo. Te enviamos un correo a ${parsed.data.email} para confirmar la cuenta. Abrí el enlace y después ingresá.`
+      : `Listo, creamos tu cuenta. Antes de ingresar hay que confirmar el correo. ${NO_MAIL_HELP}`,
   };
 }
 
