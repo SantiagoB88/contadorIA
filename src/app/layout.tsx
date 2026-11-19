@@ -2,10 +2,18 @@ import type { Metadata, Viewport } from "next";
 import { isDbUpToDate } from "@/lib/db-status";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "ContadorIA",
-  description: "Portal del contribuyente y backoffice del estudio contable",
-};
+const DESCRIPTION = "Tu monotributo al día, por WhatsApp y en la web: facturación, categoría, vencimientos y consultas con tu estudio.";
+
+// Se arma en cada pedido: APP_URL (dirección pública del servidor) solo existe al correr, no al compilar.
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...(process.env.APP_URL ? { metadataBase: new URL(process.env.APP_URL) } : {}),
+    title: "ContadorIA",
+    description: DESCRIPTION,
+    applicationName: "ContadorIA",
+    openGraph: { title: "ContadorIA", description: DESCRIPTION, siteName: "ContadorIA", locale: "es_AR", type: "website" },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

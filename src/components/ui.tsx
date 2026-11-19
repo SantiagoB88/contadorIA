@@ -1,11 +1,17 @@
 // Piezas visuales simples y reutilizables (sin lógica de negocio).
 
-/** Marca de ContadorIA: cuadrado azul profundo con "IA" en turquesa (provisoria hasta tener el logo). */
+/** Ícono de ContadorIA (public/marca/icono.png): cuadrado azul con "C" blanca e "IA" turquesa. */
 export function BrandMark({ size = "sm" }: { size?: "sm" | "lg" }) {
-  const box = size === "lg" ? "h-12 w-12 rounded-xl text-lg tracking-tight" : "h-8 w-8 rounded-lg text-[11px] tracking-tight";
+  const px = size === "lg" ? 48 : 32;
+  // eslint-disable-next-line @next/next/no-img-element -- ícono chico y fijo: no hace falta optimizarlo
+  return <img src="/marca/icono.png" alt="" aria-hidden="true" width={px} height={px} className="shrink-0" />;
+}
+
+/** El nombre con "IA" en turquesa, como en el logo. `dark`: sobre fondo azul. */
+export function BrandName({ dark = false }: { dark?: boolean }) {
   return (
-    <span aria-hidden="true" className={`flex ${box} shrink-0 items-center justify-center bg-navy font-bold text-white`}>
-      C<span className="text-accent">IA</span>
+    <span className={`font-semibold tracking-tight ${dark ? "text-white" : "text-navy"}`}>
+      Contador<span className={dark ? "text-accent" : "text-accent-700"}>IA</span>
     </span>
   );
 }

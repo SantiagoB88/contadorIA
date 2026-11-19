@@ -81,6 +81,20 @@
 
 ---
 
+## Ya implementados (19/11/2026)
+
+| Archivo | Origen | Uso |
+|---|---|---|
+| `src/app/icon.png` (512) | ícono redondeado, fondo transparente | favicon y pestaña |
+| `src/app/apple-icon.png` (180) | ícono a sangre | ícono al guardar la web en el celular |
+| `src/app/opengraph-image.png` (1200 × 630) | vista previa | al compartir el enlace |
+| `public/marca/icono.png` (128) | ícono redondeado | barra lateral y encabezado del celular |
+| `public/marca/logo-claro.png` | logo horizontal claro, recortado | pantallas de ingreso y registro |
+| `public/marca/logo-oscuro.png` | logo horizontal oscuro | reserva (presentaciones) |
+| `public/marca/whatsapp-perfil.png` (640) | ícono a sangre | subir en Meta como foto del número |
+| `public/marca/portada-redes.png` | portada | redes sociales |
+| `public/marca/icono-1024.png` | ícono redondeado | material gráfico |
+
 ## Cuando los tengas
 
 Pasame los archivos y los coloco en la web:

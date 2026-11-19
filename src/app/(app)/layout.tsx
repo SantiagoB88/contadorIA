@@ -4,7 +4,7 @@ import { ROLES } from "@/lib/constants";
 import { logoutAction } from "@/app/actions";
 import { AppNav, MobileNav } from "@/components/AppNav";
 import { DemoBanner } from "@/components/DemoBanner";
-import { BrandMark } from "@/components/ui";
+import { BrandMark, BrandName } from "@/components/ui";
 import { simulatorEnabled } from "@/modules/bot/simulator-config";
 
 // Todas las pantallas internas dependen de la sesión: nunca se cachean entre usuarios.
@@ -43,10 +43,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* Barra lateral en escritorio (desde 1024 px) */}
         <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto bg-navy p-4 text-white lg:flex">
           <Link href="/dashboard" className="mb-6 flex items-center gap-2 rounded-lg px-2 focus-visible:outline-accent">
-            <span className="rounded-lg ring-1 ring-white/15">
-              <BrandMark />
-            </span>
-            <span className="font-semibold">ContadorIA</span>
+            <BrandMark />
+            <BrandName dark />
           </Link>
           <AppNav isAdmin={isAdmin} showBot={showBot} />
           <div className="mt-auto border-t border-white/15 pt-4">
@@ -64,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="flex items-center justify-between gap-3">
               <Link href="/dashboard" className="flex items-center gap-2">
                 <BrandMark />
-                <span className="font-semibold text-navy">ContadorIA</span>
+                <BrandName />
               </Link>
               <MobileNav
                 isAdmin={isAdmin}
