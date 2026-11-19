@@ -38,7 +38,11 @@
     - `/dev/correos` pide iniciar sesión y `/dev/whatsapp` da 404;
     - el webhook rechaza un token incorrecto (403).
   - El usuario entró a la Bandeja y vio la solicitud de prueba después de reiniciar el servicio.
-- **No probado**: Meta real (envío de documentos, formato del número). Falta cargar los secretos de WhatsApp.
+- **WhatsApp real conectado (19/11/2026)**:
+  - Meta entrega los mensajes al webhook y el bot los procesa.
+  - Las respuestas fallaban con 131030: con el número de prueba, Meta solo acepta el celular argentino como 54 + 11 + 15 + número (comprobado con `scripts/diagnostico-whatsapp.mjs`).
+  - El transporte ahora prueba 549…, 54… y 54 11 15… y recuerda el formato que acepta Meta (`recipientCandidates` en `src/providers/messaging.ts`). Probado con una API de Meta de prueba.
+- **No probado**: el envío real del PDF a Meta.
 
 ## Demo de Vercel: todo lo que se crea se ve en todas las copias ✅ (rama `feat/whatsapp-bot`)
 

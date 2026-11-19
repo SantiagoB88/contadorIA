@@ -171,7 +171,7 @@ journalctl -u contadorsmart -f
 | Síntoma | Qué mirar |
 |---|---|
 | El webhook no verifica | `WHATSAPP_VERIFY_TOKEN` igual en el archivo y en Meta; el `curl` del paso 5 tiene que devolver `12345`. |
-| Llegan mensajes pero el bot no contesta | En los registros, el error de Meta al enviar. Con **131030** ("no está en la lista"), agregá `WHATSAPP_AR_SIN_9=1` al archivo de secretos y corré `systemctl restart contadorsmart`. |
+| Llegan mensajes pero el bot no contesta | Error **131030** ("no está en la lista"): con celulares argentinos, el bot ya prueba solo los formatos 549…, 54… y 54 11 15… y se queda con el que acepta Meta (en el piloto fue 54 11 15). Si los tres fallan, el número no está en la lista de destinatarios de Meta. Para ver qué formato acepta: `set -a; . /etc/contadorsmart/contadorsmart.env; set +a; node scripts/diagnostico-whatsapp.mjs`. |
 | El PDF no llega | Pasaron más de 24 horas desde tu último mensaje (error **131047**): escribile al bot y respondé de nuevo. |
 | Error al arrancar por la base | Los registros dicen qué cambio de esquema se detuvo. No borres `/var/lib/contadorsmart`. |
 

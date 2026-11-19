@@ -12,16 +12,26 @@ import { fallbackText, type BotMessage } from "@/modules/bot/ui";
 const graphBase = () => (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.facebook.com").replace(/\/$/, "");
 
 /**
- * Número de destino para la API de Meta (sin "+"). Meta informa los celulares argentinos como 549 + área + número,
- * pero con el número de prueba a veces solo acepta enviar a 54 + área + número, sin el 9 (error 131030, "no está en
- * la lista de destinatarios permitidos"). Con WHATSAPP_AR_SIN_9=1 se quita ese 9 al enviar. Apagado por defecto: se
- * prende solo si los registros muestran ese error.
+ * Formatos posibles del número de destino para la API de Meta (sin "+"), en el orden en que se prueban.
+ * Meta informa los celulares argentinos como 549 + área + número, pero según cómo quedó guardado en la lista de
+ * destinatarios (número de prueba) a veces solo acepta 54 + área + número, o 54 + área + 15 + número (comprobado en el
+ * piloto: el error es 131030, "no está en la lista de destinatarios permitidos"). El "15" solo se arma para el área 11,
+ * donde el largo del código de área es seguro. WHATSAPP_AR_SIN_9=1 prueba primero sin el 9.
  */
-export function metaRecipient(to: string): string {
+export function recipientCandidates(to: string): string[] {
   const digits = to.replace(/^\+/, "");
-  if (process.env.WHATSAPP_AR_SIN_9 === "1" && /^549\d{10}$/.test(digits)) return `54${digits.slice(3)}`;
-  return digits;
+  const out = [digits];
+  if (/^549\d{10}$/.test(digits)) {
+    out.push(`54${digits.slice(3)}`);
+    if (digits.startsWith("54911")) out.push(`541115${digits.slice(5)}`);
+    if (process.env.WHATSAPP_AR_SIN_9 === "1") [out[0], out[1]] = [out[1], out[0]];
+  }
+  return out;
 }
+
+/** Formato que Meta aceptó para cada número (en memoria: se vuelve a aprender tras un reinicio, con un intento). */
+const acceptedFormat = new Map<string, string>();
+const notAllowed = (r: SendResult) => r.status === "FALLIDO" && /131030/.test(r.error ?? "");
 
 export type SendResult = { status: "ENVIADO" | "FALLIDO" | "PENDIENTE" | "SIMULADO"; providerId?: string; error?: string };
 
@@ -57,7 +67,7 @@ class NotConfiguredTransport implements MessagingTransport {
 
 /** Cuerpo del mensaje para la API de Meta (botones de respuesta o lista interactiva). */
 export function metaPayload(to: string, message: BotMessage): Record<string, unknown> {
-  const base = { messaging_product: "whatsapp", recipient_type: "individual", to: metaRecipient(to) };
+  const base = { messaging_product: "whatsapp", recipient_type: "individual", to: to.replace(/^\+/, "") };
   if (message.kind === "text") return { ...base, type: "text", text: { body: message.text } };
   if (message.kind === "buttons") {
     return {
@@ -114,11 +124,30 @@ class MetaWhatsAppTransport implements MessagingTransport {
     }
   }
 
+  /**
+   * Envía al número probando sus formatos posibles (recipientCandidates): primero el que ya funcionó; si Meta responde
+   * 131030 (no está en la lista), prueba el siguiente. Cualquier otro resultado se devuelve tal cual.
+   */
+  private async postTo(to: string, build: (dest: string) => Record<string, unknown>): Promise<SendResult> {
+    const key = to.replace(/^\+/, "");
+    const known = acceptedFormat.get(key);
+    const candidates = known ? [known, ...recipientCandidates(to).filter((c) => c !== known)] : recipientCandidates(to);
+    let result: SendResult = { status: "FALLIDO", error: "Sin destino" };
+    for (const dest of candidates) {
+      result = await this.post(build(dest));
+      if (!notAllowed(result)) {
+        if (result.status === "ENVIADO") acceptedFormat.set(key, dest);
+        return dest === key ? result : { ...result, error: result.error ?? `Enviado como ${dest.slice(0, 5)}… (formato que acepta Meta).` };
+      }
+    }
+    return result;
+  }
+
   async send(to: string, message: BotMessage): Promise<SendResult> {
-    const result = await this.post(metaPayload(to, message));
+    const result = await this.postTo(to, (dest) => metaPayload(dest, message));
     // Si el cliente o la cuenta no aceptan mensajes interactivos, se manda la versión numerada en texto.
-    if (result.status === "FALLIDO" && message.kind !== "text") {
-      const fallback = await this.post(metaPayload(to, { kind: "text", text: fallbackText(message) }));
+    if (result.status === "FALLIDO" && message.kind !== "text" && !notAllowed(result)) {
+      const fallback = await this.postTo(to, (dest) => metaPayload(dest, { kind: "text", text: fallbackText(message) }));
       if (fallback.status === "ENVIADO") return { ...fallback, error: `Interactivo rechazado (${result.error}); se envió como texto.` };
     }
     return result;
@@ -152,13 +181,13 @@ class MetaWhatsAppTransport implements MessagingTransport {
     }
     const isImage = doc.mimeType.startsWith("image/");
     const caption = doc.caption?.slice(0, 1024);
-    return this.post({
+    return this.postTo(to, (dest) => ({
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      to: metaRecipient(to),
+      to: dest,
       type: isImage ? "image" : "document",
       [isImage ? "image" : "document"]: isImage ? { id: mediaId, ...(caption ? { caption } : {}) } : { id: mediaId, filename: doc.fileName, ...(caption ? { caption } : {}) },
-    });
+    }));
   }
 
   /** Descarga un adjunto recibido: primero se pide la URL (vence en 5 minutos) y después el archivo, ambos con el token. */
